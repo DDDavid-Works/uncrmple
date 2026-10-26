@@ -1,9 +1,17 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { PRODUCT_NAME, TAGLINE } from "./src/config";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      // Fill %PRODUCT_NAME% / %TAGLINE% in index.html from src/config.ts, so branding lives in one place.
+      name: "branding",
+      transformIndexHtml: (html) => html.replaceAll("%PRODUCT_NAME%", PRODUCT_NAME).replaceAll("%TAGLINE%", TAGLINE),
+    },
+  ],
   server: { port: 7200, strictPort: true },
   preview: { port: 7200, strictPort: true },
   test: {

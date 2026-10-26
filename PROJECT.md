@@ -1,4 +1,4 @@
-\# Document Photo Repair SaaS
+\# Uncrmple: Document Photo Repair SaaS
 
 
 
@@ -14,7 +14,7 @@ The product is designed for people who already have a photo of a document and wa
 
 
 
-Working product name: \*\*TBD\*\*. Do not hardcode an assumed final brand name throughout the codebase.
+Product name: \*\*Uncrmple\*\*. Keep it defined in one place per app (`src/config.ts`, `waitlist/src/config.ts`) rather than repeating it throughout the codebase.
 
 
 

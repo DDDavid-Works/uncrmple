@@ -1,8 +1,8 @@
-# Document Photo Repair
+# Uncrmple
 
 **Fix the photo. Keep the document.**
 
-A mobile-friendly web app that turns poorly photographed paper documents into clean, readable, scan-like images and PDFs. It repairs photos you already have: it is not a scanner, an OCR platform or a general-purpose AI image editor.
+Uncrmple is a mobile-friendly web app that turns poorly photographed paper documents into clean, readable, scan-like images and PDFs. It repairs photos you already have: it is not a scanner, an OCR platform or a general-purpose AI image editor.
 
 Everything runs in your browser. Photos are never uploaded, stored or logged.
 

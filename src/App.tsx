@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SourceDocument } from "./types/document";
+import { PRODUCT_NAME, TAGLINE } from "./config";
 import { StepIndicator } from "./components/StepIndicator";
 import type { Step } from "./components/StepIndicator";
 import { ThemeSwitch } from "./components/ThemeSwitch";
@@ -64,8 +65,8 @@ export function App() {
         <div className="brand">
           <BrandMark />
           <div>
-            <h1>Document Photo Repair</h1>
-            <p className="muted brand__tagline">Fix the photo. Keep the document.</p>
+            <h1>{PRODUCT_NAME}</h1>
+            <p className="muted brand__tagline">{TAGLINE}</p>
           </div>
         </div>
         <div className="app__controls">

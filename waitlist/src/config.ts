@@ -1,6 +1,5 @@
-// Single place for branding and deployment settings. The product name is still TBD
-// (see PROJECT.md), so nothing else in the codebase should hardcode it.
-export const PRODUCT_NAME = "Document Photo Repair";
+// Single place for branding and deployment settings; nothing else in the waitlist should hardcode the name.
+export const PRODUCT_NAME = "Uncrmple";
 export const TAGLINE = "Fix the photo. Keep the document.";
 export const DESCRIPTION =
   "Turn messy document photos into clean, readable scans in seconds. Straighten, remove shadows and export a PDF, right in your browser.";
