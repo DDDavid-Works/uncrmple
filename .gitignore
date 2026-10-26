@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+zz-False Start
+test-photos
+
+.env
+.env.*
+!.env.example
