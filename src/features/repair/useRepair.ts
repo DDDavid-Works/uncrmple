@@ -8,6 +8,8 @@ import type { OutputStyle, Quad, RepairResult } from "../../types/repair";
 
 export interface RepairedView {
   url: string;
+  /** The straightened page before cleanup; same size as `url`, so the two can be overlaid. */
+  straightenedUrl: string;
   width: number;
   height: number;
   corners: Quad;
@@ -51,16 +53,18 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   const stylesRef = useRef(styles);
   statesRef.current = states;
   stylesRef.current = styles;
-  const urls = useRef(new Map<string, string>());
+  // Per document: the object URLs of the current result (cleaned and straightened).
+  const urls = useRef(new Map<string, { url: string; straightenedUrl: string }>());
   const jobs = useRef(new Map<string, number>());
   const alive = useRef(new Set<string>());
 
   // Track which documents still exist; free results of removed ones.
   useEffect(() => {
     alive.current = new Set(documents.map((d) => d.id));
-    for (const [id, url] of urls.current) {
+    for (const [id, held] of urls.current) {
       if (!alive.current.has(id)) {
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(held.url);
+        URL.revokeObjectURL(held.straightenedUrl);
         urls.current.delete(id);
         jobs.current.delete(id);
       }
@@ -76,7 +80,10 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   useEffect(() => {
     const held = urls.current;
     return () => {
-      for (const url of held.values()) URL.revokeObjectURL(url);
+      for (const h of held.values()) {
+        URL.revokeObjectURL(h.url);
+        URL.revokeObjectURL(h.straightenedUrl);
+      }
       held.clear();
     };
   }, []);
@@ -106,16 +113,25 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
 
       const png = await rasterToPng(repaired.value.image);
       if (!png.ok) return fail(png.error.message);
+      // A style change keeps the corners, so the straightened page is unchanged: reuse its encoding.
+      const reuseStraightened = reuse && !manual ? urls.current.get(doc.id)?.straightenedUrl : undefined;
+      const straightPng = reuseStraightened ? null : await rasterToPng(repaired.value.straightened);
+      if (straightPng && !straightPng.ok) return fail(straightPng.error.message);
 
       if (!current()) return; // removed, or superseded by a newer job
       const url = URL.createObjectURL(png.value);
+      const straightenedUrl = straightPng ? URL.createObjectURL(straightPng.value) : reuseStraightened!;
       const old = urls.current.get(doc.id);
-      if (old) URL.revokeObjectURL(old);
-      urls.current.set(doc.id, url);
+      if (old) {
+        URL.revokeObjectURL(old.url);
+        if (old.straightenedUrl !== straightenedUrl) URL.revokeObjectURL(old.straightenedUrl);
+      }
+      urls.current.set(doc.id, { url, straightenedUrl });
 
       const { image, corners } = repaired.value;
       const view: RepairedView = {
         url,
+        straightenedUrl,
         width: image.width,
         height: image.height,
         corners,

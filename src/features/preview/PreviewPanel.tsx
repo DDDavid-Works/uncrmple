@@ -4,14 +4,13 @@ import type { SourceDocument } from "../../types/document";
 import type { OutputStyle, Quad } from "../../types/repair";
 import { AssessmentPanel } from "../assess/AssessmentPanel";
 import type { AssessmentState } from "../assess/useAssessment";
+import { BusyNotice } from "../../components/BusyNotice";
+import { CompareSlider } from "../../components/CompareSlider";
+import { RemoveButton } from "../../components/RemoveButton";
 import { baseName } from "../../lib/browser/download";
 import { fullFrameQuad } from "../../lib/image-processing/geometry";
+import { lowCoverage, weakEdges } from "../repair/review";
 import { CornerEditor, defaultCorners } from "./CornerEditor";
-
-/** Below this edge support, the page outline is only loosely on real edges (curved, folded or faint edges). */
-const LOW_EDGE_SUPPORT = 0.5;
-/** Below this share of the photo, the detected "page" is suspicious. */
-const LOW_COVERAGE = 0.3;
 
 const STYLE_OPTIONS: { value: OutputStyle; label: string }[] = [
   { value: "color", label: "Color" },
@@ -37,7 +36,7 @@ export function formatBytes(n: number): string {
 }
 
 export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onApplyCorners, onRemove }: Props) {
-  const [view, setView] = useState<"original" | "repaired" | "both">("original");
+  const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // While a new style is being applied, keep showing the last result.
   const done =
@@ -60,20 +59,21 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           </p>
         </div>
         <div className="preview__actions">
-          <button type="button" className="btn btn--primary" onClick={onRepair} disabled={running}>
-            {done ? "Repair again" : "Repair"}
-          </button>
+          {/* One primary action per stage: Repair first, then Download once a result exists. */}
           {repair.status === "done" && (
-            <a className="btn" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}>
+            <a className="btn btn--primary" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}>
               Download image
             </a>
           )}
+          <button type="button" className={done ? "btn" : "btn btn--primary"} onClick={onRepair} disabled={running}>
+            {done ? "Repair again" : "Repair"}
+          </button>
           <button type="button" className="btn" onClick={() => setEditing(true)} disabled={running || editing}>
             Adjust corners
           </button>
-          <button type="button" className="btn" onClick={onRemove}>
-            Remove
-          </button>
+          <div className="preview__actions-end">
+            <RemoveButton name={doc.name} onRemove={onRemove} />
+          </div>
         </div>
       </header>
 
@@ -105,13 +105,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
         )}
       </fieldset>
 
-      {running && (
-        <p role="status" className="notice">
-          {repair.previous
-            ? "Applying style…"
-            : "Repairing… The first repair loads the image engine (about 4 MB), which can take a few seconds."}
-        </p>
-      )}
+      {running && <BusyNotice task={repair.previous ? "Applying style…" : "Repairing the page…"} />}
       {repair.status === "error" && (
         <p role="alert" className="notice notice--error">
           Repair failed: {repair.message}
@@ -126,6 +120,9 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             <button type="button" className="btn btn--small" aria-pressed={view === "repaired"} onClick={() => setView("repaired")}>
               Repaired
             </button>
+            <button type="button" className="btn btn--small" aria-pressed={view === "cleanup"} onClick={() => setView("cleanup")}>
+              Compare cleanup
+            </button>
             <button type="button" className="btn btn--small" aria-pressed={view === "both"} onClick={() => setView("both")}>
               Side by side
             </button>
@@ -136,12 +133,12 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             {done.source === "manual" ? "manual corners" : `page detected by ${done.source}`}
             {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
           </p>
-          {done.areaFraction !== undefined && done.areaFraction < LOW_COVERAGE && (
+          {lowCoverage(done) && (
             <p role="alert" className="notice notice--warn">
               The detected page covers only a small part of the photo. Check the result carefully.
             </p>
           )}
-          {done.edgeSupport !== undefined && done.edgeSupport < LOW_EDGE_SUPPORT && (
+          {weakEdges(done) && (
             <p role="alert" className="notice notice--warn">
               The page edges were faint, curved, or partly outside the photo, so the detected outline may be
               slightly off. Compare the result with the original, especially near the edges.
@@ -163,6 +160,21 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           }}
           onCancel={() => setEditing(false)}
         />
+      ) : view === "cleanup" && done ? (
+        <>
+          <p className="muted wipe__hint">
+            Drag across the page to compare it straightened but uncleaned (left) with the cleaned result (right).
+            Check that no faint text, stamps or pencil marks were lost.
+          </p>
+          <CompareSlider
+            beforeUrl={done.straightenedUrl}
+            afterUrl={done.url}
+            beforeLabel="Straightened"
+            afterLabel="Cleaned"
+            beforeAlt={`Straightened page before cleanup: ${doc.name}`}
+            afterAlt={`Repaired document: ${doc.name}`}
+          />
+        </>
       ) : view === "both" && done ? (
         <div className="compare">
           <figure>

@@ -54,6 +54,12 @@ export function ExportBar({ pages, total, doneWord = "repaired", filename = "rep
   return (
     <section className="export" aria-label="Export PDF">
       <div className="export__row">
+        <div className="export__title">
+          <h2>Export</h2>
+          <p className="muted export__count">
+            {pages.length} of {total} {doneWord}
+          </p>
+        </div>
         <label className="export__field">
           Paper
           <select value={paper} onChange={(e) => setPaper(e.target.value as PaperSize)} disabled={busy}>
@@ -69,7 +75,7 @@ export function ExportBar({ pages, total, doneWord = "repaired", filename = "rep
         </button>
       </div>
       {skipped > 0 && (
-        <p className="muted">
+        <p className="muted export__skipped">
           {skipped} {skipped === 1 ? "page is" : "pages are"} not {doneWord} yet and will be left out.
         </p>
       )}

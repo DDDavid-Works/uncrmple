@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { solid } from "./synthetic";
@@ -127,6 +127,26 @@ describe("photo assessment", () => {
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
     expect(processor.correctPerspective).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Repair" })).toBeEnabled();
+  });
+
+  it("collapses a good assessment to one line with the explanation under Details", async () => {
+    vi.mocked(assessPhoto).mockResolvedValue({
+      ok: true,
+      value: { ...LIMITED, verdict: "good", summary: "Good repair candidate: no problems found." },
+    });
+    const user = await uploadOne();
+    const panel = await screen.findByRole("region", { name: "Photo assessment" });
+    expect(panel).toHaveTextContent("Good repair candidate");
+    expect(screen.getByText("Good repair candidate: no problems found.")).not.toBeVisible();
+    await user.click(screen.getByText("Details"));
+    expect(screen.getByText("Good repair candidate: no problems found.")).toBeVisible();
+  });
+
+  it("says the image engine is loading while the first analysis runs", async () => {
+    vi.mocked(assessPhoto).mockReturnValue(new Promise(() => {}));
+    await uploadOne();
+    expect(await screen.findByText(/Loading the image engine/)).toBeInTheDocument();
+    expect(screen.getByText(/Then: Analysing the photo/)).toBeInTheDocument();
   });
 
   it("offers no extra options for a photo that looks like a document", async () => {
@@ -384,6 +404,7 @@ describe("export", () => {
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
     await user.click(await screen.findByRole("button", { name: "Download PDF (1 page)" }));
+    expect(screen.getByText("1 of 1 repaired")).toBeInTheDocument();
     await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
     const [blob, name] = vi.mocked(downloadBlob).mock.calls[0]!;
     expect(name).toBe("repaired-document.pdf");
@@ -413,6 +434,38 @@ describe("comparison and page order", () => {
     await user.click(screen.getByRole("button", { name: "Side by side" }));
     expect(screen.getByAltText("Original photo: page.jpg")).toHaveAttribute("src", "blob:t/1");
     expect(screen.getByAltText("Repaired document: page.jpg")).toHaveAttribute("src", "blob:t/2");
+  });
+
+  it("wipes between the straightened page and the cleaned result", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+    await user.click(screen.getByRole("button", { name: "Compare cleanup" }));
+
+    expect(screen.getByAltText("Straightened page before cleanup: page.jpg")).toHaveAttribute("src", "blob:t/3");
+    expect(screen.getByAltText("Repaired document: page.jpg")).toHaveAttribute("src", "blob:t/2");
+    const wipe = screen.getByRole("slider", { name: "Compare straightened and cleaned" });
+    fireEvent.change(wipe, { target: { value: "80" } });
+    expect(wipe).toHaveAttribute("aria-valuetext", "80% straightened shown");
+  });
+
+  it("reuses the straightened page when only the style changes, and frees both images on removal", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+    await user.click(screen.getByRole("radio", { name: "Grayscale" }));
+    await screen.findByText(/Grayscale · page detected/);
+
+    await user.click(screen.getByRole("button", { name: "Compare cleanup" }));
+    expect(screen.getByAltText("Straightened page before cleanup: page.jpg")).toHaveAttribute("src", "blob:t/3");
+    expect(screen.getByAltText("Repaired document: page.jpg")).toHaveAttribute("src", "blob:t/4");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/2");
+    expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("blob:t/3");
+
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/3"));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/4");
   });
 
   it("reorders pages and keeps the order in the page list", async () => {

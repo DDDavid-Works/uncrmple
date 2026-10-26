@@ -58,6 +58,10 @@ describe("upload to preview", () => {
     await screen.findByRole("heading", { name: "a.jpg" });
 
     await user.click(screen.getByRole("button", { name: "Remove" }));
+    // Nothing is removed until the inline confirmation is accepted.
+    expect(revoke).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Keep" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Remove" }));
     expect(revoke).toHaveBeenCalledWith("blob:test/1");
     await waitFor(() => expect(screen.queryByRole("heading", { name: "a.jpg" })).toBeNull());
     expect(screen.getByRole("heading", { name: "Upload document photos" })).toBeInTheDocument();

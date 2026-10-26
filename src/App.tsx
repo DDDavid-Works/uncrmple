@@ -1,17 +1,31 @@
 import { useEffect, useState } from "react";
 import type { SourceDocument } from "./types/document";
+import { StepIndicator } from "./components/StepIndicator";
+import type { Step } from "./components/StepIndicator";
+import { ThemeSwitch } from "./components/ThemeSwitch";
 import { CardPanel } from "./features/card/CardPanel";
 import { defaultCardCorners, useCardCrop } from "./features/card/useCardCrop";
 import { ModeSelector } from "./features/mode/ModeSelector";
 import type { ProcessingMode } from "./features/mode/ModeSelector";
 import { useAssessment } from "./features/assess/useAssessment";
 import { ExportBar } from "./features/export/ExportBar";
+import { PageList, cardStatus, repairStatus } from "./features/pages/PageList";
 import { PreviewPanel } from "./features/preview/PreviewPanel";
 import { useRepair } from "./features/repair/useRepair";
 import { UploadZone } from "./features/upload/UploadZone";
 import { useDocuments } from "./features/upload/useDocuments";
 
 const NO_DOCUMENTS: SourceDocument[] = [];
+
+function BrandMark() {
+  return (
+    <svg className="brand__mark" viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M8 4h11l6 6v18H8z" />
+      <path d="M19 4v6h6" />
+      <path d="M12 17l3 3 6-6" />
+    </svg>
+  );
+}
 
 export function App() {
   const { documents, rejected, pending, addFiles, remove, move, dismissRejected } = useDocuments();
@@ -40,17 +54,29 @@ export function App() {
     const state = stateOf(d.id);
     return state.status === "done" ? [{ id: d.id, url: state.result.url }] : [];
   });
+  const statusOf = (id: string) => (mode === "card" ? cardStatus(cards.stateOf(id)) : repairStatus(stateOf(id)));
+  const selectedDone = selected !== null && exportPages.some((p) => p.id === selected.id);
+  const step: Step = documents.length === 0 ? "Upload" : selectedDone ? "Review" : "Repair";
 
   return (
     <div className="app">
       <header className="app__header">
-        <h1>Document Photo Repair</h1>
-        <p className="muted">Fix the photo. Keep the document.</p>
+        <div className="brand">
+          <BrandMark />
+          <div>
+            <h1>Document Photo Repair</h1>
+            <p className="muted brand__tagline">Fix the photo. Keep the document.</p>
+          </div>
+        </div>
+        <div className="app__controls">
+          <ModeSelector mode={mode} onChange={setMode} />
+          <ThemeSwitch />
+        </div>
       </header>
 
-      <main className="app__main">
-        <ModeSelector mode={mode} onChange={setMode} />
+      <StepIndicator current={step} exportReady={exportPages.length > 0} />
 
+      <main className="app__main">
         <UploadZone compact={documents.length > 0} busy={pending > 0} onFiles={addFiles} />
 
         {rejected.length > 0 && (
@@ -75,45 +101,7 @@ export function App() {
 
         {documents.length > 0 && (
           <div className="workspace">
-            <ul className="pages" aria-label="Uploaded pages">
-              {documents.map((d, i) => (
-                <li key={d.id} className="pages__entry">
-                  <button
-                    type="button"
-                    className="pages__item"
-                    aria-current={d.id === selectedId ? "true" : undefined}
-                    onClick={() => setSelectedId(d.id)}
-                  >
-                    <img src={d.originalUrl} alt="" />
-                    <span className="pages__label">
-                      {i + 1}. {d.name}
-                    </span>
-                  </button>
-                  {documents.length > 1 && (
-                    <div className="pages__move">
-                      <button
-                        type="button"
-                        className="btn btn--small"
-                        onClick={() => move(d.id, -1)}
-                        disabled={i === 0}
-                        aria-label={`Move ${d.name} earlier`}
-                      >
-                        ↑ Earlier
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--small"
-                        onClick={() => move(d.id, 1)}
-                        disabled={i === documents.length - 1}
-                        aria-label={`Move ${d.name} later`}
-                      >
-                        ↓ Later
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <PageList documents={documents} selectedId={selectedId} statusOf={statusOf} onSelect={setSelectedId} onMove={move} />
             {selected && mode === "card" && (
               <CardPanel
                 key={selected.id}

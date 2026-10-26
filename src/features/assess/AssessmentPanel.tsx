@@ -1,4 +1,5 @@
 import type { AssessmentDimension, FindingLevel, Verdict } from "../../types/assessment";
+import { BusyNotice } from "../../components/BusyNotice";
 import type { AssessmentState } from "./useAssessment";
 
 const VERDICT_TITLE: Record<Verdict, string> = {
@@ -6,6 +7,9 @@ const VERDICT_TITLE: Record<Verdict, string> = {
   limited: "Repair possible, with limitations",
   poor: "Poor repair candidate",
 };
+
+/** Shape cue alongside colour, so the verdict does not rely on colour alone. */
+const VERDICT_ICON: Record<Verdict, string> = { good: "✓", limited: "!", poor: "✕" };
 
 const DIMENSION_TITLE: Record<AssessmentDimension, string> = {
   geometry: "Page angle and outline",
@@ -34,11 +38,7 @@ interface Props {
 export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, disabled }: Props) {
   if (state.status === "idle") return null;
   if (state.status === "running") {
-    return (
-      <p role="status" className="notice">
-        Analysing photo… The first analysis loads the image engine (about 4 MB), which can take a few seconds.
-      </p>
-    );
+    return <BusyNotice task="Analysing the photo…" />;
   }
   if (state.status === "error") {
     return (
@@ -49,12 +49,22 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
   }
   const { assessment } = state;
   const title = assessment.likeness === "not-document" ? "No document detected" : VERDICT_TITLE[assessment.verdict];
+  // A good page needs no attention: one line, with the explanation under Details.
+  const compact = assessment.verdict === "good" && assessment.likeness === "document";
   return (
-    <section className={`assessment assessment--${assessment.verdict}`} aria-label="Photo assessment">
+    <section
+      className={`assessment assessment--${assessment.verdict}${compact ? " assessment--compact" : ""}`}
+      aria-label="Photo assessment"
+    >
       <h3 className="assessment__title">
-        Photo assessment: <span>{title}</span>
+        <span className="assessment__badge" aria-hidden="true">
+          {VERDICT_ICON[assessment.verdict]}
+        </span>
+        <span>
+          Photo assessment: <span>{title}</span>
+        </span>
       </h3>
-      <p>{assessment.summary}</p>
+      {!compact && <p>{assessment.summary}</p>}
       {assessment.likeness !== "document" && (
         <div className="assessment__actions">
           <button type="button" className="btn btn--small" onClick={onAdjustCorners} disabled={disabled}>
@@ -67,6 +77,7 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
       )}
       <details>
         <summary>Details</summary>
+        {compact && <p className="assessment__summary">{assessment.summary}</p>}
         <ul className="assessment__findings">
           {assessment.findings.map((f) => (
             <li key={f.dimension}>

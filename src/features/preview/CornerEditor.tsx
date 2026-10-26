@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
+import { isCoarsePointer } from "../../lib/browser/pointer";
 import { validateQuad } from "../../lib/image-processing/geometry";
 import type { Point, Quad } from "../../types/repair";
 
@@ -39,7 +40,8 @@ export function CornerEditor({ imageUrl, imageAlt, width, height, initial, subje
   const [corners, setCorners] = useState<Quad>(initial);
   const svgRef = useRef<SVGSVGElement>(null);
   const checked = validateQuad(corners, width, height);
-  const handle = Math.max(width, height) * 0.025;
+  // Larger handles on touch screens, where a fingertip covers more of the image.
+  const handle = Math.max(width, height) * (isCoarsePointer() ? 0.04 : 0.025);
 
   const move = (index: number, p: Point) =>
     setCorners((c) => c.map((q, i) => (i === index ? { x: clamp(p.x, width), y: clamp(p.y, height) } : q)) as unknown as Quad);

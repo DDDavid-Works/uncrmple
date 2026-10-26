@@ -111,6 +111,18 @@ describe("repair output style", () => {
     expect(enhance).toHaveBeenLastCalledWith(expect.anything(), { style: "blackwhite" });
   });
 
+  it("returns the straightened page before cleanup alongside the cleaned result", async () => {
+    const warped = solid(10, 10, 90);
+    const cleaned = solid(10, 10, 250);
+    const p = fakeProcessor({
+      correctPerspective: async () => ({ ok: true, value: warped }),
+      enhance: async () => ({ ok: true, value: cleaned }),
+    });
+    const r = await repair(p, solid(400, 300, 1));
+    expect(r.ok && r.value.straightened).toBe(warped);
+    expect(r.ok && r.value.image).toBe(cleaned);
+  });
+
   it("rejects an unknown style before doing any processing", async () => {
     const detect = vi.fn();
     const r = await repair(fakeProcessor({ detectDocument: detect }), solid(400, 300, 1), {

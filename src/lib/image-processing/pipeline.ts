@@ -66,6 +66,14 @@ export async function repair(
   if (!enhanced.ok) return enhanced;
   return {
     ok: true,
-    value: { image: enhanced.value, corners, source, style: style.value.style, areaFraction, edgeSupport },
+    value: {
+      image: enhanced.value,
+      straightened: warped.value,
+      corners,
+      source,
+      style: style.value.style,
+      areaFraction,
+      edgeSupport,
+    },
   };
 }

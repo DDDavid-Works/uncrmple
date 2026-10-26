@@ -2,7 +2,25 @@ import type { Result } from "../../../types/repair";
 
 export type OpenCv = typeof import("@techstark/opencv-js");
 
+/** "idle" until the first load starts; "failed" allows a retry. */
+export type EngineStatus = "idle" | "loading" | "ready" | "failed";
+
 let loading: Promise<Result<OpenCv>> | null = null;
+let status: EngineStatus = "idle";
+const listeners = new Set<() => void>();
+
+function setStatus(next: EngineStatus) {
+  status = next;
+  for (const l of listeners) l();
+}
+
+export const engineStatus = (): EngineStatus => status;
+
+/** Subscribe to engine status changes; returns the unsubscribe function. */
+export function subscribeEngineStatus(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /**
  * Lazily load OpenCV.js (~15 MB raw / ~4 MB gzipped, WASM embedded) the first time it is needed.
@@ -10,8 +28,10 @@ let loading: Promise<Result<OpenCv>> | null = null;
  */
 export function loadOpenCv(): Promise<Result<OpenCv>> {
   if (!loading) {
+    setStatus("loading");
     loading = initialise().then((r) => {
       if (!r.ok) loading = null;
+      setStatus(r.ok ? "ready" : "failed");
       return r;
     });
   }

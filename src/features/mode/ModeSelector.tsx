@@ -12,22 +12,27 @@ interface Props {
 
 /** Global switch between the two workflows. Photos stay loaded when it changes. */
 export function ModeSelector({ mode, onChange }: Props) {
+  const active = MODES.find((m) => m.value === mode)!;
   return (
-    <fieldset className="modes">
+    <fieldset className="modes" aria-describedby="mode-hint">
       <legend className="visually-hidden">Processing mode</legend>
-      {MODES.map((m) => (
-        <label key={m.value} className={`modes__option${mode === m.value ? " modes__option--on" : ""}`}>
-          <input
-            type="radio"
-            name="processing-mode"
-            value={m.value}
-            checked={mode === m.value}
-            onChange={() => onChange(m.value)}
-          />
-          <span className="modes__label">{m.label}</span>
-          <span className="modes__hint">{m.hint}</span>
-        </label>
-      ))}
+      <div className="modes__track">
+        {MODES.map((m) => (
+          <label key={m.value} className={`modes__option${mode === m.value ? " modes__option--on" : ""}`}>
+            <input
+              type="radio"
+              name="processing-mode"
+              value={m.value}
+              checked={mode === m.value}
+              onChange={() => onChange(m.value)}
+            />
+            {m.label}
+          </label>
+        ))}
+      </div>
+      <p id="mode-hint" className="modes__hint">
+        {active.hint}
+      </p>
     </fieldset>
   );
 }

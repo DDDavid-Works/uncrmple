@@ -62,6 +62,8 @@ export interface RepairOptions {
 
 export interface RepairResult {
   image: RasterImage;
+  /** The perspective-corrected page before lighting and style cleanup; same size as `image`. */
+  straightened: RasterImage;
   /** Corners used, in source-image pixels. */
   corners: Quad;
   source: "manual" | DetectionMethod;

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { BusyNotice } from "../../components/BusyNotice";
+import { CompareSlider } from "../../components/CompareSlider";
+import { RemoveButton } from "../../components/RemoveButton";
 import { baseName } from "../../lib/browser/download";
 import type { SourceDocument } from "../../types/document";
 import type { CardDetection, CardEnhanceOptions, CardQualityIssue, CardWarning, Quad } from "../../types/repair";
@@ -59,20 +62,21 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
 }
 
 export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove }: Props) {
-  const [view, setView] = useState<"result" | "crop" | "original" | "both">("result");
+  const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
   const done: CardView | null = state.status === "done" ? state.view : null;
   const reviewing = state.status === "review";
   const enhanced = done !== null && done.url !== done.cropUrl;
-  const views: { value: "original" | "crop" | "result" | "both"; label: string }[] = [
+  const views: { value: typeof view; label: string }[] = [
     { value: "original", label: "Original" },
     ...(enhanced ? [{ value: "crop" as const, label: "Crop only" }] : []),
     { value: "result", label: enhanced ? "Enhanced" : "Cropped" },
+    ...(enhanced ? [{ value: "touchups" as const, label: "Compare touch-ups" }] : []),
     { value: "both", label: "Side by side" },
   ];
-  // The crop-only view disappears when enhancement is switched off.
-  const shown = view === "crop" && !enhanced ? "result" : view;
+  // The crop-only and compare views disappear when enhancement is switched off.
+  const shown = (view === "crop" || view === "touchups") && !enhanced ? "result" : view;
   const resultAlt = `${enhanced ? "Enhanced" : "Cropped"} card: ${doc.name}`;
 
   return (
@@ -85,14 +89,15 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
           </p>
         </div>
         <div className="preview__actions">
-          <button type="button" className="btn btn--primary" onClick={onDetect} disabled={working}>
-            {done || reviewing ? "Detect card again" : "Find card"}
-          </button>
+          {/* One primary action per stage: Find card first, then Download once a crop exists. */}
           {done && (
-            <a className="btn" href={done.url} download={`${baseName(doc.name)}-card.png`}>
+            <a className="btn btn--primary" href={done.url} download={`${baseName(doc.name)}-card.png`}>
               Download image
             </a>
           )}
+          <button type="button" className={done || reviewing ? "btn" : "btn btn--primary"} onClick={onDetect} disabled={working}>
+            {done || reviewing ? "Detect card again" : "Find card"}
+          </button>
           {done && (
             <button type="button" className="btn" onClick={onAdjust} disabled={working}>
               Adjust corners
@@ -103,23 +108,19 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
               Place corners manually
             </button>
           )}
-          {done && (
-            <button type="button" className="btn" onClick={onReset} disabled={working}>
-              Reset
-            </button>
-          )}
-          <button type="button" className="btn" onClick={onRemove}>
-            Remove
-          </button>
+          <div className="preview__actions-end">
+            {done && (
+              <button type="button" className="btn btn--quiet" onClick={onReset} disabled={working}>
+                Reset
+              </button>
+            )}
+            <RemoveButton name={doc.name} onRemove={onRemove} />
+          </div>
         </div>
       </header>
 
       {working && (
-        <p role="status" className="notice">
-          {state.step === "detecting"
-            ? "Looking for the card… The first run loads the image engine (about 4 MB), which can take a few seconds."
-            : "Cropping and straightening the card…"}
-        </p>
+        <BusyNotice task={state.step === "detecting" ? "Looking for the card…" : "Cropping and straightening the card…"} />
       )}
       {state.status === "error" && (
         <p role="alert" className="notice notice--error">
@@ -220,7 +221,21 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
           <p className="muted">
             {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
           </p>
-          {shown === "both" ? (
+          {shown === "touchups" ? (
+            <>
+              <p className="muted wipe__hint">
+                Drag across the card to compare the plain crop (left) with the touched-up version (right).
+              </p>
+              <CompareSlider
+                beforeUrl={done.cropUrl}
+                afterUrl={done.url}
+                beforeLabel="Crop only"
+                afterLabel="Enhanced"
+                beforeAlt={`Cropped card, no enhancement: ${doc.name}`}
+                afterAlt={resultAlt}
+              />
+            </>
+          ) : shown === "both" ? (
             <div className="compare">
               <figure>
                 <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />

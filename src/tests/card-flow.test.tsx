@@ -210,6 +210,18 @@ describe("optional card enhancement", () => {
     expect(screen.getByAltText("Original photo: id.jpg")).toHaveAttribute("src", "blob:t/1");
   });
 
+  it("offers a before/after wipe of the plain crop against the touch-ups only when enhanced", async () => {
+    const user = await cropped();
+    expect(screen.queryByRole("button", { name: "Compare touch-ups" })).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: /Reduce noise/ }));
+    await screen.findByAltText("Enhanced card: id.jpg");
+
+    await user.click(screen.getByRole("button", { name: "Compare touch-ups" }));
+    expect(screen.getByRole("slider", { name: "Compare crop only and enhanced" })).toHaveValue("50");
+    expect(screen.getByAltText("Cropped card, no enhancement: id.jpg")).toHaveAttribute("src", "blob:t/2");
+    expect(screen.getByAltText("Enhanced card: id.jpg")).toHaveAttribute("src", "blob:t/3");
+  });
+
   it("releases the previous enhanced image when options change and returns to the plain crop when all are off", async () => {
     const user = await cropped();
     await user.click(screen.getByRole("checkbox", { name: /Sharpen slightly/ }));
@@ -267,6 +279,7 @@ describe("optional card enhancement", () => {
     await user.click(screen.getByRole("checkbox", { name: /Reduce noise/ }));
     await screen.findByAltText("Enhanced card: id.jpg");
     await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Remove" })); // confirm
     await vi.waitFor(() => {
       expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/2");
       expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/3");
