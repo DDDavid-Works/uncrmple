@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--", "--port", "7200", "--strictPort"], "port": 7200 }
+    { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--", "--port", "7200", "--strictPort"], "port": 7200 },
+    { "name": "waitlist", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "waitlist", "run", "dev", "--", "--port", "7210", "--strictPort"], "port": 7210 }
   ]
 }

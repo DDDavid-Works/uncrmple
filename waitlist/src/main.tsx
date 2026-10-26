@@ -12,8 +12,9 @@ const app = (
   </StrictMode>
 );
 
-// Pre-rendered pages already contain markup; hydrate it. Dev server starts empty.
-if (container.hasChildNodes()) {
+// Pre-rendered pages already contain markup; hydrate it. In dev the root only holds the
+// <!--app-html--> placeholder comment, so check for elements rather than any child node.
+if (container.firstElementChild) {
   hydrateRoot(container, app);
 } else {
   createRoot(container).render(app);
