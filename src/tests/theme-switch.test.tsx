@@ -12,13 +12,13 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("theme switch", () => {
-  it("defaults to Auto, which follows the system setting", () => {
+  it("offers Light, Dark, then Auto, with Light selected by default", () => {
     render(<ThemeSwitch />);
-    expect(screen.getByRole("radio", { name: "Auto" })).toBeChecked();
-    expect(root).not.toHaveAttribute("data-theme");
+    expect(screen.getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["light", "dark", "auto"]);
+    expect(screen.getByRole("radio", { name: "Light" })).toBeChecked();
   });
 
-  it("applies and remembers Light or Dark, and Auto clears the choice", async () => {
+  it("applies and remembers each choice; Auto hands over to the system setting", async () => {
     const user = userEvent.setup();
     render(<ThemeSwitch />);
 
@@ -26,28 +26,28 @@ describe("theme switch", () => {
     expect(root).toHaveAttribute("data-theme", "dark");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
 
+    await user.click(screen.getByRole("radio", { name: "Auto" }));
+    expect(root).not.toHaveAttribute("data-theme");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("auto");
+
     await user.click(screen.getByRole("radio", { name: "Light" }));
     expect(root).toHaveAttribute("data-theme", "light");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
-
-    await user.click(screen.getByRole("radio", { name: "Auto" }));
-    expect(root).not.toHaveAttribute("data-theme");
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
   });
 
   it("starts from the saved choice", () => {
-    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    localStorage.setItem(THEME_STORAGE_KEY, "auto");
     render(<ThemeSwitch />);
-    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Auto" })).toBeChecked();
   });
 
-  it("falls back to Auto for an unknown value or blocked storage", () => {
+  it("falls back to Light for an unknown value or blocked storage", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "sepia");
-    expect(loadThemePreference()).toBe("auto");
+    expect(loadThemePreference()).toBe("light");
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(loadThemePreference()).toBe("auto");
+    expect(loadThemePreference()).toBe("light");
   });
 
   it("still switches the page when storage cannot be written", async () => {
@@ -56,7 +56,7 @@ describe("theme switch", () => {
     });
     const user = userEvent.setup();
     render(<ThemeSwitch />);
-    await user.click(screen.getByRole("radio", { name: "Light" }));
-    expect(root).toHaveAttribute("data-theme", "light");
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
+    expect(root).toHaveAttribute("data-theme", "dark");
   });
 });

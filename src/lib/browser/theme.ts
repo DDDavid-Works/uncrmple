@@ -1,17 +1,20 @@
-export type ThemePreference = "auto" | "light" | "dark";
+export type ThemePreference = "light" | "dark" | "auto";
+
+/** Used when nothing (or nothing valid) is saved, or storage is unavailable. */
+export const DEFAULT_THEME: ThemePreference = "light";
 
 /** localStorage key; also read by the inline script in index.html to avoid a flash on load. */
 export const THEME_STORAGE_KEY = "theme";
 
 const isPreference = (v: unknown): v is ThemePreference => v === "auto" || v === "light" || v === "dark";
 
-/** The saved choice, or "auto" when nothing (or nothing valid) is stored or storage is unavailable. */
+/** The saved choice, or the default when nothing valid is stored or storage is unavailable. */
 export function loadThemePreference(): ThemePreference {
   try {
     const v = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return isPreference(v) ? v : "auto";
+    return isPreference(v) ? v : DEFAULT_THEME;
   } catch {
-    return "auto";
+    return DEFAULT_THEME;
   }
 }
 
@@ -21,8 +24,7 @@ export function applyThemePreference(pref: ThemePreference): void {
   if (pref === "auto") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", pref);
   try {
-    if (pref === "auto") window.localStorage.removeItem(THEME_STORAGE_KEY);
-    else window.localStorage.setItem(THEME_STORAGE_KEY, pref);
+    window.localStorage.setItem(THEME_STORAGE_KEY, pref);
   } catch {
     // Storage blocked (private mode, site data disabled): the choice lasts for this page only.
   }

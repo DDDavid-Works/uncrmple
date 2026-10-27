@@ -3,12 +3,12 @@ import { applyThemePreference, loadThemePreference } from "../lib/browser/theme"
 import type { ThemePreference } from "../lib/browser/theme";
 
 const OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: "auto", label: "Auto" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+  { value: "auto", label: "Auto" },
 ];
 
-/** Light / Dark / Auto. Auto follows the system setting; the choice is remembered in this browser. */
+/** Light (default) / Dark / Auto. Auto follows the system setting; the choice is remembered in this browser. */
 export function ThemeSwitch() {
   const [pref, setPref] = useState(loadThemePreference);
   return (

@@ -1,40 +1,41 @@
-/* ---------- Theme tokens: "Highlighter & Ink" ----------
-   Paper whites, hard black ink for lines and primary actions, highlighter yellow as the brand
-   colour. Yellow is a fill only (selected states, logo, offset shadows in dark mode); text on it
-   is always ink-black, and yellow is never used as text or lines on a light surface.
+/* ---------- Theme tokens: "Harbour" ----------
+   From the palette #17324d (navy ink), #167d8d (teal), #e8f4f5 (ice), #f7f9fc (paper), #ffffff.
+   Navy replaces black for text, hard lines and primary actions; teal marks selected states and
+   links; ice is the soft tint behind highlights and badges.
    Each colour is light-dark(light, dark). The active pair follows `color-scheme`: the system
    setting by default, or the user's choice via data-theme on <html> (see lib/browser/theme.ts). */
 :root {
-  --bg: light-dark(#faf8f3, #121212);
-  --surface: light-dark(#ffffff, #1c1c1c);
-  --surface-sunk: light-dark(#f0eee8, #0c0c0c);
-  --text: light-dark(#111111, #f2f0ea);
-  --muted: light-dark(#5c5a55, #a3a09a);
+  --bg: light-dark(#f7f9fc, #0d1824);
+  --surface: light-dark(#ffffff, #142232);
+  --surface-sunk: light-dark(#edf1f6, #09121b);
+  --text: light-dark(#17324d, #eef3f8);
+  --muted: light-dark(#556577, #9fb0c2);
   /* Soft hairline for inner dividers; hard lines use --ink. */
-  --border: light-dark(#dcd9d2, #333230);
+  --border: light-dark(#d6dde6, #283a4d);
   /* Ink: hard outlines, primary buttons, offset shadows. Off-white in dark mode. */
-  --ink: light-dark(#111111, #f2f0ea);
-  --ink-text: light-dark(#faf8f3, #121212);
-  /* Highlighter yellow: a fill. --accent-text is the (always dark) text on it. */
-  --accent: #ffd60a;
-  --accent-text: #111111;
-  --accent-soft: light-dark(#fff4b8, #3a3310);
-  --accent-soft-text: light-dark(#5c4a00, #ffe58a);
-  /* Links, focus rings and form-control ticks: ink on light, yellow on dark. */
-  --link: light-dark(#111111, #ffd60a);
-  --focus: light-dark(#111111, #ffd60a);
-  --logo-fold: #ffd60a;
-  --highlight: #ffd60a;
+  --ink: light-dark(#17324d, #eef3f8);
+  --ink-text: light-dark(#ffffff, #0d1824);
+  /* Teal: selected states and the logo. --accent-text is the text on it (4.8:1 or better). */
+  --accent: light-dark(#167d8d, #3fb6c6);
+  --accent-text: light-dark(#ffffff, #0d1824);
+  --accent-soft: light-dark(#e8f4f5, #173a44);
+  --accent-soft-text: light-dark(#17324d, #bfe6ec);
+  /* Highlighter behind a word (ice, so headings stay calm). */
+  --mark-bg: light-dark(#d4ecee, #173a44);
+  /* Links, focus rings and form ticks. */
+  --link: light-dark(#167d8d, #74d3df);
+  --focus: light-dark(#167d8d, #74d3df);
+  --highlight: light-dark(#167d8d, #3fb6c6);
+  /* Success stays a true green so it reads differently from the teal brand colour. */
   --ok: light-dark(#2f6b3a, #7fcf8f);
   --ok-bg: light-dark(#e4efdf, #1b2c1c);
-  /* Warnings lean orange so they stay distinct from the brand yellow. */
-  --warn: light-dark(#9a4a00, #ffb380);
-  --warn-bg: light-dark(#fde9d9, #3b2414);
+  --warn: light-dark(#8a5800, #ffd98a);
+  --warn-bg: light-dark(#fbefd5, #3b2f14);
   --danger: light-dark(#b3261e, #ff9a92);
   --danger-bg: light-dark(#fbe6e4, #3a1c1c);
-  --danger-text: light-dark(#ffffff, #121212);
-  /* Offset shadow: ink in light mode, yellow in dark mode (an off-white shadow would glare). */
-  --shadow-color: light-dark(#111111, #ffd60a);
+  --danger-text: light-dark(#ffffff, #0d1824);
+  /* Offset shadow: navy in light mode, teal in dark mode (an off-white shadow would glare). */
+  --shadow-color: light-dark(#17324d, #3fb6c6);
 
   --line: 2px solid var(--ink);
   --hard: 4px 4px 0 var(--shadow-color);
@@ -65,7 +66,7 @@ h1 { font-size: 1.35rem; }
 h2 { font-size: 1.15rem; }
 .muted { color: var(--muted); font-size: 0.9rem; }
 /* Highlighter stroke behind a word or two; used sparingly. */
-.mark { background: var(--accent); color: var(--accent-text); padding: 0 0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.mark { background: var(--mark-bg); color: var(--text); padding: 0 0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 /* Small uppercase section label. */
 .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .visually-hidden {
@@ -284,7 +285,7 @@ a { color: var(--link); }
   background: var(--surface); color: var(--text); border: var(--line);
   font-weight: 700; font-size: 1.1rem; line-height: 1; box-shadow: var(--hard-sm);
 }
-/* Labelled BEFORE / AFTER tags: yellow for the "before" side, white for the result. */
+/* Labelled BEFORE / AFTER tags: teal for the "before" side, white for the result. */
 .wipe__tag, .wipe__drag {
   position: absolute; padding: 3px 8px; border: var(--line); border-radius: 2px; pointer-events: none;
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
@@ -355,13 +356,13 @@ a { color: var(--link); }
 .corners__outline {
   fill: color-mix(in srgb, var(--highlight) 22%, transparent); stroke: var(--highlight);
   stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none;
-  /* Dark halo so the yellow outline reads on white paper too. */
+  /* Dark halo so the outline reads on dark backgrounds as well as white paper. */
   filter: drop-shadow(0 0 1.5px rgb(0 0 0 / 85%));
 }
 .corners__outline--bad { stroke: var(--danger); fill: color-mix(in srgb, var(--danger) 16%, transparent); }
 .corners__handle {
-  /* Dark ring so the yellow handle shows on light paper as well as dark backgrounds. */
-  fill: var(--highlight); stroke: #111; stroke-width: 3; vector-effect: non-scaling-stroke;
+  /* White ring plus a dark halo so the handle shows on light paper as well as dark backgrounds. */
+  fill: var(--highlight); stroke: #fff; stroke-width: 3; filter: drop-shadow(0 0 1.5px rgb(0 0 0 / 70%)); vector-effect: non-scaling-stroke;
   cursor: grab; touch-action: none;
 }
 .corners__handle:active { cursor: grabbing; }
