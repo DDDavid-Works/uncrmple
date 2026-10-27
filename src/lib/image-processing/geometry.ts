@@ -45,6 +45,38 @@ export function isConvex(pts: readonly Point[]): boolean {
   return true;
 }
 
+/**
+ * Limits on the shape of a detected page outline. A flat sheet photographed even at a steep angle
+ * keeps its corners well away from slivers and its opposite sides within a factor of two; outlines
+ * outside these limits are a wrong segmentation, not a page, and warping them distorts the result.
+ */
+export const PAGE_SHAPE = { minAngleDeg: 55, maxAngleDeg: 125, minSideRatio: 0.5 } as const;
+
+/** Interior angles in degrees, one per corner, for a quad given in cyclic order. */
+export function interiorAngles(quad: readonly Point[]): number[] {
+  return quad.map((p, i) => {
+    const a = quad[(i + quad.length - 1) % quad.length]!;
+    const b = quad[(i + 1) % quad.length]!;
+    const ux = a.x - p.x, uy = a.y - p.y, vx = b.x - p.x, vy = b.y - p.y;
+    const cos = (ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+    return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+  });
+}
+
+/**
+ * Whether four corners (in cyclic order, any starting corner) could plausibly be a photographed
+ * page: convex, no corner sharper or flatter than PAGE_SHAPE allows, and each pair of opposite
+ * sides within PAGE_SHAPE.minSideRatio of each other. Used to reject automatic detections only;
+ * corners a person places are trusted as long as validateQuad accepts them.
+ */
+export function isPlausiblePage(quad: readonly Point[]): boolean {
+  if (quad.length !== 4 || !isConvex(quad)) return false;
+  if (interiorAngles(quad).some((a) => a < PAGE_SHAPE.minAngleDeg || a > PAGE_SHAPE.maxAngleDeg)) return false;
+  const side = (i: number) => dist(quad[i]!, quad[(i + 1) % 4]!);
+  const ratio = (a: number, b: number) => Math.min(a, b) / Math.max(a, b);
+  return ratio(side(0), side(2)) >= PAGE_SHAPE.minSideRatio && ratio(side(1), side(3)) >= PAGE_SHAPE.minSideRatio;
+}
+
 const invalid = (message: string): Result<never> => ({
   ok: false,
   error: { code: "invalid-corners", message } satisfies RepairError,

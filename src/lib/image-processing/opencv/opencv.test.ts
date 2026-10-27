@@ -52,6 +52,13 @@ describe("OpenCV engine on a synthetic skewed page", () => {
     expect(r).toMatchObject({ ok: false, error: { code: "no-document-found" } });
   }, 120_000);
 
+  it("refuses a page outline no flat sheet could make instead of warping it", async () => {
+    // A bright wedge: its outline is a clear, well-supported quad, but its top is a fifth of its base.
+    const wedge: Quad = [{ x: 360, y: 80 }, { x: 440, y: 80 }, { x: 700, y: 540 }, { x: 100, y: 540 }];
+    const r = await repair(processor, pagePhoto(W, H, wedge));
+    expect(r).toMatchObject({ ok: false, error: { code: "no-document-found" } });
+  }, 120_000);
+
   it("assesses the page with the real engine without modifying the photo", async () => {
     const photo = pagePhoto(W, H, PAGE);
     const copy = photo.data.slice();

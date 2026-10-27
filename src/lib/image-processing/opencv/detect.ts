@@ -1,5 +1,5 @@
 import type { DetectionMethod, DetectionResult, Point, RasterImage, Result } from "../../../types/repair";
-import { isConvex, orderCorners, polygonArea } from "../geometry";
+import { isConvex, isPlausiblePage, orderCorners, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
 import type { OpenCv } from "./loader";
 
@@ -83,7 +83,9 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
     const neutral = colourlessMask(cv, rgba, gray, own);
     collect(neutral, "colour");
 
-    const viable = candidates.filter((c) => c.support >= MIN_EDGE_SUPPORT);
+    // Outlines no flat page could make (slivers, one side far shorter than its opposite) are
+    // dropped before ranking, so a plausible candidate can still win.
+    const viable = candidates.filter((c) => c.support >= MIN_EDGE_SUPPORT && isPlausiblePage(c.points));
     const score = (c: Candidate) => c.support * Math.sqrt(c.area / imageArea);
     const best = viable.sort((a, b) => score(b) - score(a))[0];
     if (!best) {
@@ -92,7 +94,7 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
         error: {
           code: "no-document-found",
           message:
-            "No clear page boundary was found. Try a photo where all four page edges are visible against a contrasting background.",
+            "No clear page boundary was found. Use Adjust corners to mark the page yourself, or try a photo where all four page edges are visible against a contrasting background.",
         },
       };
     }
@@ -101,7 +103,8 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
     const trimmed = trimBackground(ordered, neutral.data, image.width, image.height);
     const trimmedSupport = edgeSupport(trimmed, nearEdge.data, image.width, image.height);
     // Keep the trim only if the new outline still follows real edges about as well as the old one.
-    const useTrimmed = trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS;
+    const useTrimmed =
+      trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS && isPlausiblePage(trimmed);
     const corners = useTrimmed ? trimmed : ordered;
     return {
       ok: true,

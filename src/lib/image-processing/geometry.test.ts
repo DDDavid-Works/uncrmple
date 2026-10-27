@@ -1,5 +1,5 @@
 import type { Quad } from "../../types/repair";
-import { isConvex, orderCorners, outputSize, polygonArea, scaleQuad, validateQuad } from "./geometry";
+import { interiorAngles, isConvex, isPlausiblePage, orderCorners, outputSize, polygonArea, scaleQuad, validateQuad } from "./geometry";
 
 const rect: Quad = [{ x: 10, y: 10 }, { x: 110, y: 10 }, { x: 110, y: 160 }, { x: 10, y: 160 }];
 
@@ -47,6 +47,32 @@ describe("validateQuad", () => {
     expect(validateQuad([rect[0], rect[2], rect[1], rect[3]], 200, 200).ok).toBe(false);
     const tiny: Quad = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }, { x: 0, y: 5 }];
     expect(validateQuad(tiny, 200, 200)).toMatchObject({ ok: false, error: { code: "invalid-corners" } });
+  });
+});
+
+describe("isPlausiblePage", () => {
+  it("accepts upright and steeply photographed pages", () => {
+    expect(isPlausiblePage(rect)).toBe(true);
+    // A page shot at a steep angle: strong keystone, far side ~0.6 of the near side.
+    const steep: Quad = [{ x: 220, y: 100 }, { x: 580, y: 100 }, { x: 700, y: 500 }, { x: 100, y: 500 }];
+    expect(isPlausiblePage(steep)).toBe(true);
+  });
+  it("accepts corners in any cyclic order", () => {
+    expect(isPlausiblePage([rect[2], rect[3], rect[0], rect[1]])).toBe(true);
+  });
+  it("rejects a sliver corner", () => {
+    // Corners from a real failed detection (e0fad2ed): the outline cuts diagonally across the page.
+    const sliver: Quad = [{ x: 0, y: 0 }, { x: 1006, y: 0 }, { x: 996, y: 1634 }, { x: 0, y: 781 }];
+    expect(Math.min(...interiorAngles(sliver))).toBeLessThan(55);
+    expect(isPlausiblePage(sliver)).toBe(false);
+  });
+  it("rejects opposite sides of very different length", () => {
+    const wedge: Quad = [{ x: 350, y: 100 }, { x: 450, y: 100 }, { x: 700, y: 500 }, { x: 100, y: 500 }];
+    expect(isPlausiblePage(wedge)).toBe(false);
+  });
+  it("rejects crossed or degenerate outlines", () => {
+    expect(isPlausiblePage([rect[0], rect[2], rect[1], rect[3]])).toBe(false);
+    expect(isPlausiblePage([rect[0], rect[0], rect[2], rect[3]])).toBe(false);
   });
 });
 
