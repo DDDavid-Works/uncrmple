@@ -16,18 +16,27 @@ interface Props {
  */
 export function CompareSlider({ beforeUrl, afterUrl, beforeLabel, afterLabel, beforeAlt, afterAlt }: Props) {
   const [position, setPosition] = useState(50);
+  // The "Drag to compare" hint goes away once the divider has been moved.
+  const [moved, setMoved] = useState(false);
   return (
     <div className="wipe" style={{ "--wipe": `${position}%` } as CSSProperties}>
       <div className="wipe__stage">
         <img className="wipe__img" src={afterUrl} alt={afterAlt} />
         <img className="wipe__img wipe__img--before" src={beforeUrl} alt={beforeAlt} />
-        <span className="wipe__divider" aria-hidden="true" />
+        <span className="wipe__divider" aria-hidden="true">
+          <span className="wipe__knob">‹›</span>
+        </span>
         <span className="wipe__tag wipe__tag--before" aria-hidden="true">
           {beforeLabel}
         </span>
         <span className="wipe__tag wipe__tag--after" aria-hidden="true">
           {afterLabel}
         </span>
+        {!moved && (
+          <span className="wipe__drag" aria-hidden="true">
+            Drag to compare
+          </span>
+        )}
         <input
           className="wipe__range"
           type="range"
@@ -35,7 +44,10 @@ export function CompareSlider({ beforeUrl, afterUrl, beforeLabel, afterLabel, be
           max={100}
           step={1}
           value={position}
-          onChange={(e) => setPosition(Number(e.target.value))}
+          onChange={(e) => {
+            setPosition(Number(e.target.value));
+            setMoved(true);
+          }}
           aria-label={`Compare ${beforeLabel.toLowerCase()} and ${afterLabel.toLowerCase()}`}
           aria-valuetext={`${position}% ${beforeLabel.toLowerCase()} shown`}
         />

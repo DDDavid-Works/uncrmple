@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .page { fill: #ffffff; stroke: #111111; }
+    .ring { fill: #111111; }
+    @media (prefers-color-scheme: dark) {
+      .page { fill: #1c1c1c; stroke: #f2f0ea; }
+      .ring { fill: #f2f0ea; }
+    }
+  </style>
+  <path class="page" d="M16 5H41L53 17V59H16Z" stroke-width="4" stroke-linejoin="round"/>
+  <path class="page" d="M41 5V17H53" fill="#ffd60a" style="fill:#ffd60a" stroke-width="4" stroke-linejoin="round"/>
+  <circle class="ring" cx="24" cy="44" r="16"/>
+  <circle cx="24" cy="44" r="10" fill="#ffd60a"/>
+  <circle cx="24" cy="44" r="4.5" fill="#111111"/>
+  <circle cx="20.5" cy="40.5" r="2" fill="#faf8f3"/>
+</svg>

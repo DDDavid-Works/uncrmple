@@ -445,8 +445,10 @@ describe("comparison and page order", () => {
     expect(screen.getByAltText("Straightened page before cleanup: page.jpg")).toHaveAttribute("src", "blob:t/3");
     expect(screen.getByAltText("Repaired document: page.jpg")).toHaveAttribute("src", "blob:t/2");
     const wipe = screen.getByRole("slider", { name: "Compare straightened and cleaned" });
+    expect(screen.getByText("Drag to compare")).toBeInTheDocument();
     fireEvent.change(wipe, { target: { value: "80" } });
     expect(wipe).toHaveAttribute("aria-valuetext", "80% straightened shown");
+    expect(screen.queryByText("Drag to compare")).toBeNull();
   });
 
   it("reuses the straightened page when only the style changes, and frees both images on removal", async () => {

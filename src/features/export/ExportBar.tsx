@@ -55,7 +55,7 @@ export function ExportBar({ pages, total, doneWord = "repaired", filename = "rep
     <section className="export" aria-label="Export PDF">
       <div className="export__row">
         <div className="export__title">
-          <h2>Export</h2>
+          <h2 className="eyebrow">Export</h2>
           <p className="muted export__count">
             {pages.length} of {total} {doneWord}
           </p>

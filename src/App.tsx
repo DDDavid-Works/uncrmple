@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SourceDocument } from "./types/document";
-import { PRODUCT_NAME, TAGLINE } from "./config";
+import { PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
+import { Logo } from "./components/Logo";
 import { StepIndicator } from "./components/StepIndicator";
 import type { Step } from "./components/StepIndicator";
 import { ThemeSwitch } from "./components/ThemeSwitch";
@@ -17,16 +18,6 @@ import { UploadZone } from "./features/upload/UploadZone";
 import { useDocuments } from "./features/upload/useDocuments";
 
 const NO_DOCUMENTS: SourceDocument[] = [];
-
-function BrandMark() {
-  return (
-    <svg className="brand__mark" viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M8 4h11l6 6v18H8z" />
-      <path d="M19 4v6h6" />
-      <path d="M12 17l3 3 6-6" />
-    </svg>
-  );
-}
 
 export function App() {
   const { documents, rejected, pending, addFiles, remove, move, dismissRejected } = useDocuments();
@@ -63,9 +54,12 @@ export function App() {
     <div className="app">
       <header className="app__header">
         <div className="brand">
-          <BrandMark />
+          <Logo className="brand__mark" />
           <div>
-            <h1>{PRODUCT_NAME}</h1>
+            <h1 className="brand__name">
+              <span aria-hidden="true">{WORDMARK}</span>
+              <span className="visually-hidden">{PRODUCT_NAME}</span>
+            </h1>
             <p className="muted brand__tagline">{TAGLINE}</p>
           </div>
         </div>

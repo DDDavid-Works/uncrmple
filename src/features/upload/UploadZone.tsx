@@ -48,7 +48,9 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
             <path d="M29 6v9h9" />
             <path d="M25 37V23m-6 6 6-6 6 6" />
           </svg>
-          <h2>Upload document photos</h2>
+          <h2 className="upload__title">
+            <mark className="mark">Upload</mark> document photos
+          </h2>
           <p className="upload__text">
             {touch
               ? "Choose JPG, PNG, or WebP photos from your device, or take a new one."
