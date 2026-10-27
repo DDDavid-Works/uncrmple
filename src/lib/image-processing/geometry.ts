@@ -64,6 +64,16 @@ export function validateQuad(quad: Quad, width: number, height: number): Result<
 }
 
 /**
+ * Check a warp frame that may reach beyond the photo (a rotated frame around a page outline that
+ * is itself validated with `validateQuad`): finite, convex corners only.
+ */
+export function validateFrame(frame: Quad): Result<Quad> {
+  if (frame.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return invalid("Corner coordinates are not valid numbers.");
+  if (!isConvex(frame)) return invalid("The corners must form a convex four-sided shape without crossing.");
+  return { ok: true, value: frame };
+}
+
+/**
  * Output size for a warped quad: the longer of each pair of opposite edges, so no
  * resolution is discarded. Scaled down uniformly if it would exceed the pixel budget.
  */
@@ -88,4 +98,42 @@ export function fullFrameQuad(width: number, height: number): Quad {
 export function scaleQuad(quad: Quad, sx: number, sy: number): Quad {
   const s = (p: Point): Point => ({ x: p.x * sx, y: p.y * sy });
   return [s(quad[0]), s(quad[1]), s(quad[2]), s(quad[3])];
+}
+
+/** Row-major 3×3 projective transform. */
+export type Homography = readonly [number, number, number, number, number, number, number, number, number];
+
+/** The projective transform mapping each `from` corner onto the matching `to` corner, or null if degenerate. */
+export function homography(from: Quad, to: Quad): Homography | null {
+  // Eight equations in h0..h7 (h8 = 1), solved by Gaussian elimination with partial pivoting.
+  const m: number[][] = [];
+  for (let i = 0; i < 4; i++) {
+    const { x, y } = from[i]!;
+    const { x: u, y: v } = to[i]!;
+    m.push([x, y, 1, 0, 0, 0, -u * x, -u * y, u]);
+    m.push([0, 0, 0, x, y, 1, -v * x, -v * y, v]);
+  }
+  for (let c = 0; c < 8; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < 8; r++) if (Math.abs(m[r]![c]!) > Math.abs(m[pivot]![c]!)) pivot = r;
+    if (Math.abs(m[pivot]![c]!) < 1e-12) return null;
+    [m[c], m[pivot]] = [m[pivot]!, m[c]!];
+    for (let r = 0; r < 8; r++) {
+      if (r === c) continue;
+      const f = m[r]![c]! / m[c]![c]!;
+      for (let k = c; k < 9; k++) m[r]![k]! -= f * m[c]![k]!;
+    }
+  }
+  const h = m.map((row, i) => row[8]! / row[i]!);
+  return [h[0]!, h[1]!, h[2]!, h[3]!, h[4]!, h[5]!, h[6]!, h[7]!, 1];
+}
+
+export function applyHomography(h: Homography, p: Point): Point {
+  const w = h[6] * p.x + h[7] * p.y + h[8];
+  return { x: (h[0] * p.x + h[1] * p.y + h[2]) / w, y: (h[3] * p.x + h[4] * p.y + h[5]) / w };
+}
+
+/** Corners of a width×height output image, matching the target used by the perspective warp. */
+export function rectQuad(width: number, height: number): Quad {
+  return [{ x: 0, y: 0 }, { x: width - 1, y: 0 }, { x: width - 1, y: height - 1 }, { x: 0, y: height - 1 }];
 }

@@ -47,8 +47,13 @@ export interface DetectionResult {
 export interface ImageProcessor {
   /** Find the page corners. Corners are in the coordinates of the given image. */
   detectDocument(image: RasterImage): Promise<Result<DetectionResult>>;
-  /** Warp the quadrilateral to an upright rectangle. */
-  correctPerspective(image: RasterImage, corners: Quad): Promise<Result<RasterImage>>;
+  /**
+   * Warp the quadrilateral to an upright rectangle. With a shift map, also flatten the page in the
+   * same interpolation (the map is defined on the upright output). With `page`, `corners` is a
+   * frame around that page outline (e.g. rotated to level the print) that may reach beyond the
+   * photo: only the inside of `page` is taken from the photo and the rest is filled with white.
+   */
+  correctPerspective(image: RasterImage, corners: Quad, shift?: ShiftMap, page?: Quad): Promise<Result<RasterImage>>;
   /** Even out lighting and shadows, then apply the output style. Returns a new image. */
   enhance(image: RasterImage, options: EnhanceOptions): Promise<Result<RasterImage>>;
 }
@@ -58,14 +63,93 @@ export interface RepairOptions {
   corners?: Quad;
   /** Output style; defaults to DEFAULT_ENHANCE_OPTIONS. */
   enhance?: EnhanceOptions;
+  /** Level the printed lines when they still lean after perspective correction. Defaults to true. */
+  deskew?: boolean;
+  /** Flatten curved lines when that measurably straightens them. Defaults to true. */
+  dewarp?: boolean;
+}
+
+/**
+ * Smooth vertical displacement of a straightened page, independent of resolution: the output
+ * pixel at normalised position (u, v) takes the content found `shiftAt(u, v) × page height` lower
+ * (positive) or higher (negative) in the straightened page. Values sit on a grid of
+ * `columns × rows` nodes: column k at u = k / (columns - 1); row r at v = (r + 0.5) / rows
+ * (held constant above the first and below the last row). Plain data, so any engine can apply it.
+ */
+export interface ShiftMap {
+  columns: number;
+  rows: number;
+  /** Row-major, `rows × columns` values, as fractions of the page height. */
+  shifts: Float32Array;
+}
+
+/** Why a curved page was not flattened. */
+export type DewarpSkip =
+  /** Turned off in the options. */
+  | "off"
+  /** Too few text rows or ruled lines to follow. */
+  | "too-little-evidence"
+  /** The bend the lines suggest is implausibly large, so the evidence is probably wrong. */
+  | "too-large"
+  /** The lines are already straight within tolerance. */
+  | "already-flat"
+  /** Trying it on a small copy did not make the lines clearly straighter. */
+  | "not-improved";
+
+export interface Dewarp {
+  applied: boolean;
+  /** Set when `applied` is false. */
+  skipped?: DewarpSkip;
+  /** Mean bend of the traced lines before and after flattening, as shares of the page height; null when not measured. */
+  bendBefore: number | null;
+  bendAfter: number | null;
+  /** Share of the page with line evidence; null when not measured. */
+  coverage: number | null;
+}
+
+/** Why a measured tilt was not corrected. */
+export type DeskewSkip =
+  /** Too little text or ruled lines to measure. */
+  | "not-measurable"
+  /** No single angle stands out clearly. */
+  | "unclear"
+  /** Already level within tolerance. */
+  | "level"
+  /** Larger than any tilt we trust ourselves to correct. */
+  | "too-steep"
+  /** Turned off in the options. */
+  | "off";
+
+export interface Deskew {
+  /** Tilt of the printed lines after perspective correction; null when not measured or not measurable. */
+  measured: {
+    /** Degrees; positive means lines fall towards the right. */
+    angle: number;
+    /** 0..1 heuristic, not a calibrated probability. */
+    confidence: number;
+    /** Per horizontal band, top to bottom; null where a band could not be measured. */
+    bands: (number | null)[];
+    /** Largest difference between band angles in degrees. */
+    bend: number | null;
+  } | null;
+  /** Rotation applied in degrees (the measured angle that was levelled); 0 when none. */
+  applied: number;
+  /** Set when `applied` is 0. */
+  skipped?: DeskewSkip;
+  /** Lines lean differently in different parts of the page (curved or creased paper), so one rotation cannot level them all. */
+  bent: boolean;
 }
 
 export interface RepairResult {
   image: RasterImage;
   /** The perspective-corrected page before lighting and style cleanup; same size as `image`. */
   straightened: RasterImage;
-  /** Corners used, in source-image pixels. */
+  /** Page corners used, in source-image pixels (before any deskew rotation). */
   corners: Quad;
+  /** Residual tilt found after perspective correction, and what was done about it. */
+  deskew: Deskew;
+  /** Whether curved lines were flattened, and why not. */
+  dewarp: Dewarp;
   source: "manual" | DetectionMethod;
   style: OutputStyle;
   /** Only set for automatic detection. */

@@ -9,7 +9,7 @@ import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
 import { baseName } from "../../lib/browser/download";
 import { fullFrameQuad } from "../../lib/image-processing/geometry";
-import { lowCoverage, weakEdges } from "../repair/review";
+import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges } from "../repair/review";
 import { CornerEditor, defaultCorners } from "./CornerEditor";
 
 const STYLE_OPTIONS: { value: OutputStyle; label: string }[] = [
@@ -132,6 +132,8 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             {STYLE_OPTIONS.find((o) => o.value === done.style)?.label} ·{" "}
             {done.source === "manual" ? "manual corners" : `page detected by ${done.source}`}
             {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
+            {done.deskew.applied !== 0 && ` · text levelled by ${Math.abs(done.deskew.applied).toFixed(1)}°`}
+            {done.dewarp.applied && " · curved lines flattened"}
           </p>
           {lowCoverage(done) && (
             <p role="alert" className="notice notice--warn">
@@ -142,6 +144,14 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             <p role="alert" className="notice notice--warn">
               The page edges were faint, curved, or partly outside the photo, so the detected outline may be
               slightly off. Compare the result with the original, especially near the edges.
+            </p>
+          )}
+          {bentPage(done) && (
+            <p role="alert" className="notice notice--warn">
+              The lines of text bend across the page, so the paper is probably curved or creased.{" "}
+              {done.deskew.applied !== 0 ? "The overall tilt was levelled, but the curve could not be flattened: " : "The curve could not be flattened: "}
+              {DEWARP_SKIP_REASONS[done.dewarp.skipped ?? "not-improved"]} Some lines may still slope. Flattening the page and
+              retaking the photo gives the best result.
             </p>
           )}
         </>

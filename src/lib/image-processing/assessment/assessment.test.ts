@@ -21,7 +21,8 @@ function processorFor(detect: Result<DetectionResult>, fullWidth = W): ImageProc
       const corners = c.map((p) => ({ x: p.x * k, y: p.y * k })) as unknown as Quad;
       return { ok: true, value: { ...detect.value, corners } };
     },
-    correctPerspective: async () => { throw new Error("not used"); },
+    // Tilt is a secondary measure: an engine that cannot warp leaves the findings without it.
+    correctPerspective: async () => ({ ok: false, error: { code: "processing-failed", message: "unavailable in this test" } }),
     enhance: async () => { throw new Error("not used"); },
   };
 }
@@ -119,6 +120,23 @@ describe("geometry findings", () => {
   });
   it("lowers the level when the outline is uncertain", () => {
     expect(measureGeometry(PAGE, 0.3).level).toBe("moderate");
+  });
+  it("mentions print that leans inside a square page without lowering the level", () => {
+    const f = measureGeometry(PAGE, 0.9, { angle: -1.8, confidence: 0.9, bands: [-1.8, -1.8, -1.7], bend: 0.1 });
+    expect(f.level).toBe("good");
+    expect(f.detail).toContain("lean about 1.8°");
+  });
+  it("ignores a lean that is too small or too unclear to correct", () => {
+    expect(measureGeometry(PAGE, 0.9, { angle: 0.1, confidence: 0.9, bands: [], bend: 0 }).detail).not.toContain("lean");
+    expect(measureGeometry(PAGE, 0.9, { angle: 2, confidence: 0.1, bands: [], bend: 0 }).detail).not.toContain("lean");
+  });
+  it("warns that a bent page may only be partly flattened", () => {
+    const curved = measureGeometry(PAGE, 0.9, { angle: 1.5, confidence: 0.9, bands: [3, 1.2, 0], bend: 3 });
+    expect(curved.level).toBe("moderate");
+    expect(curved.detail).toContain("bend by about 3.0°");
+    expect(curved.detail).toContain("flattens curved lines where it can follow");
+    expect(curved.detail).toContain("may still leave some lines sloping");
+    expect(measureGeometry(PAGE, 0.9, { angle: 2, confidence: 0.9, bands: [5, 2, 0], bend: 5 }).level).toBe("poor");
   });
   it("counts page sides lying on the photo border", () => {
     expect(measureCompleteness(PAGE, W, H).level).toBe("good");

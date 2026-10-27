@@ -21,9 +21,9 @@ export function createOpenCvProcessor(): CardImageProcessor {
       const cv = await loadOpenCv();
       return cv.ok ? enhanceCard(cv.value, image, options) : cv;
     },
-    async correctPerspective(image, corners) {
+    async correctPerspective(image, corners, shift, page) {
       const cv = await loadOpenCv();
-      return cv.ok ? correctPerspective(cv.value, image, corners) : cv;
+      return cv.ok ? correctPerspective(cv.value, image, corners, shift, page) : cv;
     },
     async enhance(image, options) {
       const cv = await loadOpenCv();

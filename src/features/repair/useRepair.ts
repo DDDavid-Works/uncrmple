@@ -18,6 +18,10 @@ export interface RepairedView {
   style: OutputStyle;
   areaFraction?: number;
   edgeSupport?: number;
+  /** Residual tilt of the print and whether it was levelled. */
+  deskew: RepairResult["deskew"];
+  /** Whether curved lines were flattened, and why not. */
+  dewarp: RepairResult["dewarp"];
 }
 
 export type RepairState =
@@ -140,6 +144,8 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         style,
         areaFraction: reuse && !manual ? reuse.areaFraction : repaired.value.areaFraction,
         edgeSupport: reuse && !manual ? reuse.edgeSupport : repaired.value.edgeSupport,
+        deskew: repaired.value.deskew,
+        dewarp: repaired.value.dewarp,
       };
       set({ status: "done", result: view });
 

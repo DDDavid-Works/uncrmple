@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
-import { solid } from "./synthetic";
+import { bentTextPage, leaningTextPhoto, solid } from "./synthetic";
 import { downloadBlob } from "../lib/browser/download";
 import { jpegHeader } from "./fixtures";
 import type { Assessment } from "../types/assessment";
@@ -112,6 +112,97 @@ describe("repair workflow", () => {
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
     expect(await screen.findByText(/covers only a small part/)).toBeInTheDocument();
+  });
+});
+
+describe("residual tilt", () => {
+  const page = { x: 0, y: 0, width: 600, height: 800 };
+  async function repairLeaning(angleAt: (t: number) => number) {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: true,
+      value: {
+        corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }],
+        areaFraction: 0.64,
+        edgeSupport: 0.9,
+        method: "edges",
+      },
+    });
+    // First warp is the small copy the tilt is measured on; the second is the final page.
+    vi.mocked(processor.correctPerspective)
+      .mockResolvedValueOnce({ ok: true, value: leaningTextPhoto(600, 800, page, angleAt) })
+      .mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+  }
+
+  it("says how far leaning text was levelled", async () => {
+    await repairLeaning(() => -2);
+    expect(screen.getByText(/text levelled by 2\.0°/)).toBeInTheDocument();
+    expect(screen.queryByText(/lines of text bend/)).toBeNull();
+    // The final warp used a rotated quad, not the page outline itself.
+    const final = vi.mocked(processor.correctPerspective).mock.calls.at(-1)![1];
+    expect(final[0]).not.toEqual({ x: 40, y: 30 });
+  });
+
+  it("warns that a curved page could only be partly levelled", async () => {
+    await repairLeaning((t) => 3.5 * (1 - t));
+    expect(screen.getByText(/lines of text bend across the page/)).toHaveTextContent(/overall tilt was levelled/);
+  });
+
+  it("does not claim a bent page was levelled when no rotation was applied", async () => {
+    // Opposite leans at the top and bottom around a level middle: bent, while the page as a whole is level.
+    await repairLeaning((t) => (t < 1 / 3 ? 1.5 : t < 2 / 3 ? 0 : -1.5));
+    const warning = screen.getByText(/lines of text bend across the page/);
+    expect(warning).toHaveTextContent(/curve could not be flattened: there were too few lines/);
+    expect(screen.queryByText(/levelled by/)).toBeNull();
+  });
+
+  it("stays quiet about level text", async () => {
+    await repairLeaning(() => 0);
+    expect(screen.queryByText(/levelled by/)).toBeNull();
+    expect(screen.queryByText(/lines of text bend/)).toBeNull();
+  });
+});
+
+describe("flattening curved lines", () => {
+  const page = { x: 0, y: 0, width: 600, height: 800 };
+  const curl = (x: number, y: number) => 10 * Math.sin((Math.PI * x) / 600) * (0.4 + (0.6 * y) / 800);
+  async function repairCurved(afterTrial: "flat" | "unchanged") {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: true,
+      value: {
+        corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }],
+        areaFraction: 0.64,
+        edgeSupport: 0.9,
+        method: "edges",
+      },
+    });
+    const curved = bentTextPage(600, 800, curl).image;
+    // Warps in order: tilt measurement, flattening trial before and after, final page.
+    vi.mocked(processor.correctPerspective)
+      .mockResolvedValueOnce({ ok: true, value: leaningTextPhoto(600, 800, page, (t) => 3.5 * (1 - t)) })
+      .mockResolvedValueOnce({ ok: true, value: curved })
+      .mockResolvedValueOnce({ ok: true, value: afterTrial === "flat" ? bentTextPage(600, 800, () => 0).image : curved })
+      .mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+  }
+
+  it("flattens when the trial straightens the lines, and says so", async () => {
+    await repairCurved("flat");
+    expect(screen.getByText(/curved lines flattened/)).toBeInTheDocument();
+    expect(screen.queryByText(/lines of text bend across the page/)).toBeNull();
+    // The final warp carried the shift map.
+    expect(vi.mocked(processor.correctPerspective).mock.calls.at(-1)![2]).toBeDefined();
+  });
+
+  it("leaves the page unflattened, and explains why, when the trial does not help", async () => {
+    await repairCurved("unchanged");
+    expect(screen.queryByText(/curved lines flattened/)).toBeNull();
+    expect(screen.getByText(/lines of text bend across the page/)).toHaveTextContent(/trial did not make the lines clearly straighter/);
+    expect(vi.mocked(processor.correctPerspective).mock.calls.at(-1)![2]).toBeUndefined();
   });
 });
 

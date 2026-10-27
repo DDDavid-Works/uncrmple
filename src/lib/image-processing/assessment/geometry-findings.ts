@@ -1,5 +1,7 @@
 import type { Finding } from "../../../types/assessment";
 import type { Quad } from "../../../types/repair";
+import { DESKEW, deskewDecision, isBent } from "../deskew";
+import type { TiltMeasurement } from "../tilt";
 
 /** Thresholds are first estimates; tune them against real photographs. */
 export const GEOMETRY = {
@@ -10,6 +12,8 @@ export const GEOMETRY = {
   tiltModerate: 4,
   /** Below this edge support the outline itself is uncertain. */
   edgeSupportLow: 0.5,
+  /** Degrees of bend between the top and bottom of the page at which lines visibly stay crooked. */
+  bendPoor: 4,
 };
 export const RESOLUTION = {
   /** Pixels along the page's long side. 1600 px is about 135 dpi on A4 or Letter. */
@@ -28,8 +32,11 @@ function sides(q: Quad): [number, number, number, number] {
   return [dist(q[0], q[1]), dist(q[1], q[2]), dist(q[3], q[2]), dist(q[0], q[3])];
 }
 
-/** `quad` is in full-image pixels, or null when the page was not found. */
-export function measureGeometry(quad: Quad | null, edgeSupport: number | undefined): Finding {
+/**
+ * `quad` is in full-image pixels, or null when the page was not found. `tilt` is the lean of the
+ * printed lines after straightening the page; omit it when it was not measured.
+ */
+export function measureGeometry(quad: Quad | null, edgeSupport: number | undefined, tilt?: TiltMeasurement | null): Finding {
   if (!quad) {
     return {
       dimension: "geometry",
@@ -40,18 +47,29 @@ export function measureGeometry(quad: Quad | null, edgeSupport: number | undefin
   }
   const [top, right, bottom, left] = sides(quad);
   const perspective = Math.max(Math.max(top, bottom) / Math.max(1, Math.min(top, bottom)), Math.max(left, right) / Math.max(1, Math.min(left, right)));
-  const tilt = Math.abs((Math.atan2(quad[1].y - quad[0].y, quad[1].x - quad[0].x) * 180) / Math.PI);
+  const pageTilt = Math.abs((Math.atan2(quad[1].y - quad[0].y, quad[1].x - quad[0].x) * 180) / Math.PI);
   const uncertain = edgeSupport !== undefined && edgeSupport < GEOMETRY.edgeSupportLow;
 
+  const bent = isBent(tilt ?? null) ? tilt!.bend! : 0;
+  const lean = tilt && deskewDecision(tilt).applied !== 0 ? Math.abs(tilt.angle) : 0;
+
   let level: Finding["level"] = "good";
-  if (perspective >= GEOMETRY.perspectivePoor) level = "poor";
-  else if (perspective >= GEOMETRY.perspectiveModerate || tilt >= GEOMETRY.tiltModerate || uncertain) level = "moderate";
+  if (perspective >= GEOMETRY.perspectivePoor || bent >= GEOMETRY.bendPoor) level = "poor";
+  else if (perspective >= GEOMETRY.perspectiveModerate || pageTilt >= GEOMETRY.tiltModerate || uncertain || bent >= DESKEW.bendDeg) level = "moderate";
 
   const notes: string[] = [];
   if (perspective >= GEOMETRY.perspectiveModerate) notes.push(`photographed at an angle (edges differ by ${Math.round((perspective - 1) * 100)}%)`);
-  if (tilt >= GEOMETRY.tiltModerate) notes.push(`tilted about ${Math.round(tilt)}°`);
+  if (pageTilt >= GEOMETRY.tiltModerate) notes.push(`tilted about ${Math.round(pageTilt)}°`);
   let detail = notes.length ? `Page is ${notes.join(" and ")}; this can be straightened.` : "Page is close to square-on.";
-  if (level === "poor") detail += " A steep angle means the far side has fewer pixels, so it will look softer.";
+  if (lean && !bent) detail += ` The printed lines lean about ${lean.toFixed(1)}° inside the page outline; this can be levelled too.`;
+  if (bent) {
+    detail +=
+      ` The printed lines bend by about ${bent.toFixed(1)}° from one part of the page to another, so the paper is probably` +
+      " curved or creased. Repair flattens curved lines where it can follow enough rows of text or ruled lines, and leaves" +
+      " them as photographed when a trial does not make them straighter. Sharp creases and crumpling may still leave some" +
+      " lines sloping; flattening the page and retaking the photo gives the best result.";
+  }
+  if (perspective >= GEOMETRY.perspectivePoor) detail += " A steep angle means the far side has fewer pixels, so it will look softer.";
   if (uncertain) detail += " The page edges are faint, so the detected outline may be slightly off.";
   return {
     dimension: "geometry",

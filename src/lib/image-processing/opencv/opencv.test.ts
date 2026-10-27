@@ -24,7 +24,9 @@ describe("OpenCV engine on a synthetic skewed page", () => {
   it("produces an upright page with no background at the edges", async () => {
     const photo = pagePhoto(W, H, PAGE);
     const copy = photo.data.slice();
-    const r = await repair(processor, photo);
+    // This page's stripes are drawn level in the photo, not on the page, so levelling would rotate
+    // (and enlarge) the output; this test is about the perspective warp alone.
+    const r = await repair(processor, photo, { deskew: false });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const { image } = r.value;

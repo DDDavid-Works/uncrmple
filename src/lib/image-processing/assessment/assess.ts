@@ -1,5 +1,6 @@
 import type { Assessment } from "../../../types/assessment";
 import type { ImageProcessor, Quad, RasterImage, Result } from "../../../types/repair";
+import { measurePageTilt } from "../deskew";
 import { downscale } from "../downscale";
 import { scaleQuad } from "../geometry";
 import { DETECTION_MAX_SIDE, validateRaster } from "../pipeline";
@@ -37,6 +38,10 @@ export async function assessPhoto(processor: ImageProcessor, image: RasterImage)
     return detected;
   }
 
+  // Lean and bend of the printed lines once the page is straightened. A secondary measure: if the
+  // engine cannot warp here, the finding simply goes without it (repair reports its own errors).
+  const tilt = quad ? await measurePageTilt(processor, image, quad) : null;
+
   const analysis = downscale(image, ANALYSIS_MAX_SIDE).image;
   const gray = toGray(analysis);
   const scaled = quad && scaleQuad(quad, analysis.width / image.width, analysis.height / image.height);
@@ -47,7 +52,7 @@ export async function assessPhoto(processor: ImageProcessor, image: RasterImage)
   const stats = blockStats(gray, mask, block);
 
   const findings = [
-    measureGeometry(quad, edgeSupport),
+    measureGeometry(quad, edgeSupport, tilt?.ok ? tilt.value : null),
     measureLighting(stats, gray, mask),
     measureSharpness(gray, mask),
     measureResolution(quad, image.width, image.height),
