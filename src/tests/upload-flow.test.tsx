@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { jpegHeader } from "./fixtures";
@@ -49,6 +49,35 @@ describe("upload to preview", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/fake\.jpg.*Unsupported/);
     expect(await screen.findByRole("heading", { name: "ok.jpg" })).toBeInTheDocument();
+  });
+
+  it("accepts an image pasted from the clipboard and names it", async () => {
+    render(<App />);
+    const clip = new File([jpegHeader(3000, 2000)], "image.png", { type: "image/jpeg" });
+    fireEvent.paste(document.body, { clipboardData: { files: [clip] } });
+
+    expect(await screen.findByRole("heading", { name: "pasted-1.png" })).toBeInTheDocument();
+  });
+
+  it("validates pasted files like any other upload", async () => {
+    render(<App />);
+    const fake = new File([new TextEncoder().encode("not an image")], "doc.jpg", { type: "image/jpeg" });
+    fireEvent.paste(document.body, { clipboardData: { files: [fake] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/doc\.jpg.*Unsupported/);
+  });
+
+  it("ignores pastes with no files and pastes into text fields", async () => {
+    render(<App />);
+    fireEvent.paste(document.body, { clipboardData: { files: [] } });
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    const clip = new File([jpegHeader(3000, 2000)], "image.png", { type: "image/jpeg" });
+    fireEvent.paste(field, { clipboardData: { files: [clip] } });
+    field.remove();
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Upload document photos" })).toBeInTheDocument();
   });
 
   it("revokes the object URL when a document is removed", async () => {

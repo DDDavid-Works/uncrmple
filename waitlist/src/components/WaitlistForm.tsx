@@ -8,9 +8,16 @@ type Status =
   | { kind: "success" }
   | { kind: "error"; message: string };
 
-type Props = { endpoint: string; fields?: Record<string, string>; fetchImpl?: typeof fetch };
+type Props = {
+  endpoint: string;
+  fields?: Record<string, string>;
+  /** Small print under the form. */
+  note?: string;
+  className?: string;
+  fetchImpl?: typeof fetch;
+};
 
-export function WaitlistForm({ endpoint, fields, fetchImpl }: Props) {
+export function WaitlistForm({ endpoint, fields, note, className = "", fetchImpl }: Props) {
   const [email, setEmail] = useState("");
   const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -19,7 +26,7 @@ export function WaitlistForm({ endpoint, fields, fetchImpl }: Props) {
 
   if (endpoint === "") {
     return (
-      <p className="notice" role="status">
+      <p className={`notice ${className}`} role="status">
         The waitlist isn't open yet. Please check back soon.
       </p>
     );
@@ -27,7 +34,7 @@ export function WaitlistForm({ endpoint, fields, fetchImpl }: Props) {
 
   if (status.kind === "success") {
     return (
-      <p className="notice notice-success" role="status">
+      <p className={`notice notice-success ${className}`} role="status">
         You're on the list. We'll email you when it's ready.
       </p>
     );
@@ -55,23 +62,26 @@ export function WaitlistForm({ endpoint, fields, fetchImpl }: Props) {
   const error = status.kind === "error" ? status.message : null;
 
   return (
-    <form className="form" onSubmit={onSubmit} noValidate>
-      <label htmlFor={inputId}>Email address</label>
+    <form className={`form ${className}`} onSubmit={onSubmit} noValidate>
+      <label htmlFor={inputId} className="visually-hidden">
+        Email address
+      </label>
       <div className="form-row">
         <input
           id={inputId}
+          className="field"
           type="email"
           name="email"
           autoComplete="email"
           inputMode="email"
-          placeholder="you@example.com"
+          placeholder="Your email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           aria-invalid={error !== null}
           aria-describedby={messageId}
           disabled={submitting}
         />
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn" disabled={submitting}>
           {submitting ? "Joining…" : "Join the waitlist"}
         </button>
       </div>
@@ -84,7 +94,7 @@ export function WaitlistForm({ endpoint, fields, fetchImpl }: Props) {
       <p id={messageId} className="form-message" role="alert">
         {error}
       </p>
-      <p className="fine">We'll only use your email to tell you when we launch. No spam.</p>
+      {note && <p className="fine">{note}</p>}
     </form>
   );
 }

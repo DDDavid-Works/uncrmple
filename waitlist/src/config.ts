@@ -1,8 +1,12 @@
 // Single place for branding and deployment settings; nothing else in the waitlist should hardcode the name.
 export const PRODUCT_NAME = "Uncrmple";
+/** Logotype shown in the header and footer; screen readers get PRODUCT_NAME instead. */
+export const WORDMARK = "uncrmple.";
 export const TAGLINE = "Fix the photo. Keep the document.";
 export const DESCRIPTION =
   "Turn messy document photos into clean, readable scans in seconds. Straighten, remove shadows and export a PDF, right in your browser.";
+
+export const CONTACT_EMAIL = "hello@uncrmple.com";
 
 const env = import.meta.env;
 

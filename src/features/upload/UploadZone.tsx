@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { isCoarsePointer } from "../../lib/browser/pointer";
 
 interface Props {
@@ -18,11 +18,36 @@ function PrivacyBadge() {
   );
 }
 
+function isTextEntry(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+}
+
 export function UploadZone({ compact, busy, onFiles }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   // On phones the picker also offers the camera; say so without forcing capture.
   const [touch] = useState(isCoarsePointer);
+  const pasted = useRef(0);
+
+  // Ctrl+V of a copied image or file, anywhere on the page except while typing in a field.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (isTextEntry(e.target)) return;
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (!files.length) return;
+      e.preventDefault();
+      // Clipboard images all arrive named "image.png"; give each a distinct name.
+      onFiles(
+        files.map((f) =>
+          /^image\.\w+$/i.test(f.name)
+            ? new File([f], `pasted-${++pasted.current}${f.name.slice(f.name.lastIndexOf("."))}`, { type: f.type })
+            : f,
+        ),
+      );
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [onFiles]);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -54,7 +79,7 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           <p className="upload__text">
             {touch
               ? "Choose JPG, PNG, or WebP photos from your device, or take a new one."
-              : "Drag and drop JPG, PNG, or WebP images here, or choose files."}
+              : "Drag and drop JPG, PNG, or WebP images here, paste with Ctrl+V, or choose files."}
           </p>
         </>
       )}
@@ -75,7 +100,7 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           if (files.length) onFiles(files);
         }}
       />
-      {compact && !touch && <span className="upload__drop-hint">or drop images here</span>}
+      {compact && !touch && <span className="upload__drop-hint">or drop or paste images</span>}
       {busy && (
         <p role="status" className="upload__status">
           Reading images…
