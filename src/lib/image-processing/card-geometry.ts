@@ -1,5 +1,5 @@
 import type { CardDetectionLevel, CardWarning, Point, Quad } from "../../types/repair";
-import { isConvex, polygonArea } from "./geometry";
+import { interiorAngles, isConvex, polygonArea } from "./geometry";
 
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -20,18 +20,6 @@ export function estimateAspectRatio(quad: Quad): number {
   const h = (dist(tl, bl) + dist(tr, br)) / 2;
   if (w < 1e-9 || h < 1e-9) return 1;
   return Math.max(w, h) / Math.min(w, h);
-}
-
-/** Interior angle at each corner in degrees. */
-export function interiorAngles(quad: Quad): number[] {
-  return quad.map((p, i) => {
-    const a = quad[(i + 3) % 4]!;
-    const b = quad[(i + 1) % 4]!;
-    const v1 = { x: a.x - p.x, y: a.y - p.y };
-    const v2 = { x: b.x - p.x, y: b.y - p.y };
-    const cos = (v1.x * v2.x + v1.y * v2.y) / ((Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y)) || 1);
-    return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
-  });
 }
 
 /** Largest ratio between opposite sides (>= 1); 1 means no perspective foreshortening. */

@@ -1,5 +1,10 @@
 import type { DetectionMethod, DetectionResult, Point, RasterImage, Result } from "../../../types/repair";
-import { isConvex, isPlausiblePage, orderCorners, polygonArea } from "../geometry";
+import { boundaryContrast, BOUNDARY_STEP, lineStep } from "../boundary";
+import type { Gray } from "../boundary";
+import { mergeSegments, quadsFromLines } from "../card-lines";
+import { extendSides } from "../extend";
+import type { Segment } from "../card-lines";
+import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
 import type { OpenCv } from "./loader";
 
@@ -17,23 +22,51 @@ export const MIN_EDGE_SUPPORT = 0.25;
 /** A background trim is rejected if it lowers edge support by more than this. */
 const MAX_SUPPORT_LOSS = 0.1;
 
+/** Fixed, sensitive Canny thresholds for the line cue: a white page on a white surface leaves only a faint edge. */
+const LINE_CANNY: readonly [number, number] = [10, 30];
+/** Hough: votes needed for a line, and the longest gap bridged inside one segment. */
+const HOUGH_THRESHOLD = 40;
+const HOUGH_MAX_GAP_PX = 6;
+const MAX_SEGMENTS = 800;
+/** Segments and merged lines shorter than these fractions of the shorter image side are ignored. */
+const MIN_SEGMENT_FRACTION = 0.1;
+const MIN_LINE_FRACTION = 0.12;
+/** Long/short side ratios accepted for line-built pages: square notes to long receipts. */
+const PAGE_ASPECT: readonly [number, number] = [1, 4];
+const LINE_QUADS = 24;
+/**
+ * Folds, shaded bands and box borders inside a page are straight brightness steps too, so a
+ * line-built quad can be a part of the page. A traced (contour) candidate that encloses the winner
+ * is taken instead when it scores at least this fraction of the winner's score.
+ */
+const MIN_ENCLOSING_SCORE_RATIO = 0.7;
+const ENCLOSING_SLACK_PX = 8;
+
 interface Disposable { delete(): void }
 type Own = <T extends Disposable>(x: T) => T;
 
-interface Candidate {
+export interface Candidate {
   points: Point[];
   area: number;
   method: DetectionMethod;
   support: number;
+  /** How much of the outline separates two surfaces (see boundaryContrast). */
+  contrast: number;
+}
+
+/** Filled by detectDocument when passed, for development diagnostics: every candidate considered. */
+export interface DetectionTrace {
+  candidates: Candidate[];
 }
 
 /**
  * Find the page quadrilateral. Several independent segmentations (edges, brightness, low colour
- * saturation) each propose quads; every proposal is scored by how well its sides follow real image
- * edges, so a corner stuck on the frame or a patch of bright background is not mistaken for the page.
+ * saturation) and long straight boundary lines each propose quads; every proposal is scored by how
+ * well its sides follow real image edges and how much they separate two surfaces, so a corner stuck
+ * on the frame, a patch of bright background or a table printed on the page is not mistaken for it.
  * Expects a moderately sized image (see downscale); all temporary OpenCV objects are released.
  */
-export function detectDocument(cv: OpenCv, image: RasterImage): Result<DetectionResult> {
+export function detectDocument(cv: OpenCv, image: RasterImage, trace?: DetectionTrace): Result<DetectionResult> {
   const owned: Disposable[] = [];
   const own: Own = (x) => (owned.push(x), x);
   const imageArea = image.width * image.height;
@@ -55,17 +88,20 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
     const nearKernel = own(
       cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2 * EDGE_RADIUS_PX + 1, 2 * EDGE_RADIUS_PX + 1)),
     );
+    // Support is measured on these median-based edges only: sensitive edges sit next to almost any
+    // line on a page full of text, which would make every candidate look well supported.
     const nearEdge = own(new cv.Mat());
     cv.dilate(edges, nearEdge, nearKernel);
 
 
+    const grey: Gray = { data: gray.data, width: image.width, height: image.height };
     const candidates: Candidate[] = [];
+    const add = (points: Point[], method: DetectionMethod) => {
+      const support = edgeSupport(points, nearEdge.data, image.width, image.height);
+      candidates.push({ points, area: polygonArea(points), method, support, contrast: boundaryContrast(points, grey) });
+    };
     const collect = (mask: InstanceType<OpenCv["Mat"]>, method: DetectionMethod) => {
-      for (const q of quadsFrom(cv, mask, imageArea, own)) {
-        const points = q.points;
-        const support = edgeSupport(points, nearEdge.data, image.width, image.height);
-        candidates.push({ points, area: polygonArea(points), method, support });
-      }
+      for (const q of quadsFrom(cv, mask, imageArea, own)) add(q.points, method);
     };
 
     // Cue 1: edges, thickened to close gaps.
@@ -83,11 +119,43 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
     const neutral = colourlessMask(cv, rgba, gray, own);
     collect(neutral, "colour");
 
+    // Cue 4: straight sides. Text and ruled tables keep the outline of a page from closing into one
+    // clean contour, so quads are also built from long straight lines, keeping only lines that
+    // separate two surfaces (a printed table border has the same paper on both sides).
+    const sensitive = own(new cv.Mat());
+    cv.Canny(blur, sensitive, LINE_CANNY[0], LINE_CANNY[1]);
+    const minSide = Math.min(image.width, image.height);
+    const segments = houghSegments(cv, sensitive, MIN_SEGMENT_FRACTION * minSide, own);
+    segments.sort((a, b) => Math.hypot(b.x2 - b.x1, b.y2 - b.y1) - Math.hypot(a.x2 - a.x1, a.y2 - a.y1));
+    const boundaries = mergeSegments(segments.slice(0, MAX_SEGMENTS), MIN_LINE_FRACTION * minSide)
+      .filter((l) => lineStep(grey, l) >= BOUNDARY_STEP);
+    for (const quad of quadsFromLines(boundaries, {
+      width: image.width, height: image.height,
+      minAreaFraction: MIN_AREA_FRACTION, maxAreaFraction: MAX_AREA_FRACTION,
+      support: (q) => edgeSupport(q, nearEdge.data, image.width, image.height), minSupport: MIN_EDGE_SUPPORT,
+      aspectRange: PAGE_ASPECT, maxQuads: LINE_QUADS,
+    })) {
+      add([...quad], "lines");
+    }
+
     // Outlines no flat page could make (slivers, one side far shorter than its opposite) are
     // dropped before ranking, so a plausible candidate can still win.
+    if (trace) trace.candidates = candidates;
     const viable = candidates.filter((c) => c.support >= MIN_EDGE_SUPPORT && isPlausiblePage(c.points));
-    const score = (c: Candidate) => c.support * Math.sqrt(c.area / imageArea);
-    const best = viable.sort((a, b) => score(b) - score(a))[0];
+    // Sides on real edges, that separate the page from what surrounds it, and as much of the photo
+    // as that allows: an inner table scores low on contrast, a patch of background on support.
+    const score = (c: Candidate) => c.support * c.contrast * Math.sqrt(c.area / imageArea);
+    const ranked = viable.sort((a, b) => score(b) - score(a))[0];
+    const best =
+      ranked?.method === "lines"
+        ? viable
+            .filter((c) =>
+              c.method !== "lines" &&
+              c.area > ranked.area &&
+              score(c) >= MIN_ENCLOSING_SCORE_RATIO * score(ranked) &&
+              ranked.points.every((p) => pointInQuad(c.points, p, ENCLOSING_SLACK_PX)))
+            .sort((a, b) => b.area - a.area)[0] ?? ranked
+        : ranked;
     if (!best) {
       return {
         ok: false,
@@ -98,8 +166,21 @@ export function detectDocument(cv: OpenCv, image: RasterImage): Result<Detection
         },
       };
     }
-    // The hull of a crumpled page overshoots its curved sides; pull them in past strips of background.
     const ordered = orderCorners(best.points);
+    // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
+    const extended = best.method === "lines" ? extendSides(ordered, boundaries, grey) : ordered;
+    if (extended !== ordered) {
+      return {
+        ok: true,
+        value: {
+          corners: extended,
+          areaFraction: polygonArea(extended) / imageArea,
+          method: best.method,
+          edgeSupport: edgeSupport(extended, nearEdge.data, image.width, image.height),
+        },
+      };
+    }
+    // The hull of a crumpled page overshoots its curved sides; pull them in past strips of background.
     const trimmed = trimBackground(ordered, neutral.data, image.width, image.height);
     const trimmedSupport = edgeSupport(trimmed, nearEdge.data, image.width, image.height);
     // Keep the trim only if the new outline still follows real edges about as well as the old one.
@@ -229,6 +310,16 @@ function outlineMean(
 /** Fraction (0..1) of the quad outline that lies on a real image edge (see outlineMean). */
 export function edgeSupport(quad: readonly Point[], nearEdge: Uint8Array, width: number, height: number): number {
   return outlineMean(quad, width, height, (i) => (nearEdge[i] ? 1 : 0));
+}
+
+/** Straight segments found in an edge map (probabilistic Hough). */
+function houghSegments(cv: OpenCv, edgeMap: InstanceType<OpenCv["Mat"]>, minLength: number, own: Own): Segment[] {
+  const lines = own(new cv.Mat());
+  cv.HoughLinesP(edgeMap, lines, 1, Math.PI / 180, HOUGH_THRESHOLD, minLength, HOUGH_MAX_GAP_PX);
+  const d = lines.data32S;
+  const out: Segment[] = [];
+  for (let i = 0; i + 3 < d.length; i += 4) out.push({ x1: d[i]!, y1: d[i + 1]!, x2: d[i + 2]!, y2: d[i + 3]! });
+  return out;
 }
 
 function medianOf(data: Uint8Array): number {

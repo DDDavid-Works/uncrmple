@@ -2,7 +2,7 @@ import type { CardDetection, Point, Quad, RasterImage, Result } from "../../../t
 import { mergeSegments, quadsFromLines } from "../card-lines";
 import type { Segment } from "../card-lines";
 import { reduceToQuad, refineQuadByLines, scoreCard, shapeScore } from "../card-geometry";
-import { isConvex, orderCorners, polygonArea } from "../geometry";
+import { isConvex, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { edgeSupport, processingFailed } from "./detect";
 import type { OpenCv } from "./loader";
 
@@ -197,22 +197,6 @@ export function detectCard(cv: OpenCv, image: RasterImage): Result<CardDetection
   } finally {
     for (const o of owned) o.delete();
   }
-}
-
-/** Whether `p` lies inside the convex quad, allowing `slack` px outside. */
-function pointInQuad(quad: Quad, p: Point, slack: number): boolean {
-  let sign = 0;
-  for (let i = 0; i < 4; i++) {
-    const a = quad[i]!;
-    const b = quad[(i + 1) % 4]!;
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const c = ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / len;
-    if (Math.abs(c) <= slack) continue;
-    const sg = Math.sign(c);
-    if (sign === 0) sign = sg;
-    else if (sg !== sign) return false;
-  }
-  return true;
 }
 
 /** Straight segments found in an edge map (Probabilistic Hough). */

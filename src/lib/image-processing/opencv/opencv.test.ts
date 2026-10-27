@@ -52,6 +52,30 @@ describe("OpenCV engine on a synthetic skewed page", () => {
     expect(r).toMatchObject({ ok: false, error: { code: "no-document-found" } });
   }, 120_000);
 
+  it("finds the page, not a bold table printed on it", async () => {
+    // Regression guard for the line cue and contrast scoring: a heavy printed table must not win over
+    // a visible page edge. (The real-photo failures this addresses depend on texture this synthetic
+    // scene does not reproduce; they are checked on the dev evaluation page.)
+    const photo = pagePhoto(W, H, PAGE, 130, 235);
+    // Blank the synthetic text rows: as solid page-wide bars they read as dozens of ruled lines.
+    for (let i = 0; i < photo.data.length; i += 4) if (photo.data[i] === 40) photo.data[i] = photo.data[i + 1] = photo.data[i + 2] = 235;
+    // A heavy 3 px box inside the page, the kind of ruled table that out-scores faint page edges.
+    const BOX: Quad = [{ x: 230, y: 180 }, { x: 560, y: 200 }, { x: 545, y: 430 }, { x: 215, y: 410 }];
+    const ink = (x: number, y: number) => {
+      const i = (Math.round(y) * W + Math.round(x)) * 4;
+      photo.data[i] = photo.data[i + 1] = photo.data[i + 2] = 20;
+    };
+    BOX.forEach((a, k) => {
+      const b = BOX[(k + 1) % 4]!;
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y));
+      for (let s = 0; s <= n; s++) for (let d = -1; d <= 1; d++) ink(a.x + ((b.x - a.x) * s) / n + d, a.y + ((b.y - a.y) * s) / n + d);
+    });
+    const r = await processor.detectDocument(photo);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    r.value.corners.forEach((c, i) => expect(Math.hypot(c.x - PAGE[i]!.x, c.y - PAGE[i]!.y)).toBeLessThan(10));
+  }, 120_000);
+
   it("refuses a page outline no flat sheet could make instead of warping it", async () => {
     // A bright wedge: its outline is a clear, well-supported quad, but its top is a fifth of its base.
     const wedge: Quad = [{ x: 360, y: 80 }, { x: 440, y: 80 }, { x: 700, y: 540 }, { x: 100, y: 540 }];

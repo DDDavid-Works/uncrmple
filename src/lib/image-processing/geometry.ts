@@ -77,6 +77,22 @@ export function isPlausiblePage(quad: readonly Point[]): boolean {
   return ratio(side(0), side(2)) >= PAGE_SHAPE.minSideRatio && ratio(side(1), side(3)) >= PAGE_SHAPE.minSideRatio;
 }
 
+/** Whether `p` lies inside the convex quad, allowing `slack` px outside. */
+export function pointInQuad(quad: readonly Point[], p: Point, slack: number): boolean {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = quad[i]!;
+    const b = quad[(i + 1) % 4]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const c = ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / len;
+    if (Math.abs(c) <= slack) continue;
+    const sg = Math.sign(c);
+    if (sign === 0) sign = sg;
+    else if (sg !== sign) return false;
+  }
+  return true;
+}
+
 const invalid = (message: string): Result<never> => ({
   ok: false,
   error: { code: "invalid-corners", message } satisfies RepairError,

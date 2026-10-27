@@ -27,6 +27,7 @@ const OPPOSITE_ANGLE_MAX = (32 * Math.PI) / 180;
 const PAIR_ANGLE_RANGE: readonly [number, number] = [(55 * Math.PI) / 180, (125 * Math.PI) / 180];
 const MAX_LINES = 28;
 const MAX_QUADS = 12;
+const CARD_ASPECT: readonly [number, number] = [1.05, 2.4];
 const MIN_SEPARATION_FRACTION = 0.1;
 const MIN_OVERLAP = 0.3;
 /** Corners may fall this far outside the photo (a side running off-frame) before being rejected. */
@@ -151,6 +152,10 @@ export interface LineQuadOptions {
   support: (quad: Quad) => number;
   /** Candidates must reach this support. */
   minSupport: number;
+  /** Accepted long/short side ratios; defaults to card-like proportions. */
+  aspectRange?: readonly [number, number];
+  /** How many of the best-supported quads to return (default 12). */
+  maxQuads?: number;
 }
 
 /**
@@ -166,6 +171,7 @@ export function quadsFromLines(allLines: readonly EdgeLine[], o: LineQuadOptions
   const pairs = sidePairs(lines, MIN_SEPARATION_FRACTION * Math.min(o.width, o.height));
   const slackX = FRAME_SLACK * o.width, slackY = FRAME_SLACK * o.height;
   const found: { quad: Quad; support: number }[] = [];
+  const aspect = o.aspectRange ?? CARD_ASPECT;
 
   for (let i = 0; i < pairs.length; i++) {
     for (let j = i + 1; j < pairs.length; j++) {
@@ -183,7 +189,7 @@ export function quadsFromLines(allLines: readonly EdgeLine[], o: LineQuadOptions
       const clamped = poly.map((p) => ({ x: Math.min(o.width, Math.max(0, p.x)), y: Math.min(o.height, Math.max(0, p.y)) }));
       const quad = orderCorners(clamped) as Quad;
       const ratio = estimateAspectRatio(quad);
-      if (ratio < 1.05 || ratio > 2.4) continue;
+      if (ratio < aspect[0] || ratio > aspect[1]) continue;
       const support = o.support(quad);
       if (support >= o.minSupport) found.push({ quad, support });
     }
@@ -194,7 +200,7 @@ export function quadsFromLines(allLines: readonly EdgeLine[], o: LineQuadOptions
   for (const f of found) {
     const dup = kept.some((k) => k.every((p, n) => Math.hypot(p.x - f.quad[n]!.x, p.y - f.quad[n]!.y) < 8));
     if (!dup) kept.push(f.quad);
-    if (kept.length >= MAX_QUADS) break;
+    if (kept.length >= (o.maxQuads ?? MAX_QUADS)) break;
   }
   return kept;
 }

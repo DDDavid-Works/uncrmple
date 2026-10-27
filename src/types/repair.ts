@@ -29,7 +29,7 @@ export interface RepairError {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: RepairError };
 
-export type DetectionMethod = "edges" | "brightness" | "colour";
+export type DetectionMethod = "edges" | "brightness" | "colour" | "lines";
 
 export interface DetectionResult {
   corners: Quad;
