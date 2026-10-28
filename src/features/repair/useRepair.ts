@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fileToRaster, rasterToPng } from "../../lib/browser/raster";
-import { createOpenCvProcessor } from "../../lib/image-processing/opencv/processor";
+import { getEngine } from "../../lib/engine/client";
 import { DEFAULT_ENHANCE_OPTIONS } from "../../lib/image-processing/options";
-import { repair } from "../../lib/image-processing/pipeline";
 import type { SourceDocument } from "../../types/document";
 import { addQuarterTurn } from "../../lib/image-processing/rotate";
 import type { OutputStyle, Quad, QuarterTurn, RepairResult } from "../../types/repair";
@@ -55,7 +53,7 @@ export interface RepairApi {
  * latest job per document may publish a result.
  */
 export function useRepair(documents: SourceDocument[]): RepairApi {
-  const processor = useMemo(() => createOpenCvProcessor(), []);
+  const engine = useMemo(() => getEngine(), []);
   const [states, setStates] = useState<Record<string, RepairState>>({});
   const [styles, setStyles] = useState<Record<string, OutputStyle>>({});
   // Kept in a ref only: the rotation shows through the result it produces.
@@ -115,26 +113,21 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       const previous = prior?.status === "done" ? prior.result : prior?.status === "running" ? prior.previous : undefined;
       set({ status: "running", previous });
 
-      const raster = await fileToRaster(doc.file);
-      if (!raster.ok) return fail(raster.error.message);
-
-      const repaired = await repair(processor, raster.value, {
+      // A style change keeps the corners and turn, so the straightened page is unchanged: reuse its encoding.
+      const reuseStraightened = reuse && !manual && reuse.rotation === rotation ? urls.current.get(doc.id)?.straightenedUrl : undefined;
+      const repaired = await engine.repair({
+        file: doc.file,
         corners: manual ?? reuse?.corners,
-        enhance: { style },
+        style,
         rotate: rotation,
+        straightened: !reuseStraightened,
       });
       if (!repaired.ok) return fail(repaired.error.message);
 
-      const png = await rasterToPng(repaired.value.image);
-      if (!png.ok) return fail(png.error.message);
-      // A style change keeps the corners and turn, so the straightened page is unchanged: reuse its encoding.
-      const reuseStraightened = reuse && !manual && reuse.rotation === rotation ? urls.current.get(doc.id)?.straightenedUrl : undefined;
-      const straightPng = reuseStraightened ? null : await rasterToPng(repaired.value.straightened);
-      if (straightPng && !straightPng.ok) return fail(straightPng.error.message);
-
       if (!current()) return; // removed, or superseded by a newer job
-      const url = URL.createObjectURL(png.value);
-      const straightenedUrl = straightPng ? URL.createObjectURL(straightPng.value) : reuseStraightened!;
+      const { png, straightenedPng } = repaired.value;
+      const url = URL.createObjectURL(png);
+      const straightenedUrl = straightenedPng ? URL.createObjectURL(straightenedPng) : reuseStraightened!;
       const old = urls.current.get(doc.id);
       if (old) {
         URL.revokeObjectURL(old.url);
@@ -142,12 +135,12 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       }
       urls.current.set(doc.id, { url, straightenedUrl });
 
-      const { image, corners } = repaired.value;
+      const { width, height, corners } = repaired.value;
       const view: RepairedView = {
         url,
         straightenedUrl,
-        width: image.width,
-        height: image.height,
+        width,
+        height,
         corners,
         // Re-applied corners keep their original detection details.
         source: reuse && !manual ? reuse.source : repaired.value.source,
@@ -164,7 +157,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       const wanted = stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style;
       if (wanted !== style || (rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, view);
     },
-    [processor],
+    [engine],
   );
 
   const styleOf = useCallback(

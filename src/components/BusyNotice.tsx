@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { engineStatus, subscribeEngineStatus } from "../lib/image-processing/opencv/loader";
+import { engineStatus, subscribeEngineStatus } from "../lib/engine/client";
 
 interface Props {
   /** What is being done, e.g. "Repairing the page…". */

@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fileToRaster, rasterToPng } from "../../lib/browser/raster";
+import { getEngine } from "../../lib/engine/client";
 import { hasCardEnhancement, NO_CARD_ENHANCEMENT } from "../../lib/image-processing/card-options";
-import { detectCardCorners } from "../../lib/image-processing/card-pipeline";
-import { measureCardQuality } from "../../lib/image-processing/card-quality";
 import { validateQuad } from "../../lib/image-processing/geometry";
-import { createOpenCvProcessor } from "../../lib/image-processing/opencv/processor";
-import { validateRaster } from "../../lib/image-processing/pipeline";
 import type { SourceDocument } from "../../types/document";
 import type { CardDetection, CardEnhanceOptions, CardQualityIssue, Quad, RasterImage } from "../../types/repair";
 
@@ -68,7 +64,7 @@ interface Urls { crop?: string; enhanced?: string }
  * publish. The full-size photo is decoded per job and not kept.
  */
 export function useCardCrop(documents: SourceDocument[]): CardCropApi {
-  const processor = useMemo(() => createOpenCvProcessor(), []);
+  const engine = useMemo(() => getEngine(), []);
   const [states, setStates] = useState<Record<string, CardState>>({});
   const [enhances, setEnhances] = useState<Record<string, CardEnhanceOptions>>({});
   const statesRef = useRef(states);
@@ -163,43 +159,35 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       const shown = lastView(id);
       if (shown) job.set({ status: "done", view: { ...shown, enhancing: true } });
 
-      const enhanced = await processor.enhanceCard(crop, options);
-      const png = enhanced.ok ? await rasterToPng(enhanced.value) : null;
+      const png = await engine.enhanceCard(crop, options);
       if (!job.current()) return;
-      if (!enhanced.ok || !png || !png.ok) {
-        const message = !enhanced.ok ? enhanced.error.message : png && !png.ok ? png.error.message : "Encoding failed.";
-        return job.set({ status: "done", view: { ...view, enhanceError: message } });
-      }
+      if (!png.ok) return job.set({ status: "done", view: { ...view, enhanceError: png.error.message } });
       const url = URL.createObjectURL(png.value);
       if (u.enhanced) URL.revokeObjectURL(u.enhanced);
       urls.current.set(id, { crop: cropUrl, enhanced: url });
       job.set({ status: "done", view: { ...view, url, enhance: options } });
     },
-    [processor],
+    [engine],
   );
 
   const cropWith = useCallback(
     async (doc: SourceDocument, corners: Quad, detection: CardDetection | null, job: Job) => {
       job.set({ status: "working", step: "cropping" });
-      const raster = await fileToRaster(doc.file);
-      if (!raster.ok) return job.set({ status: "error", message: raster.error.message });
-      const warped = await processor.correctPerspective(raster.value, corners);
-      if (!warped.ok) return job.set({ status: "error", message: warped.error.message });
-      const png = await rasterToPng(warped.value);
-      if (!png.ok) return job.set({ status: "error", message: png.error.message });
+      const cropped = await engine.cropCard(doc.file, corners);
+      if (!cropped.ok) return job.set({ status: "error", message: cropped.error.message });
       if (!job.current()) return;
 
       release(doc.id);
-      crops.current.set(doc.id, warped.value);
-      urls.current.set(doc.id, { crop: URL.createObjectURL(png.value) });
+      crops.current.set(doc.id, cropped.value.crop);
+      urls.current.set(doc.id, { crop: URL.createObjectURL(cropped.value.png) });
       await publish(
         doc.id,
         job,
-        { corners, detection, quality: measureCardQuality(warped.value) },
+        { corners, detection, quality: cropped.value.quality },
         enhancesRef.current[doc.id] ?? NO_CARD_ENHANCEMENT,
       );
     },
-    [processor, publish, release],
+    [engine, publish, release],
   );
 
   const detect = useCallback(
@@ -207,12 +195,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       const job = begin(doc.id);
       const previous = lastView(doc.id);
       job.set({ status: "working", step: "detecting" });
-      const raster = await fileToRaster(doc.file);
-      if (!raster.ok) return job.set({ status: "error", message: raster.error.message });
-      const valid = validateRaster(raster.value);
-      if (!valid.ok) return job.set({ status: "error", message: valid.error.message });
-
-      const found = await detectCardCorners(processor, raster.value);
+      const found = await engine.detectCard(doc.file);
       if (!found.ok) {
         if (found.error.code === "no-card-found") {
           return job.set({
@@ -240,7 +223,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       if (found.value.level === "ready") return cropWith(doc, found.value.corners, found.value, job);
       job.set({ status: "review", corners: found.value.corners, detection: found.value, previous });
     },
-    [begin, cropWith, processor],
+    [begin, cropWith, engine],
   );
 
   const crop = useCallback(
