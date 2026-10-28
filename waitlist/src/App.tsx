@@ -87,10 +87,20 @@ export function App() {
             <h2 id="privacy-title">
               Your documents <mark>stay yours.</mark>
             </h2>
-            <p>
-              Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist only collects
-              your email. Your result is a cleaned-up copy of your photo, not a guaranteed official document.
-            </p>
+            <div>
+              <p>
+                Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist only
+                collects your email. Your result is a cleaned-up copy of your photo, not a guaranteed official document.
+              </p>
+              <p className="privacy-note">
+                Your email is sent through{" "}
+                <a href="https://web3forms.com/privacy" target="_blank" rel="noopener noreferrer">
+                  Web3Forms
+                </a>
+                , which delivers it to our inbox. We only use it to tell you about the launch. To be removed, email{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+              </p>
+            </div>
           </div>
         </section>
 

@@ -197,6 +197,8 @@ h2 { font-size: clamp(32px, 4.5vw, 44px); font-weight: 700; line-height: 1.1; le
 .band-split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
 .band-dark h2 { margin: 0; font-size: clamp(30px, 4vw, 42px); letter-spacing: -1.5px; max-width: 9em; }
 .band-dark p { font-size: 17px; line-height: 1.6; letter-spacing: 0; }
+.band-dark .privacy-note { margin: 14px 0 0; font-size: 14px; opacity: .8; }
+.privacy-note a { color: inherit; text-underline-offset: 3px; }
 .band-accent { background: var(--accent); color: var(--accent-text); text-align: center; padding: 72px 0; border-bottom: 2px solid var(--ink); }
 .band-accent .btn { box-shadow: 4px 4px 0 var(--band); }
 .band-accent .fine { color: inherit; opacity: .85; }
