@@ -12,7 +12,7 @@ const STEPS = [
 
 const BENEFITS = [
   { title: "No retake needed", text: "Tilted, shadowed, grey or low contrast? Fix the shot you already have." },
-  { title: "Faithful to the original", text: "We clean up the document. We never invent or rewrite what it says." },
+  { title: "Faithful to the original", text: "Cleans up the document. No content rewrite or generation." },
   { title: "Private by design", text: "Your documents are processed in your browser. Not uploaded. Not stored." },
   { title: "No account to start", text: "Open it, drop in a document photo, get your file. Simple as paper should be." },
 ];

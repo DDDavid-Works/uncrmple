@@ -1,15 +1,45 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BeforeAfter } from "../src/components/BeforeAfter";
 
+const SLIDER = { name: "Compare the document before and after repair" };
+
+function preferReducedMotion() {
+  // With reduced motion the Repair button jumps straight to the result, so no animation frames are needed.
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), media: query }));
+}
+
 describe("BeforeAfter", () => {
-  it("shows the try-it callout until the divider is first moved", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("starts on the original photo with the try-it callout", () => {
     render(<BeforeAfter />);
-    expect(screen.getByText("Try it! Drag me")).toBeInTheDocument();
+    expect(screen.getByRole("slider", SLIDER)).toHaveValue("100");
+    expect(screen.getByRole("button", { name: "Repair" })).toBeInTheDocument();
+    expect(screen.getByText("Try it!")).toBeInTheDocument();
+  });
 
-    const slider = screen.getByRole("slider", { name: "Compare the document before and after repair" });
-    fireEvent.change(slider, { target: { value: "40" } });
+  it("Repair shows the repaired document and can switch back to the original", async () => {
+    preferReducedMotion();
+    const user = userEvent.setup();
+    render(<BeforeAfter />);
 
-    expect(slider).toHaveValue("40");
-    expect(screen.queryByText("Try it! Drag me")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    expect(screen.getByRole("slider", SLIDER)).toHaveValue("0");
+    expect(screen.queryByText("Try it!")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show original" }));
+    expect(screen.getByRole("slider", SLIDER)).toHaveValue("100");
+    expect(screen.getByRole("button", { name: "Repair" })).toBeInTheDocument();
+  });
+
+  it("dragging still compares and hides the callout", () => {
+    render(<BeforeAfter />);
+    const slider = screen.getByRole("slider", SLIDER);
+    fireEvent.change(slider, { target: { value: "30" } });
+
+    expect(slider).toHaveValue("30");
+    expect(screen.getByRole("button", { name: "Show original" })).toBeInTheDocument();
+    expect(screen.queryByText("Try it!")).not.toBeInTheDocument();
   });
 });
