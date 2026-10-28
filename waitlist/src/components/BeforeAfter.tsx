@@ -7,10 +7,37 @@ const LINES = [
   "Less noise. Better signal.",
 ];
 
+/**
+ * Facets that shade the "before" page so it looks crumpled and smoothed out again, in a 100 x 100 box
+ * stretched over the page. Positive shades lighten (white), negative ones darken (black).
+ */
+const CRUMPLE_FACETS: ReadonlyArray<readonly [points: string, shade: number]> = [
+  ["0,0 28,0 22,26", 0.1], ["0,0 22,26 0,30", -0.08], ["28,0 55,0 47,34", -0.12], ["28,0 47,34 22,26", 0.06],
+  ["55,0 80,0 72,22", 0.12], ["55,0 72,22 47,34", -0.06], ["80,0 100,0 100,32", -0.1], ["80,0 100,32 72,22", 0.08],
+  ["0,30 22,26 30,58", 0.08], ["0,30 30,58 0,62", -0.1], ["22,26 47,34 58,66", -0.14], ["22,26 58,66 30,58", 0.1],
+  ["47,34 72,22 80,52", 0.12], ["47,34 80,52 58,66", -0.08], ["72,22 100,32 100,64", -0.06], ["72,22 100,64 80,52", 0.1],
+  ["0,62 30,58 25,100", 0.06], ["0,62 25,100 0,100", -0.1], ["30,58 58,66 52,100", -0.12], ["30,58 52,100 25,100", 0.08],
+  ["58,66 80,52 78,100", 0.1], ["58,66 78,100 52,100", -0.06], ["80,52 100,64 100,100", -0.1], ["80,52 100,100 78,100", 0.06],
+];
+/** Sharpest folds, drawn as thin highlights along facet edges. */
+const CRUMPLE_CREASES = "M0 30L22 26L47 34L72 22L100 32M22 26L30 58L58 66L80 52L100 64M47 34L58 66L52 100M72 22L80 52";
+
+function Crumple() {
+  return (
+    <svg className="sample-crumple" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {CRUMPLE_FACETS.map(([points, shade]) => (
+        <polygon key={points} points={points} fill={shade > 0 ? "#ffffff" : "#000000"} fillOpacity={Math.abs(shade)} />
+      ))}
+      <path d={CRUMPLE_CREASES} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 /** Illustrative sample page (not a real repair result). */
-function SamplePage() {
+function SamplePage({ crumpled = false }: { crumpled?: boolean }) {
   return (
     <div className="sample-page">
+      {crumpled && <Crumple />}
       <div className="sample-head">
         <span className="sample-title">FIELD NOTES</span>
         <span className="sample-project">PROJECT / 001</span>
@@ -85,7 +112,7 @@ export function BeforeAfter() {
       <div className="compare-stage" style={{ "--split": `${split}%` } as CSSProperties}>
         {/* Each tag lives in its layer, so it is clipped away with that layer. */}
         <div className="compare-layer compare-before" aria-hidden="true">
-          <SamplePage />
+          <SamplePage crumpled />
           <span className="tag tag-before">BEFORE</span>
         </div>
         <div className="compare-layer compare-after" aria-hidden="true">
