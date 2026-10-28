@@ -21,7 +21,7 @@ const NO_DOCUMENTS: SourceDocument[] = [];
 
 export function App() {
   const { documents, rejected, pending, addFiles, remove, move, dismissRejected } = useDocuments();
-  const { stateOf, styleOf, run, setStyle, applyCorners } = useRepair(documents);
+  const { stateOf, styleOf, run, setStyle, rotate, applyCorners } = useRepair(documents);
   const cards = useCardCrop(documents);
   const [mode, setMode] = useState<ProcessingMode>("document");
   // Page assessment is for the document workflow only; skip the work in card mode.
@@ -121,6 +121,7 @@ export function App() {
                 style={styleOf(selected.id)}
                 onStyleChange={(s) => setStyle(selected, s)}
                 onRepair={() => void run(selected)}
+                onRotate={(by) => rotate(selected, by)}
                 onApplyCorners={(c) => void applyCorners(selected, c)}
                 onRemove={() => remove(selected.id)}
               />

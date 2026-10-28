@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RepairState } from "../repair/useRepair";
 import type { SourceDocument } from "../../types/document";
-import type { OutputStyle, Quad } from "../../types/repair";
+import type { OutputStyle, Quad, QuarterTurn } from "../../types/repair";
 import { AssessmentPanel } from "../assess/AssessmentPanel";
 import type { AssessmentState } from "../assess/useAssessment";
 import { BusyNotice } from "../../components/BusyNotice";
@@ -25,9 +25,14 @@ interface Props {
   style: OutputStyle;
   onStyleChange: (style: OutputStyle) => void;
   onRepair: () => void;
+  /** Turn the repaired page a further 90° clockwise (90) or anticlockwise (-90). */
+  onRotate: (by: 90 | -90) => void;
   onApplyCorners: (corners: Quad) => void;
   onRemove: () => void;
 }
+
+/** How a turned page reads in the status line. */
+const TURN_TEXT: Record<QuarterTurn, string> = { 0: "", 90: "right", 180: "upside down", 270: "left" };
 
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -35,7 +40,7 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onApplyCorners, onRemove }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // While a new style is being applied, keep showing the last result.
@@ -73,6 +78,16 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           <button type="button" className="btn" onClick={adjustCorners} disabled={running || editing}>
             Adjust corners
           </button>
+          {done && (
+            <div className="preview__rotate" role="group" aria-label="Rotate page">
+              <button type="button" className="btn" onClick={() => onRotate(-90)} disabled={running || editing} aria-label="Rotate left (anticlockwise)">
+                <span aria-hidden="true">↺</span> Left
+              </button>
+              <button type="button" className="btn" onClick={() => onRotate(90)} disabled={running || editing} aria-label="Rotate right (clockwise)">
+                <span aria-hidden="true">↻</span> Right
+              </button>
+            </div>
+          )}
           <div className="preview__actions-end">
             <RemoveButton name={doc.name} onRemove={onRemove} />
           </div>
@@ -136,6 +151,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
             {done.deskew.applied !== 0 && ` · text levelled by ${Math.abs(done.deskew.applied).toFixed(1)}°`}
             {done.dewarp.applied && " · curved lines flattened"}
+            {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
           </p>
           {lowCoverage(done) && (
             <div role="alert" className="notice notice--warn">

@@ -4,7 +4,8 @@ import { createOpenCvProcessor } from "../../lib/image-processing/opencv/process
 import { DEFAULT_ENHANCE_OPTIONS } from "../../lib/image-processing/options";
 import { repair } from "../../lib/image-processing/pipeline";
 import type { SourceDocument } from "../../types/document";
-import type { OutputStyle, Quad, RepairResult } from "../../types/repair";
+import { addQuarterTurn } from "../../lib/image-processing/rotate";
+import type { OutputStyle, Quad, QuarterTurn, RepairResult } from "../../types/repair";
 
 export interface RepairedView {
   url: string;
@@ -16,6 +17,8 @@ export interface RepairedView {
   /** How the corners were found; kept when only the output style changes. */
   source: RepairResult["source"];
   style: OutputStyle;
+  /** Clockwise turn applied to the finished page. */
+  rotation: QuarterTurn;
   areaFraction?: number;
   edgeSupport?: number;
   /** Residual tilt of the print and whether it was levelled. */
@@ -40,6 +43,8 @@ export interface RepairApi {
   run: (doc: SourceDocument) => Promise<void>;
   /** Select a style; if the page is already repaired, re-apply it using the same corners. */
   setStyle: (doc: SourceDocument, style: OutputStyle) => void;
+  /** Turn the repaired page a further 90° clockwise (90) or anticlockwise (-90), re-applying the repair with the same corners. */
+  rotate: (doc: SourceDocument, by: 90 | -90) => void;
   /** Repair with user-chosen corners (source-image pixels) instead of detecting the page. */
   applyCorners: (doc: SourceDocument, corners: Quad) => Promise<void>;
 }
@@ -53,6 +58,8 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   const processor = useMemo(() => createOpenCvProcessor(), []);
   const [states, setStates] = useState<Record<string, RepairState>>({});
   const [styles, setStyles] = useState<Record<string, OutputStyle>>({});
+  // Kept in a ref only: the rotation shows through the result it produces.
+  const rotations = useRef<Record<string, QuarterTurn>>({});
   const statesRef = useRef(states);
   const stylesRef = useRef(styles);
   statesRef.current = states;
@@ -73,6 +80,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         jobs.current.delete(id);
       }
     }
+    for (const id of Object.keys(rotations.current)) if (!alive.current.has(id)) delete rotations.current[id];
     const keep = <T,>(s: Record<string, T>) => {
       const entries = Object.entries(s).filter(([id]) => alive.current.has(id));
       return entries.length === Object.keys(s).length ? s : Object.fromEntries(entries);
@@ -102,6 +110,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       };
       const fail = (message: string) => set({ status: "error", message });
 
+      const rotation = rotations.current[doc.id] ?? 0;
       const prior = statesRef.current[doc.id];
       const previous = prior?.status === "done" ? prior.result : prior?.status === "running" ? prior.previous : undefined;
       set({ status: "running", previous });
@@ -112,13 +121,14 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       const repaired = await repair(processor, raster.value, {
         corners: manual ?? reuse?.corners,
         enhance: { style },
+        rotate: rotation,
       });
       if (!repaired.ok) return fail(repaired.error.message);
 
       const png = await rasterToPng(repaired.value.image);
       if (!png.ok) return fail(png.error.message);
-      // A style change keeps the corners, so the straightened page is unchanged: reuse its encoding.
-      const reuseStraightened = reuse && !manual ? urls.current.get(doc.id)?.straightenedUrl : undefined;
+      // A style change keeps the corners and turn, so the straightened page is unchanged: reuse its encoding.
+      const reuseStraightened = reuse && !manual && reuse.rotation === rotation ? urls.current.get(doc.id)?.straightenedUrl : undefined;
       const straightPng = reuseStraightened ? null : await rasterToPng(repaired.value.straightened);
       if (straightPng && !straightPng.ok) return fail(straightPng.error.message);
 
@@ -142,6 +152,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         // Re-applied corners keep their original detection details.
         source: reuse && !manual ? reuse.source : repaired.value.source,
         style,
+        rotation,
         areaFraction: reuse && !manual ? reuse.areaFraction : repaired.value.areaFraction,
         edgeSupport: reuse && !manual ? reuse.edgeSupport : repaired.value.edgeSupport,
         deskew: repaired.value.deskew,
@@ -149,9 +160,9 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       };
       set({ status: "done", result: view });
 
-      // The style changed while the repair was running: apply it with these corners.
+      // The style or turn changed while the repair was running: apply it with these corners.
       const wanted = stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style;
-      if (wanted !== style) void execute(doc, wanted, view);
+      if (wanted !== style || (rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, view);
     },
     [processor],
   );
@@ -183,6 +194,18 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
     [execute],
   );
 
+  const rotate = useCallback(
+    (doc: SourceDocument, by: 90 | -90) => {
+      const state = statesRef.current[doc.id];
+      const shown = state?.status === "done" ? state.result : state?.status === "running" ? state.previous : undefined;
+      if (!shown) return; // nothing repaired yet to turn
+      rotations.current = { ...rotations.current, [doc.id]: addQuarterTurn(rotations.current[doc.id] ?? 0, by) };
+      // A job in flight picks up the new turn when it finishes.
+      if (state?.status === "done") void execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, shown);
+    },
+    [execute],
+  );
+
   const applyCorners = useCallback(
     (doc: SourceDocument, corners: Quad) =>
       execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, undefined, corners),
@@ -190,5 +213,5 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   );
 
   const stateOf = useCallback((id: string) => states[id] ?? IDLE, [states]);
-  return { stateOf, styleOf, run, setStyle, applyCorners };
+  return { stateOf, styleOf, run, setStyle, rotate, applyCorners };
 }

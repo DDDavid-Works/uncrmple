@@ -67,7 +67,12 @@ export interface RepairOptions {
   deskew?: boolean;
   /** Flatten curved lines when that measurably straightens them. Defaults to true. */
   dewarp?: boolean;
+  /** Turn the finished page clockwise by this many degrees (a page photographed sideways). Defaults to 0. */
+  rotate?: QuarterTurn;
 }
+
+/** Clockwise rotations of a whole page. */
+export type QuarterTurn = 0 | 90 | 180 | 270;
 
 /**
  * Smooth vertical displacement of a straightened page, independent of resolution: the output

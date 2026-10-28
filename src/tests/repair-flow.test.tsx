@@ -372,6 +372,64 @@ describe("edge support warning", () => {
   });
 });
 
+describe("rotation", () => {
+  beforeEach(() => {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: true,
+      value: {
+        corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }],
+        areaFraction: 0.7,
+        edgeSupport: 0.9,
+        method: "edges",
+      },
+    });
+    vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+  });
+
+  it("is offered only once a page is repaired", async () => {
+    await uploadOne();
+    expect(screen.queryByRole("button", { name: "Rotate right (clockwise)" })).toBeNull();
+  });
+
+  it("turns the repaired page with the same corners, and a fourth turn brings it back", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByText(/320×240px/);
+    const corners = vi.mocked(processor.correctPerspective).mock.lastCall![1];
+
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    await screen.findByText(/240×320px.*turned right/);
+    expect(processor.detectDocument).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(processor.correctPerspective).mock.lastCall![1]).toEqual(corners);
+
+    for (const shown of [/320×240px.*turned upside down/, /240×320px.*turned left/]) {
+      await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+      await screen.findByText(shown);
+    }
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/320×240px/));
+    expect(screen.getByRole("status")).not.toHaveTextContent(/turned/);
+  });
+
+  it("turns anticlockwise too, so a sideways page is one tap from upright", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByText(/320×240px/);
+    await user.click(screen.getByRole("button", { name: "Rotate left (anticlockwise)" }));
+    await screen.findByText(/240×320px.*turned left/);
+  });
+
+  it("keeps the turn when the style changes", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByText(/320×240px/);
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    await screen.findByText(/turned right/);
+    await user.click(screen.getByRole("radio", { name: "Grayscale" }));
+    await screen.findByText(/240×320px · Grayscale.*turned right/);
+  });
+});
+
 describe("output style", () => {
   const detected = {
     ok: true as const,

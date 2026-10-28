@@ -6,6 +6,7 @@ import { planDewarp } from "./dewarp/plan";
 import { downscale } from "./downscale";
 import { scaleQuad, validateQuad } from "./geometry";
 import { DEFAULT_ENHANCE_OPTIONS, validateEnhanceOptions } from "./options";
+import { isQuarterTurn, rotateQuarter } from "./rotate";
 
 /** Longest side of the copy used for page detection. */
 export const DETECTION_MAX_SIDE = 800;
@@ -53,6 +54,8 @@ export async function repair(
 ): Promise<Result<RepairResult>> {
   const style = validateEnhanceOptions(options.enhance ?? DEFAULT_ENHANCE_OPTIONS);
   if (!style.ok) return style;
+  const turn = options.rotate ?? 0;
+  if (!isQuarterTurn(turn)) return fail({ code: "invalid-input", message: "A page can only be rotated by 0, 90, 180 or 270 degrees." });
   const input = validateRaster(image);
   if (!input.ok) return input;
 
@@ -125,11 +128,12 @@ export async function repair(
 
   const enhanced = await processor.enhance(warped.value, style.value);
   if (!enhanced.ok) return enhanced;
+  // Turned last, so detection, levelling and the corners all stay in the photo's own orientation.
   return {
     ok: true,
     value: {
-      image: enhanced.value,
-      straightened: warped.value,
+      image: rotateQuarter(enhanced.value, turn),
+      straightened: rotateQuarter(warped.value, turn),
       corners,
       deskew,
       dewarp,

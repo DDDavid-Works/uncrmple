@@ -99,6 +99,27 @@ describe("repair", () => {
   });
 });
 
+describe("repair rotation", () => {
+  it("turns both the cleaned and the straightened page, after all processing", async () => {
+    const warped = solid(30, 10, 90);
+    const p = fakeProcessor({ correctPerspective: async () => ({ ok: true, value: warped }) });
+    const r = await repair(p, solid(400, 300, 1), { rotate: 90 });
+    if (!r.ok) throw new Error(r.error.message);
+    expect([r.value.image.width, r.value.image.height]).toEqual([10, 30]);
+    expect([r.value.straightened.width, r.value.straightened.height]).toEqual([10, 30]);
+    // Corners stay in the photo's own orientation (what the corner editor shows).
+    expect(r.value.corners).toEqual(quad(400, 300));
+  });
+
+  it("rejects a turn that is not a quarter turn before processing", async () => {
+    const p = fakeProcessor();
+    const detect = vi.spyOn(p, "detectDocument");
+    const r = await repair(p, solid(400, 300, 1), { rotate: 45 as never });
+    expect(r).toMatchObject({ ok: false, error: { code: "invalid-input" } });
+    expect(detect).not.toHaveBeenCalled();
+  });
+});
+
 describe("repair output style", () => {
   it("defaults to colour and passes the chosen style to the engine", async () => {
     const enhance = vi.fn(async (image: RasterImage) => ({ ok: true as const, value: image }));
