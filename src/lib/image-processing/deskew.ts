@@ -1,4 +1,4 @@
-import type { Deskew, ImageProcessor, Point, Quad, RasterImage, Result } from "../../types/repair";
+import type { Deskew, ImageProcessor, Point, Quad, RasterImage, Result, ShiftMap } from "../../types/repair";
 import { toGray } from "./assessment/pixels";
 import { downscale } from "./downscale";
 import { applyHomography, homography, outputSize, rectQuad, scaleQuad } from "./geometry";
@@ -59,10 +59,13 @@ export function deskewDecision(tilt: TiltMeasurement | null): Pick<Deskew, "appl
 /** True when the measured lines bend enough that one rotation cannot level the whole page. */
 export const isBent = (tilt: TiltMeasurement | null): boolean => tilt?.bend != null && tilt.bend >= DESKEW.bendDeg;
 
-/** Straighten a downscaled copy of the page and measure the tilt of its printed lines. */
-export async function measurePageTilt(processor: ImageProcessor, image: RasterImage, quad: Quad): Promise<Result<TiltMeasurement | null>> {
+/** Straighten (and, given `shift`, flatten) a downscaled copy of the page and measure the tilt of its printed lines. */
+export async function measurePageTilt(
+  processor: ImageProcessor, image: RasterImage, quad: Quad, shift?: ShiftMap,
+): Promise<Result<TiltMeasurement | null>> {
   const small = downscale(image, TILT_MAX_SIDE).image;
-  const warped = await processor.correctPerspective(small, scaleQuad(quad, small.width / image.width, small.height / image.height));
+  const smallQuad = scaleQuad(quad, small.width / image.width, small.height / image.height);
+  const warped = await (shift ? processor.correctPerspective(small, smallQuad, shift) : processor.correctPerspective(small, smallQuad));
   if (!warped.ok) return warped;
   return { ok: true, value: measureTilt(toGray(warped.value)) };
 }

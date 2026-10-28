@@ -1,7 +1,7 @@
 import type {
   ImageProcessor, Quad, RasterImage, RepairError, RepairOptions, RepairResult, Result, ShiftMap,
 } from "../../types/repair";
-import { planDeskew } from "./deskew";
+import { DESKEW, measurePageTilt, planDeskew } from "./deskew";
 import { planDewarp } from "./dewarp/plan";
 import { downscale } from "./downscale";
 import { scaleQuad, validateQuad } from "./geometry";
@@ -21,6 +21,23 @@ export function validateRaster(image: RasterImage): Result<RasterImage> {
     return fail({ code: "invalid-input", message: "The image pixel data does not match its dimensions." });
   }
   return { ok: true, value: image };
+}
+
+/**
+ * Flatten the lines on the unrotated page; returns the flattening when it applies and leaves the
+ * page level (within the deskew tolerance), otherwise null.
+ */
+async function levelByFlattening(
+  processor: ImageProcessor, image: RasterImage, corners: Quad,
+): Promise<Result<{ map: ShiftMap; dewarp: RepairResult["dewarp"] } | null>> {
+  const plan = await planDewarp(processor, image, corners);
+  if (!plan.ok) return plan;
+  const { map, dewarp } = plan.value;
+  if (!map) return { ok: true, value: null };
+  const tilt = await measurePageTilt(processor, image, corners, map);
+  if (!tilt.ok) return tilt;
+  const level = tilt.value !== null && Math.abs(tilt.value.angle) < DESKEW.minDeg;
+  return { ok: true, value: level ? { map, dewarp } : null };
 }
 
 /**
@@ -81,7 +98,22 @@ export async function repair(
   // copy shows it makes them clearly straighter.
   let shift: ShiftMap | undefined;
   let dewarp: RepairResult["dewarp"] = { applied: false, skipped: "off", bendBefore: null, bendAfter: null, coverage: null };
-  if (options.dewarp !== false) {
+  // Lines that bend cannot all be levelled by one rotation: a page photographed at an angle can
+  // lean at the top and lie level at the bottom. Rotating by the overall angle then tilts the rest
+  // of the page (and, for a whole-photo cleanup, the photo's own edges). Flattening the lines
+  // without the rotation is preferred when the flattened page then measures level.
+  if (deskew.applied !== 0 && deskew.bent && options.dewarp !== false) {
+    const flat = await levelByFlattening(processor, image, corners);
+    if (!flat.ok) return flat;
+    if (flat.value) {
+      warpQuad = corners;
+      page = undefined;
+      deskew = { ...deskew, applied: 0, skipped: "flattened" };
+      shift = flat.value.map;
+      dewarp = flat.value.dewarp;
+    }
+  }
+  if (options.dewarp !== false && deskew.skipped !== "flattened") {
     const plan = await planDewarp(processor, image, warpQuad, page);
     if (!plan.ok) return plan;
     shift = plan.value.map ?? undefined;

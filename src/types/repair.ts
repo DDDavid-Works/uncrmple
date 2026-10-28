@@ -117,6 +117,8 @@ export type DeskewSkip =
   | "level"
   /** Larger than any tilt we trust ourselves to correct. */
   | "too-steep"
+  /** The lines bend, and flattening them alone left the page level, so no rotation was needed. */
+  | "flattened"
   /** Turned off in the options. */
   | "off";
 

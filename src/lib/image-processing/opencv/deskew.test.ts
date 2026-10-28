@@ -1,8 +1,9 @@
 // @vitest-environment node
 import type { Quad, RasterImage } from "../../../types/repair";
-import { leaningTextPhoto, sameBytes } from "../../../tests/synthetic";
+import { bentTextPage, leaningTextPhoto, sameBytes } from "../../../tests/synthetic";
 import { assessPhoto } from "../assessment/assess";
 import { toGray } from "../assessment/pixels";
+import { fullFrameQuad } from "../geometry";
 import { repair } from "../pipeline";
 import { measureTilt } from "../tilt";
 import { createOpenCvProcessor } from "./processor";
@@ -70,6 +71,22 @@ describe("deskew with the OpenCV engine", () => {
     expect(r.value.deskew.bent).toBe(true);
     expect(r.value.deskew.applied).toBeGreaterThan(0.5);
     expect(r.value.deskew.applied).toBeLessThan(3);
+  }, 120_000);
+
+  it("flattens, rather than rotates, print that leans at the top and lies level at the bottom", async () => {
+    // A slightly curled page photographed at an angle and cleaned as a whole image: rotating by the
+    // overall lean would tilt the level bottom of the page and the photo's own edges.
+    const PW = 800, PH = 1000;
+    const tan4 = Math.tan((4 * Math.PI) / 180);
+    const shift = (x: number, y: number) => 8 * Math.sin((Math.PI * x) / PW) * (0.4 + (0.6 * y) / PH) - (x - PW / 2) * tan4 * (1 - y / PH);
+    const photo = bentTextPage(PW, PH, shift).image;
+    const r = await repair(processor, photo, { corners: fullFrameQuad(PW, PH) });
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.value.deskew).toMatchObject({ applied: 0, skipped: "flattened", bent: true });
+    expect(r.value.dewarp.applied).toBe(true);
+    // Not enlarged into a rotated frame, and level.
+    expect([r.value.straightened.width, r.value.straightened.height]).toEqual([PW, PH]);
+    expect(Math.abs(measureTilt(toGray(r.value.straightened))!.angle)).toBeLessThan(0.3);
   }, 120_000);
 
   it("assessment reports leaning and bent print from the straightened page", async () => {

@@ -173,7 +173,12 @@ describe("residual tilt", () => {
 describe("flattening curved lines", () => {
   const page = { x: 0, y: 0, width: 600, height: 800 };
   const curl = (x: number, y: number) => 10 * Math.sin((Math.PI * x) / 600) * (0.4 + (0.6 * y) / 800);
-  async function repairCurved(afterTrial: "flat" | "unchanged") {
+  /**
+   * The print bends (it leans at the top and is level at the bottom), so the pipeline first tries
+   * flattening without rotating. `afterTrial` is what the flattening trial gives; `afterFlatten`
+   * is the tilt left once flattened ("level" keeps the page unrotated).
+   */
+  async function repairCurved(afterTrial: "flat" | "unchanged", afterFlatten: "level" | "tilted" = "level") {
     vi.mocked(processor.detectDocument).mockResolvedValue({
       ok: true,
       value: {
@@ -184,12 +189,22 @@ describe("flattening curved lines", () => {
       },
     });
     const curved = bentTextPage(600, 800, curl).image;
-    // Warps in order: tilt measurement, flattening trial before and after, final page.
-    vi.mocked(processor.correctPerspective)
+    const flat = afterTrial === "flat" ? bentTextPage(600, 800, () => 0).image : curved;
+    const warp = vi.mocked(processor.correctPerspective);
+    // Warps in order: tilt measurement, then the flattening trial (before and after) on the unrotated page.
+    warp
       .mockResolvedValueOnce({ ok: true, value: leaningTextPhoto(600, 800, page, (t) => 3.5 * (1 - t)) })
       .mockResolvedValueOnce({ ok: true, value: curved })
-      .mockResolvedValueOnce({ ok: true, value: afterTrial === "flat" ? bentTextPage(600, 800, () => 0).image : curved })
-      .mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+      .mockResolvedValueOnce({ ok: true, value: flat });
+    if (afterTrial === "flat") {
+      // Tilt of the flattened page.
+      warp.mockResolvedValueOnce({ ok: true, value: leaningTextPhoto(600, 800, page, () => (afterFlatten === "level" ? 0 : 2)) });
+    }
+    if (afterTrial === "unchanged" || afterFlatten === "tilted") {
+      // Rotation kept: the flattening trial runs again on the rotated page.
+      warp.mockResolvedValueOnce({ ok: true, value: curved }).mockResolvedValueOnce({ ok: true, value: flat });
+    }
+    warp.mockResolvedValue({ ok: true, value: solid(320, 240, 255) }); // final page
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
     await screen.findByAltText("Repaired document: page.jpg");
@@ -199,8 +214,21 @@ describe("flattening curved lines", () => {
     await repairCurved("flat");
     expect(screen.getByText(/curved lines flattened/)).toBeInTheDocument();
     expect(screen.queryByText(/lines of text bend across the page/)).toBeNull();
-    // The final warp carried the shift map.
-    expect(vi.mocked(processor.correctPerspective).mock.calls.at(-1)![2]).toBeDefined();
+    // Flattening alone left the page level, so it was not also rotated.
+    expect(screen.queryByText(/levelled by/)).toBeNull();
+    // The final warp carried the shift map and no rotated frame.
+    const last = vi.mocked(processor.correctPerspective).mock.calls.at(-1)!;
+    expect(last[2]).toBeDefined();
+    expect(last[3]).toBeUndefined();
+  });
+
+  it("still rotates when the flattened page would be left tilted", async () => {
+    await repairCurved("flat", "tilted");
+    expect(screen.getByText(/levelled by/)).toBeInTheDocument();
+    expect(screen.getByText(/curved lines flattened/)).toBeInTheDocument();
+    const last = vi.mocked(processor.correctPerspective).mock.calls.at(-1)!;
+    expect(last[2]).toBeDefined();
+    expect(last[3]).toBeDefined(); // the page outline inside the rotated frame
   });
 
   it("leaves the page unflattened, and explains why, when the trial does not help", async () => {
