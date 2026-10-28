@@ -51,6 +51,25 @@ describe("extendSides", () => {
     expect(extendSides(STOPPED, [horizontal(PAGE_TOP)], g)).toBe(STOPPED);
   });
 
+  it("follows an edge that is not parallel to the print", () => {
+    // The real edge tilts ~8 degrees against the band: 50 px out on the left, 22 px on the right.
+    const tilted = mergeSegments([{ x1: 100, y1: 50, x2: 300, y2: 78 }])[0]!;
+    const out = extendSides(STOPPED, [tilted], scene(60, true));
+    expect(out[0].y).toBeCloseTo(50, 0);
+    expect(out[1].y).toBeCloseTo(78, 0);
+  });
+
+  it("does not take a tilted line that crosses the side and would cut into the page", () => {
+    // Midpoint 10 px outside the side, but the right end 5 px inside it.
+    const crossing = mergeSegments([{ x1: 100, y1: 75, x2: 300, y2: 105 }])[0]!;
+    // Plain paper below the side too, so the strip test alone would accept the move.
+    const g = scene(60, false);
+    for (let y = BAND_TOP; y < 115; y++) for (let x = 100; x < 300; x++) g.data[y * W + x] = 230;
+    // Sparse print in the thin strip, enough for "has print" but not to fail "mostly paper".
+    for (let y = 89; y < 93; y++) for (let x = 120; x < 200; x++) if (x % 12 < 3) g.data[y * W + x] = 40;
+    expect(extendSides(STOPPED, [crossing], g)).toBe(STOPPED);
+  });
+
   it("ignores lines that are not parallel or too far out", () => {
     const g = scene(60, true);
     const steep = mergeSegments([{ x1: 100, y1: 90, x2: 300, y2: 40 }])[0]!; // ~14 degrees off

@@ -3,8 +3,15 @@ import type { EdgeLine } from "./card-lines";
 import { isPlausiblePage } from "./geometry";
 import type { Point, Quad } from "../../types/repair";
 
-/** Replacement lines must run within this many degrees of the side they replace. */
-const MAX_ANGLE_DEG = 4;
+/**
+ * Replacement lines must run within this many degrees of the side they replace. Print is often
+ * skewed against the paper it is on (receipts, slips torn from a pad), so the line the detector
+ * stopped at and the real edge need not be parallel; the strip test and the page-shape check guard
+ * against unrelated lines.
+ */
+const MAX_ANGLE_DEG = 10;
+/** Neither end of a moved side may come inside the old side by more than this. */
+const MAX_INWARD_PX = 2;
 /** A side moves at least this far (smaller moves are the same edge) ... */
 const MIN_MOVE_PX = 6;
 /** ... and at most this fraction of the page's extent across it. */
@@ -97,6 +104,9 @@ export function extendSides(quad: Quad, lines: readonly EdgeLine[], g: Gray): Qu
       if (best && move <= best.move) continue;
       const moved = replaceSide(current, side, mid, { x: line.dx, y: line.dy });
       if (!moved || !isPlausiblePage(moved) || moved.some((p) => sample(g, p) === null)) continue;
+      // A tilted line can cross the old side; then part of the page would be cut off, not added.
+      const outward = (p: Point) => (p.x - a.x) * n.x + (p.y - a.y) * n.y;
+      if (outward(moved[side]!) < -MAX_INWARD_PX || outward(moved[(side + 1) % 4]!) < -MAX_INWARD_PX) continue;
       if (!looksLikePage(g, current, moved, side, paper)) continue;
       best = { quad: moved, move };
     }
