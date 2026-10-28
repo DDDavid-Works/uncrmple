@@ -48,6 +48,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
 
   const showRepaired = view === "repaired" && done;
   const running = repair.status === "running";
+  const cleanWholeImage = () => onApplyCorners(fullFrameQuad(doc.width, doc.height));
 
   return (
     <section className="preview" aria-label="Photo preview">
@@ -80,7 +81,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
       <AssessmentPanel
         state={assessment}
         onAdjustCorners={() => setEditing(true)}
-        onCleanWholeImage={() => onApplyCorners(fullFrameQuad(doc.width, doc.height))}
+        onCleanWholeImage={cleanWholeImage}
         disabled={running || editing}
       />
 
@@ -141,10 +142,18 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             </p>
           )}
           {weakEdges(done) && (
-            <p role="alert" className="notice notice--warn">
-              The page edges were faint, curved, or partly outside the photo, so the detected outline may be
-              slightly off. Compare the result with the original, especially near the edges.
-            </p>
+            <div role="alert" className="notice notice--warn">
+              <p>
+                The page edges were faint, curved, or partly outside the photo, so the detected outline may be
+                slightly off. Compare the result with the original, especially near the edges. If the page fills
+                the photo, clean up the whole image instead.
+              </p>
+              <div className="notice__actions">
+                <button type="button" className="btn btn--small" onClick={cleanWholeImage} disabled={running || editing}>
+                  Clean up whole image
+                </button>
+              </div>
+            </div>
           )}
           {bentPage(done) && (
             <p role="alert" className="notice notice--warn">

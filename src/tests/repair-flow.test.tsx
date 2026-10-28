@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { bentTextPage, leaningTextPhoto, solid } from "./synthetic";
@@ -318,9 +318,23 @@ describe("edge support warning", () => {
     expect(screen.getByText(/edges were faint, curved/)).toBeInTheDocument();
   });
 
+  it("offers to clean up the whole image from the warning, for a page that fills the photo", async () => {
+    await repairWith(0.36);
+    const warning = screen.getByText(/edges were faint, curved/).closest("[role=alert]") as HTMLElement;
+    await userEvent.setup().click(within(warning).getByRole("button", { name: "Clean up whole image" }));
+    await waitFor(() => expect(screen.getByText(/manual corners/)).toBeInTheDocument());
+    expect(vi.mocked(processor.correctPerspective).mock.lastCall?.[1]).toEqual([
+      { x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 },
+    ]);
+    expect(processor.detectDocument).toHaveBeenCalledTimes(1);
+    // The user chose the outline, so the faint-edge warning no longer applies.
+    expect(screen.queryByText(/edges were faint, curved/)).toBeNull();
+  });
+
   it("does not warn when the outline follows strong edges", async () => {
     await repairWith(0.9);
     expect(screen.queryByText(/edges were faint, curved/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clean up whole image" })).toBeNull();
   });
 });
 

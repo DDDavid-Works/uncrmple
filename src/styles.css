@@ -198,6 +198,8 @@ a { color: var(--link); }
 .notice { padding: 10px 12px; border-radius: var(--radius); background: var(--surface-sunk); margin-bottom: var(--space-3); }
 .notice--error { background: var(--danger-bg); color: var(--danger); }
 .notice--warn { background: var(--warn-bg); color: var(--warn); }
+.notice > p { margin: 0; }
+.notice__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 
 /* ---------- Workspace and page list ---------- */
 .workspace { display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
