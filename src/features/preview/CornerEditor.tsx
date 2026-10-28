@@ -46,18 +46,30 @@ export function CornerEditor({ imageUrl, imageAlt, width, height, initial, subje
   const move = (index: number, p: Point) =>
     setCorners((c) => c.map((q, i) => (i === index ? { x: clamp(p.x, width), y: clamp(p.y, height) } : q)) as unknown as Quad);
 
+  // The overlay box can be wider or taller than the photo it is drawn over (the SVG letterboxes its
+  // drawing to keep the photo's shape), so map through the SVG's own screen transform.
   const toImage = (e: PointerEvent): Point => {
-    const rect = svgRef.current!.getBoundingClientRect();
+    const svg = svgRef.current!;
+    const ctm = svg.getScreenCTM?.();
+    if (ctm) {
+      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+      return { x: p.x, y: p.y };
+    }
+    const rect = svg.getBoundingClientRect();
     return {
       x: ((e.clientX - rect.left) / rect.width) * width,
       y: ((e.clientY - rect.top) / rect.height) * height,
     };
   };
 
-  const dragging = useRef<number | null>(null);
+  /** The handle being dragged, and where on it the pointer took hold (so it does not jump to centre). */
+  const dragging = useRef<{ index: number; dx: number; dy: number } | null>(null);
 
   const onPointerMove = (index: number) => (e: PointerEvent) => {
-    if (dragging.current === index) move(index, toImage(e));
+    const d = dragging.current;
+    if (d?.index !== index) return;
+    const p = toImage(e);
+    move(index, { x: p.x - d.dx, y: p.y - d.dy });
   };
 
   const onKeyDown = (index: number) => (e: KeyboardEvent) => {
@@ -106,7 +118,8 @@ export function CornerEditor({ imageUrl, imageAlt, width, height, initial, subje
               aria-valuetext={`x ${Math.round(p.x)}, y ${Math.round(p.y)}`}
               aria-valuenow={Math.round(p.x)}
               onPointerDown={(e) => {
-                dragging.current = i;
+                const at = toImage(e);
+                dragging.current = { index: i, dx: at.x - p.x, dy: at.y - p.y };
                 // Capture keeps the drag alive outside the handle; unavailable for synthetic pointers.
                 try {
                   e.currentTarget.setPointerCapture(e.pointerId);
