@@ -111,7 +111,12 @@ describe("repair workflow", () => {
     vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(90, 80, 255) });
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
-    expect(await screen.findByText(/covers only a small part/)).toBeInTheDocument();
+    const warning = (await screen.findByText(/covers only a small part/)).closest("[role=alert]") as HTMLElement;
+    // The warning leads straight to the corner editor, starting from the detected outline.
+    const calls = vi.mocked(processor.correctPerspective).mock.calls.length;
+    await user.click(within(warning).getByRole("button", { name: "Adjust corners" }));
+    expect(screen.getAllByRole("slider")).toHaveLength(4);
+    expect(processor.correctPerspective).toHaveBeenCalledTimes(calls); // nothing reprocessed until applied
   });
 });
 
@@ -321,6 +326,7 @@ describe("edge support warning", () => {
   it("offers to clean up the whole image from the warning, for a page that fills the photo", async () => {
     await repairWith(0.36);
     const warning = screen.getByText(/edges were faint, curved/).closest("[role=alert]") as HTMLElement;
+    expect(within(warning).getByRole("button", { name: "Adjust corners" })).toBeEnabled();
     await userEvent.setup().click(within(warning).getByRole("button", { name: "Clean up whole image" }));
     await waitFor(() => expect(screen.getByText(/manual corners/)).toBeInTheDocument());
     expect(vi.mocked(processor.correctPerspective).mock.lastCall?.[1]).toEqual([

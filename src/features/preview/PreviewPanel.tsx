@@ -49,6 +49,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
   const showRepaired = view === "repaired" && done;
   const running = repair.status === "running";
   const cleanWholeImage = () => onApplyCorners(fullFrameQuad(doc.width, doc.height));
+  const adjustCorners = () => setEditing(true);
 
   return (
     <section className="preview" aria-label="Photo preview">
@@ -69,7 +70,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           <button type="button" className={done ? "btn" : "btn btn--primary"} onClick={onRepair} disabled={running}>
             {done ? "Repair again" : "Repair"}
           </button>
-          <button type="button" className="btn" onClick={() => setEditing(true)} disabled={running || editing}>
+          <button type="button" className="btn" onClick={adjustCorners} disabled={running || editing}>
             Adjust corners
           </button>
           <div className="preview__actions-end">
@@ -80,7 +81,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
 
       <AssessmentPanel
         state={assessment}
-        onAdjustCorners={() => setEditing(true)}
+        onAdjustCorners={adjustCorners}
         onCleanWholeImage={cleanWholeImage}
         disabled={running || editing}
       />
@@ -137,18 +138,29 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             {done.dewarp.applied && " · curved lines flattened"}
           </p>
           {lowCoverage(done) && (
-            <p role="alert" className="notice notice--warn">
-              The detected page covers only a small part of the photo. Check the result carefully.
-            </p>
+            <div role="alert" className="notice notice--warn">
+              <p>
+                The detected page covers only a small part of the photo. If it is only part of the page, such as a
+                table or box printed on it, adjust the corners to the page edges.
+              </p>
+              <div className="notice__actions">
+                <button type="button" className="btn btn--small" onClick={adjustCorners} disabled={running || editing}>
+                  Adjust corners
+                </button>
+              </div>
+            </div>
           )}
           {weakEdges(done) && (
             <div role="alert" className="notice notice--warn">
               <p>
                 The page edges were faint, curved, or partly outside the photo, so the detected outline may be
-                slightly off. Compare the result with the original, especially near the edges. If the page fills
-                the photo, clean up the whole image instead.
+                slightly off. Compare the result with the original, especially near the edges. If the outline is
+                wrong, adjust the corners; if the page fills the photo, clean up the whole image instead.
               </p>
               <div className="notice__actions">
+                <button type="button" className="btn btn--small" onClick={adjustCorners} disabled={running || editing}>
+                  Adjust corners
+                </button>
                 <button type="button" className="btn btn--small" onClick={cleanWholeImage} disabled={running || editing}>
                   Clean up whole image
                 </button>
