@@ -34,15 +34,17 @@ function SamplePage() {
 
 /** Before/after comparison of an illustrated page with a draggable (and keyboard-operable) divider. */
 export function BeforeAfter() {
-  const [split, setSplit] = useState(94);
+  const [split, setSplit] = useState(75);
+  // The "try it" callout invites a first drag and goes away once the visitor has moved the divider.
+  const [tried, setTried] = useState(false);
 
   return (
     <figure className="compare">
       <div className="compare-bar" aria-hidden="true">
-        <span>THE SAME PAGE. A FRESH START.</span>
+        <span>THE SAME DOCUMENT. A FRESH START.</span>
         <span>01 / 01</span>
       </div>
-      <div className="compare-stage" style={{ "--split": `${split}%` } as CSSProperties}>
+      <div className={tried ? "compare-stage" : "compare-stage is-fresh"} style={{ "--split": `${split}%` } as CSSProperties}>
         <div className="compare-layer compare-before" aria-hidden="true">
           <SamplePage />
         </div>
@@ -54,21 +56,30 @@ export function BeforeAfter() {
         <span className="compare-handle" aria-hidden="true">
           ‹›
         </span>
-        <span className="compare-hint" aria-hidden="true">
-          Drag to compare
-        </span>
+        {!tried && (
+          <span className="try" aria-hidden="true">
+            <span className="try-label">Try it! Drag me</span>
+            <svg className="try-arrow" viewBox="0 0 64 44" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path className="try-arrow-halo" d="M4 8C28 2 50 10 58 36M50 31l8 6 3-10" />
+              <path d="M4 8C28 2 50 10 58 36M50 31l8 6 3-10" />
+            </svg>
+          </span>
+        )}
         <input
           className="compare-range"
           type="range"
           min={0}
           max={100}
           value={split}
-          onChange={(e) => setSplit(Number(e.target.value))}
-          aria-label="Compare the photo before and after repair"
+          onChange={(e) => {
+            setSplit(Number(e.target.value));
+            setTried(true);
+          }}
+          aria-label="Compare the document before and after repair"
         />
       </div>
       <figcaption className="visually-hidden">
-        Illustration: a tilted, shadowed photo of a page beside the same page straightened and cleaned.
+        Illustration: a tilted, shadowed document photo beside the same document straightened and cleaned.
       </figcaption>
     </figure>
   );

@@ -4,17 +4,17 @@ import { WaitlistForm } from "./components/WaitlistForm";
 import { CONTACT_EMAIL, DESCRIPTION, PRODUCT_NAME, WAITLIST_ENDPOINT, WAITLIST_FIELDS, WORDMARK } from "./config";
 
 const STEPS = [
-  { title: "Upload", text: "Drop in the photos of your pages you already have." },
-  { title: "Repair", text: "Straighten the page, remove shadows and boost faded text." },
+  { title: "Upload", text: "Drop in the document photos you already have." },
+  { title: "Repair", text: "Straighten the document, remove shadows and boost faded text." },
   { title: "Review", text: "Compare with the original and adjust the corners if needed." },
   { title: "Export", text: "Download clean images or combine pages into one PDF." },
 ];
 
 const BENEFITS = [
-  { title: "No retake needed", text: "Tilted, shadowed, grey or low contrast? Fix the photo you already have." },
-  { title: "Faithful to the original", text: "We clean up the page. We never invent or rewrite what the document says." },
-  { title: "Private by design", text: "Photos are processed in your browser. Not uploaded. Not stored." },
-  { title: "No account to start", text: "Open it, drop a photo, get your file. Simple as paper should be." },
+  { title: "No retake needed", text: "Tilted, shadowed, grey or low contrast? Fix the shot you already have." },
+  { title: "Faithful to the original", text: "We clean up the document. We never invent or rewrite what it says." },
+  { title: "Private by design", text: "Your documents are processed in your browser. Not uploaded. Not stored." },
+  { title: "No account to start", text: "Open it, drop in a document photo, get your file. Simple as paper should be." },
 ];
 
 function Logo() {
@@ -39,9 +39,9 @@ export function App() {
       <main>
         <section className="hero wrap">
           <div className="hero-copy">
-            <p className="eyebrow">A SECOND CHANCE FOR YOUR FIRST PHOTO</p>
+            <p className="eyebrow">FOR RECEIPTS, FORMS, LETTERS AND NOTES</p>
             <h1>
-              <mark>Fix</mark> the photo. Keep the document.
+              <mark>Fix</mark> your document photos.
             </h1>
             <p className="lead">{DESCRIPTION}</p>
             <WaitlistForm
@@ -55,7 +55,7 @@ export function App() {
 
         <section className="wrap section" aria-labelledby="how">
           <h2 id="how">
-            Messy photo. <mark>Sorted.</mark>
+            Crooked. Skewed. Dim. <mark>Fixed.</mark>
           </h2>
           <ol className="cards cards-4">
             {STEPS.map((s, i) => (
@@ -70,7 +70,7 @@ export function App() {
 
         <section className="wrap section" aria-labelledby="why">
           <h2 id="why">
-            A cleaner page. <mark>Nothing lost.</mark>
+            A cleaner document. <mark>Nothing lost.</mark>
           </h2>
           <ul className="cards cards-2">
             {BENEFITS.map((b) => (
@@ -88,7 +88,7 @@ export function App() {
               Your documents <mark>stay yours.</mark>
             </h2>
             <p>
-              Repairs run locally in your browser. Your photos are never uploaded or stored. The waitlist only collects
+              Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist only collects
               your email. Your result is a cleaned-up copy of your photo, not a guaranteed official document.
             </p>
           </div>
@@ -96,8 +96,8 @@ export function App() {
 
         <section id="waitlist" className="band band-accent" aria-labelledby="cta-title">
           <div className="wrap cta">
-            <h2 id="cta-title">Stop retaking photos.</h2>
-            <p>Keep the photo. Lose the shadows. Get early access to {PRODUCT_NAME}.</p>
+            <h2 id="cta-title">Stop retaking document photos.</h2>
+            <p>Keep the document. Lose the shadows. Get early access to {PRODUCT_NAME}.</p>
             <WaitlistForm
               endpoint={WAITLIST_ENDPOINT}
               fields={WAITLIST_FIELDS}

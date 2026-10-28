@@ -31,6 +31,8 @@
   --doc-ink: #17324d;
   --doc-photo: #b9c0c7;
   --doc-rule: #c9d3dc;
+  /* Deliberately off-palette marker red for the "try it" callout, so it stands out from navy and teal. */
+  --try: #d93d2f;
   --font: "Space Grotesk Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --doc-font: Inter, Arial, sans-serif;
   color-scheme: light dark;
@@ -153,14 +155,28 @@ h1 { font-size: clamp(44px, 6vw, 64px); font-weight: 700; line-height: 1.04; let
   display: grid; place-items: center; border-radius: 50%; background: var(--doc-paper); color: var(--doc-ink); border: 2px solid var(--doc-ink);
   font-size: 11px; font-weight: 700; line-height: 1; pointer-events: none;
 }
-.compare-hint {
-  position: absolute; bottom: 3%; left: 50%; transform: translateX(-50%); padding: 4px 8px;
-  background: var(--doc-paper); color: var(--doc-ink); border: 2px solid var(--doc-ink); font-size: 9px; font-weight: 700; letter-spacing: 0;
-  white-space: nowrap; pointer-events: none;
-}
 .compare-range {
   position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0;
   opacity: 0; cursor: ew-resize; -webkit-appearance: none; appearance: none;
+}
+/* "Try it" callout: sits up-left of the handle and follows it, until the first drag. */
+.try {
+  position: absolute; z-index: 1; right: calc(100% - var(--split) + 8px); bottom: calc(50% + 4px);
+  display: flex; align-items: flex-start; pointer-events: none;
+  animation: try-nudge 1.4s ease-in-out infinite;
+}
+.try-label {
+  margin-top: -4px; padding: 5px 10px; transform: rotate(-4deg);
+  background: var(--try); color: #ffffff; border: 2px solid var(--doc-ink); border-radius: 4px; box-shadow: 2px 2px 0 var(--doc-ink);
+  font-size: 13px; font-weight: 700; letter-spacing: 0; white-space: nowrap;
+}
+.try-arrow { width: 46px; height: auto; margin-left: 2px; stroke: var(--try); stroke-width: 3.5; }
+.try-arrow-halo { stroke: #ffffff; stroke-width: 7.5; }
+.is-fresh .compare-handle { border-color: var(--try); color: var(--try); animation: try-pulse 1.4s ease-out infinite; }
+@keyframes try-nudge { 50% { transform: translate(4px, 3px); } }
+@keyframes try-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(217, 61, 47, .6); }
+  100% { box-shadow: 0 0 0 12px rgba(217, 61, 47, 0); }
 }
 .compare-stage:has(.compare-range:focus-visible) .compare-handle { outline: 3px solid var(--focus); outline-offset: 2px; }
 
@@ -218,4 +234,5 @@ h2 { font-size: clamp(32px, 4.5vw, 44px); font-weight: 700; line-height: 1.1; le
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .btn { transition: none; }
+  .try, .is-fresh .compare-handle { animation: none; }
 }
