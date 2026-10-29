@@ -1,8 +1,9 @@
-import type { DetectionMethod, DetectionResult, Point, RasterImage, Result } from "../../../types/repair";
+import type { DetectionMethod, DetectionResult, Point, Quad, RasterImage, Result } from "../../../types/repair";
 import { boundaryContrast, BOUNDARY_STEP, lineStep } from "../boundary";
 import type { Gray } from "../boundary";
 import { mergeSegments, quadsFromLines } from "../card-lines";
 import { extendSides } from "../extend";
+import { snapFrameSides } from "../frame-sides";
 import type { Segment } from "../card-lines";
 import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
@@ -127,8 +128,8 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
     const minSide = Math.min(image.width, image.height);
     const segments = houghSegments(cv, sensitive, MIN_SEGMENT_FRACTION * minSide, own);
     segments.sort((a, b) => Math.hypot(b.x2 - b.x1, b.y2 - b.y1) - Math.hypot(a.x2 - a.x1, a.y2 - a.y1));
-    const boundaries = mergeSegments(segments.slice(0, MAX_SEGMENTS), MIN_LINE_FRACTION * minSide)
-      .filter((l) => lineStep(grey, l) >= BOUNDARY_STEP);
+    const straight = mergeSegments(segments.slice(0, MAX_SEGMENTS), MIN_LINE_FRACTION * minSide);
+    const boundaries = straight.filter((l) => lineStep(grey, l) >= BOUNDARY_STEP);
     for (const quad of quadsFromLines(boundaries, {
       width: image.width, height: image.height,
       minAreaFraction: MIN_AREA_FRACTION, maxAreaFraction: MAX_AREA_FRACTION,
@@ -167,16 +168,19 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
       };
     }
     const ordered = orderCorners(best.points);
+    // A side left on the photo's frame may belong on a faint page edge just inside it.
+    const toFrameEdge = (q: Quad) => snapFrameSides(q, straight, sensitive.data, image.width, image.height);
     // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
     const extended = best.method === "lines" ? extendSides(ordered, boundaries, grey) : ordered;
     if (extended !== ordered) {
+      const corners = toFrameEdge(extended);
       return {
         ok: true,
         value: {
-          corners: extended,
-          areaFraction: polygonArea(extended) / imageArea,
+          corners,
+          areaFraction: polygonArea(corners) / imageArea,
           method: best.method,
-          edgeSupport: edgeSupport(extended, nearEdge.data, image.width, image.height),
+          edgeSupport: edgeSupport(corners, nearEdge.data, image.width, image.height),
         },
       };
     }
@@ -186,14 +190,17 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
     // Keep the trim only if the new outline still follows real edges about as well as the old one.
     const useTrimmed =
       trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS && isPlausiblePage(trimmed);
-    const corners = useTrimmed ? trimmed : ordered;
+    const kept = useTrimmed ? trimmed : ordered;
+    const corners = toFrameEdge(kept);
     return {
       ok: true,
       value: {
         corners,
         areaFraction: polygonArea(corners) / imageArea,
         method: best.method,
-        edgeSupport: useTrimmed ? trimmedSupport : best.support,
+        edgeSupport:
+          corners !== kept ? edgeSupport(corners, nearEdge.data, image.width, image.height)
+          : useTrimmed ? trimmedSupport : best.support,
       },
     };
   } catch (e) {
