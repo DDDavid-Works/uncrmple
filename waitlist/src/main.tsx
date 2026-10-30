@@ -1,21 +1,4 @@
-import { StrictMode } from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
 import { App } from "./App";
-import "./styles.css";
+import { mount } from "./mount";
 
-const container = document.getElementById("root");
-if (!container) throw new Error("Root element #root not found");
-
-const app = (
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
-
-// Pre-rendered pages already contain markup; hydrate it. In dev the root only holds the
-// <!--app-html--> placeholder comment, so check for elements rather than any child node.
-if (container.firstElementChild) {
-  hydrateRoot(container, app);
-} else {
-  createRoot(container).render(app);
-}
+mount(<App />);

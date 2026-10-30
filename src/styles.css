@@ -78,6 +78,12 @@ a { color: var(--link); }
 
 .app { max-width: 1100px; margin: 0 auto; padding: 0 var(--space-4) var(--space-6); }
 .app__main { display: grid; gap: var(--space-4); }
+.app__footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--border); font-size: 0.8rem;
+}
+.app__footer-links { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.app__footer-links a { color: inherit; text-underline-offset: 3px; }
 
 /* ---------- Header, mode and theme switches, steps ---------- */
 .app__header {

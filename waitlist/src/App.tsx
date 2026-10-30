@@ -1,7 +1,7 @@
 import { BeforeAfter } from "./components/BeforeAfter";
-import { Logo as LogoMark } from "./components/Logo";
+import { SiteFooter, SiteHeader } from "./components/SiteChrome";
 import { WaitlistForm } from "./components/WaitlistForm";
-import { CONTACT_EMAIL, DESCRIPTION, PRODUCT_NAME, WAITLIST_ENDPOINT, WAITLIST_FIELDS, WORDMARK } from "./config";
+import { CONTACT_EMAIL, DESCRIPTION, PRIVACY_PATH, PRODUCT_NAME, WAITLIST_ENDPOINT, WAITLIST_FIELDS } from "./config";
 
 const STEPS = [
   { title: "Upload", text: "Drop in the document photos you already have." },
@@ -17,25 +17,16 @@ const BENEFITS = [
   { title: "No account to start", text: "Open it, drop in a document photo, get your file. Simple as paper should be." },
 ];
 
-function Logo() {
-  return (
-    <span className="logo">
-      <LogoMark className="logo-mark" />
-      <span aria-hidden="true">{WORDMARK}</span>
-      <span className="visually-hidden">{PRODUCT_NAME}</span>
-    </span>
-  );
-}
+const CONSENT = (
+  <>
+    By joining, you agree to get {PRODUCT_NAME} launch emails. See our <a href={PRIVACY_PATH}>privacy policy</a>.
+  </>
+);
 
 export function App() {
   return (
     <>
-      <header className="site-header wrap">
-        <Logo />
-        <a className="btn" href="#waitlist">
-          Join the waitlist
-        </a>
-      </header>
+      <SiteHeader waitlistHref="#waitlist" />
       <main>
         <section className="hero wrap">
           <div className="hero-copy">
@@ -47,6 +38,7 @@ export function App() {
             <WaitlistForm
               endpoint={WAITLIST_ENDPOINT}
               fields={WAITLIST_FIELDS}
+              consent={CONSENT}
               note="No uploads. No account. Just a cleaner document."
             />
           </div>
@@ -89,8 +81,8 @@ export function App() {
             </h2>
             <div>
               <p>
-                Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist only
-                collects your email. Your result is a cleaned-up copy of your photo, not a guaranteed official document.
+                Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist asks
+                only for your email. Your result is a cleaned-up copy of your photo, not a guaranteed official document.
               </p>
               <p className="privacy-note">
                 Your email is sent through{" "}
@@ -98,7 +90,8 @@ export function App() {
                   Web3Forms
                 </a>
                 , which delivers it to our inbox. We only use it to tell you about the launch. To be removed, email{" "}
-                <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+                <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Read the full{" "}
+                <a href={PRIVACY_PATH}>privacy policy</a>.
               </p>
             </div>
           </div>
@@ -111,20 +104,14 @@ export function App() {
             <WaitlistForm
               endpoint={WAITLIST_ENDPOINT}
               fields={WAITLIST_FIELDS}
+              consent={CONSENT}
               note="Only launch news. No paper trail of spam."
               className="form-center"
             />
           </div>
         </section>
       </main>
-      <footer className="site-footer wrap">
-        <Logo />
-        <p className="fine">&copy; {PRODUCT_NAME} {new Date().getFullYear()}</p>
-        <nav aria-label="Footer" className="footer-links">
-          <a href="#privacy">Privacy</a>
-          <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
-        </nav>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

@@ -28,3 +28,13 @@ export const WAITLIST_FIELDS: Record<string, string> = {
 };
 /** Public origin without trailing slash; empty disables canonical/sitemap output. */
 export const SITE_URL: string = (env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");
+
+/** Person responsible for the waitlist data (the "personal information controller"). */
+export const OPERATOR_NAME = "Darrel David";
+export const OPERATOR_COUNTRY = "the Philippines";
+export const PRIVACY_PATH = "/privacy/";
+export const TERMS_PATH = "/terms/";
+/** Bump whenever the privacy policy text changes. */
+export const PRIVACY_UPDATED = "30 October 2026";
+/** Bump whenever the terms of use text change. */
+export const TERMS_UPDATED = "30 October 2026";

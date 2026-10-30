@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { checkEmail } from "../lib/email";
 import { submitEmail } from "../lib/submit";
 
@@ -11,18 +11,21 @@ type Status =
 type Props = {
   endpoint: string;
   fields?: Record<string, string>;
+  /** What joining agrees to; read out with the email field and shown under the form. */
+  consent?: ReactNode;
   /** Small print under the form. */
   note?: string;
   className?: string;
   fetchImpl?: typeof fetch;
 };
 
-export function WaitlistForm({ endpoint, fields, note, className = "", fetchImpl }: Props) {
+export function WaitlistForm({ endpoint, fields, consent, note, className = "", fetchImpl }: Props) {
   const [email, setEmail] = useState("");
   const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const inputId = useId();
   const messageId = useId();
+  const consentId = useId();
 
   if (endpoint === "") {
     return (
@@ -78,7 +81,7 @@ export function WaitlistForm({ endpoint, fields, note, className = "", fetchImpl
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           aria-invalid={error !== null}
-          aria-describedby={messageId}
+          aria-describedby={consent ? `${messageId} ${consentId}` : messageId}
           disabled={submitting}
         />
         <button type="submit" className="btn" disabled={submitting}>
@@ -94,6 +97,11 @@ export function WaitlistForm({ endpoint, fields, note, className = "", fetchImpl
       <p id={messageId} className="form-message" role="alert">
         {error}
       </p>
+      {consent && (
+        <p id={consentId} className="fine consent">
+          {consent}
+        </p>
+      )}
       {note && <p className="fine">{note}</p>}
     </form>
   );

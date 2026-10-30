@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SourceDocument } from "./types/document";
 import { PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
+import { AppFooter } from "./components/AppFooter";
 import { Logo } from "./components/Logo";
 import { StepIndicator } from "./components/StepIndicator";
 import type { Step } from "./components/StepIndicator";
@@ -136,6 +137,8 @@ export function App() {
             filename={mode === "card" ? "cards.pdf" : "repaired-document.pdf"}
           />}
       </main>
+
+      <AppFooter />
     </div>
   );
 }

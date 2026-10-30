@@ -13,6 +13,11 @@ describe("WaitlistForm", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("shows the consent text and reads it out with the email field", () => {
+    render(<WaitlistForm endpoint={ENDPOINT} consent="By joining, you agree to launch emails." />);
+    expect(screen.getByLabelText("Email address")).toHaveAccessibleDescription(/agree to launch emails/i);
+  });
+
   it("rejects an invalid email without sending", async () => {
     const f = okFetch();
     render(<WaitlistForm endpoint={ENDPOINT} fetchImpl={asFetch(f)} />);
