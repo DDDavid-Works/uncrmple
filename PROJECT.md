@@ -352,7 +352,7 @@ Potential future capabilities include:
 
 \- Higher-volume batch processing.
 
-\- Paid credits and subscriptions.
+\- Paid credits and subscriptions (see section 12).
 
 \- User accounts and cross-device access.
 
@@ -402,3 +402,48 @@ The immediate objective is to validate repair quality and user demand, not to bu
 \## 11. ID \& Card Crop (added after MVP scope)
 
 A second mode extracts rectangular cards (ID, membership, access, employee cards) from photos: detect the four corners, correct perspective, optional conservative touch-ups, export as image or PDF. It shares the browser-only privacy model, the manual corner editor, and the export code. It is not an identity-verification feature and must never claim a crop is suitable for official verification. See `docs/card-crop.md` for design, limitations and the real-photo evaluation plan.
+
+\## 12. Pricing Direction (planned, not built)
+
+Decided 2026-11-01 as the planned direction. Nothing here is implemented; until launch the service stays free, as the terms of use state. Billing remains out of scope for V1 (section 6) until this plan is approved for implementation.
+
+\### Principles
+
+\- Processing runs on the user's device, so the cost of serving a page is close to zero and the browser cannot securely count pages. Charge for access over time or a one-time unlock, not per page.
+\- Any limit enforced in the browser can be bypassed by a determined user. Accept this for the first paid version instead of adding accounts or a backend to enforce it.
+\- No ads, third-party trackers or data-based revenue. They contradict the privacy requirements.
+\- Never watermark repaired documents.
+\- Keep credits for features that run on a server, should any be added.
+
+\### Free and paid line
+
+The line is batch size: one page is casual use, a pile of pages is real work.
+
+\- Free: unlimited single-page repair and image download at full quality; batches (Repair all, ZIP, multi-page PDF) up to about 5 pages.
+\- Pro (one-time unlock) and Pass (24-hour or 7-day): batches up to the app's file limit, currently 50 (`MAX_FILES`).
+\- Show the batch limit at upload, before any work starts. Never let a user repair a batch and then block its download.
+\- Set the free limit before public launch; taking away what free users already have would feel like a bait-and-switch.
+
+\### Mechanism
+
+\- Sell Pro and Pass through a merchant-of-record provider that handles sales tax (for example Lemon Squeezy or Paddle).
+\- Unlock with a license key checked once against the provider and remembered on the device. No accounts and no database; no document data is sent anywhere.
+\- Propose the integration, its network requests and privacy disclosures before implementing it.
+
+\### Later options
+
+\- Teams: a license with a few seats for business users (accountants, HR, legal), sold on documents never leaving the device.
+\- Subscriptions or accounts: only when a feature gives ongoing value that needs them, such as cross-device access.
+\- Cloud credits: only for a server-side feature such as advanced restoration, opt-in, with defined retention limits.
+\- Do not promise unlimited or very high volume. The 50-page limit is set by browser memory; going further needs a desktop build or server processing. Confirm 50 pages works on a mid-range phone before selling it.
+
+\### Validation before launch
+
+\- Add optional waitlist questions: "How many pages do you usually fix at once?" (1 / 2-10 / 10-50 / 50+) and "What would you prefer?" (one-time unlock / short pass / monthly).
+\- Use the answers to segment casual, burst and business users and to set the free limit and prices.
+
+\### Open decisions
+
+\- The free batch limit (starting proposal: 5 pages).
+\- Whether card-crop mode is free or Pro.
+\- Prices, after the waitlist answers.
