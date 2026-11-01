@@ -3,7 +3,7 @@ export type ThemePreference = "light" | "dark" | "auto";
 /** Used when nothing (or nothing valid) is saved, or storage is unavailable. */
 export const DEFAULT_THEME: ThemePreference = "light";
 
-/** localStorage key; also read by the inline script in index.html to avoid a flash on load. */
+/** localStorage key; also read by public/theme.js, which index.html loads first, to avoid a flash on load. */
 export const THEME_STORAGE_KEY = "theme";
 
 const isPreference = (v: unknown): v is ThemePreference => v === "auto" || v === "light" || v === "dark";

@@ -2,6 +2,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { PRODUCT_NAME, TAGLINE } from "./src/config";
+import { SECURITY_HEADERS } from "./src/security-headers";
 
 export default defineConfig({
   plugins: [
@@ -13,7 +14,8 @@ export default defineConfig({
     },
   ],
   server: { port: 7200, strictPort: true },
-  preview: { port: 7200, strictPort: true },
+  // The dev server is left without them: its hot reload needs inline scripts and its own connections.
+  preview: { port: 7200, strictPort: true, headers: SECURITY_HEADERS },
   test: {
     environment: "jsdom",
     globals: true,

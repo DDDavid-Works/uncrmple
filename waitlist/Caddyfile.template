@@ -1,0 +1,50 @@
+# Railpack's Vite Caddyfile (core/providers/node/Caddyfile.template) with security headers added.
+# Railpack uses a Caddyfile.template at the service root (/waitlist) in place of its own and fills {{.DIST_DIR}}.
+# The Content-Security-Policy itself is a meta tag written by scripts/prerender.mjs, because it depends on
+# build-time settings; this header only adds frame-ancestors, which a meta tag cannot set.
+{
+	admin off
+	persist_config off
+	auto_https off
+
+	log {
+		format json
+	}
+
+	servers {
+		trusted_proxies static private_ranges 100.0.0.0/8 # trust railway's proxy
+	}
+}
+
+:{$PORT:80} {
+	log {
+		format json
+	}
+
+	respond /health 200
+
+	header {
+		Content-Security-Policy "frame-ancestors 'none'; object-src 'none'"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	root * {{.DIST_DIR}}
+
+	file_server {
+		hide .git
+		hide .env*
+	}
+
+	encode {
+		gzip
+		zstd
+	}
+
+	try_files {path} {path}.html {path}/index.html{{if .IndexFallback}} /index.html{{end}}
+}

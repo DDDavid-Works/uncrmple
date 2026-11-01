@@ -107,6 +107,12 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
         </p>
       )}
       {!compact && <PrivacyBadge />}
+      {!compact && (
+        <p className="upload__note">
+          Only add documents you're allowed to use. Downloads are saved without a password, so keep copies of IDs
+          and medical or financial records somewhere safe.
+        </p>
+      )}
     </div>
   );
 }

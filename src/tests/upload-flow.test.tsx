@@ -27,6 +27,12 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("upload to preview", () => {
+  it("tells users to add only documents they may use, before any are added", () => {
+    render(<App />);
+    expect(screen.getByText(/only add documents you're allowed to use/i)).toBeInTheDocument();
+    expect(screen.getByText(/IDs and medical or financial records/)).toBeInTheDocument();
+  });
+
   it("shows the original preview for a valid upload and offers no unimplemented controls", async () => {
     const user = userEvent.setup();
     render(<App />);
