@@ -73,9 +73,12 @@ function easeInOutCubic(t: number): number {
  * Before/after comparison of an illustrated page. The Repair button plays the repair like the app does;
  * the divider can also be dragged (or moved with the keyboard) to compare any part of the page.
  */
+/** Where the divider opens and returns to: mostly the original, with a sliver of the repair showing. */
+const START_SPLIT = 75;
+
 export function BeforeAfter() {
   // Percentage of the stage still showing the "before" photo: 100 is untouched, 0 fully repaired.
-  const [split, setSplit] = useState(100);
+  const [split, setSplit] = useState(START_SPLIT);
   // The "try it" callout goes away once the visitor has pressed Repair or moved the divider.
   const [tried, setTried] = useState(false);
   const frame = useRef<number | null>(null);
@@ -150,7 +153,7 @@ export function BeforeAfter() {
           className={repaired ? "btn btn-quiet" : "btn"}
           onClick={() => {
             setTried(true);
-            animateTo(repaired ? 100 : 0);
+            animateTo(repaired ? START_SPLIT : 0);
           }}
         >
           {repaired ? "Show original" : "Repair"}

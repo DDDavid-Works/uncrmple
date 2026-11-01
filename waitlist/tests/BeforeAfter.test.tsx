@@ -12,9 +12,9 @@ function preferReducedMotion() {
 describe("BeforeAfter", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("starts on the original photo with the try-it callout", () => {
+  it("starts mostly on the original photo with the try-it callout", () => {
     render(<BeforeAfter />);
-    expect(screen.getByRole("slider", SLIDER)).toHaveValue("100");
+    expect(screen.getByRole("slider", SLIDER)).toHaveValue("75");
     expect(screen.getByRole("button", { name: "Repair" })).toBeInTheDocument();
     expect(screen.getByText("Try it!")).toBeInTheDocument();
   });
@@ -29,7 +29,7 @@ describe("BeforeAfter", () => {
     expect(screen.queryByText("Try it!")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show original" }));
-    expect(screen.getByRole("slider", SLIDER)).toHaveValue("100");
+    expect(screen.getByRole("slider", SLIDER)).toHaveValue("75");
     expect(screen.getByRole("button", { name: "Repair" })).toBeInTheDocument();
   });
 

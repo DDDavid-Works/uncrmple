@@ -4,17 +4,17 @@ import { WaitlistForm } from "./components/WaitlistForm";
 import { CONTACT_EMAIL, DESCRIPTION, PRIVACY_PATH, PRODUCT_NAME, WAITLIST_ENDPOINT, WAITLIST_FIELDS } from "./config";
 
 const STEPS = [
-  { title: "Upload", text: "Drop in the document photos you already have." },
-  { title: "Repair", text: "Straighten the document, remove shadows and boost faded text." },
+  { title: "Upload", text: "Drop in one document photo or a whole stack." },
+  { title: "Repair", text: "Straighten, remove shadows and boost faded text. One page or all of them at once." },
   { title: "Review", text: "Compare with the original and adjust the corners if needed." },
-  { title: "Export", text: "Download clean images or combine pages into one PDF." },
+  { title: "Export", text: "Download clean images, a ZIP of them all, or one combined PDF." },
 ];
 
 const BENEFITS = [
   { title: "No retake needed", text: "Tilted, shadowed, grey or low contrast? Fix the shot you already have." },
   { title: "Faithful to the original", text: "Cleans up the document. No content rewrite or generation." },
   { title: "Private by design", text: "Your documents are processed in your browser. Not uploaded. Not stored." },
-  { title: "No account to start", text: "Open it, drop in a document photo, get your file. Simple as paper should be." },
+  { title: "The whole stack in one go", text: "Drop in every receipt, press Repair all, get one PDF. No account needed." },
 ];
 
 const CONSENT = (

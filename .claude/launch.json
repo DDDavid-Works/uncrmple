@@ -3,6 +3,7 @@
   "configurations": [
     { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--", "--port", "7200", "--strictPort"], "port": 7200 },
     { "name": "dev-alt", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--", "--port", "7201", "--strictPort"], "port": 7201 },
-    { "name": "waitlist", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "waitlist", "run", "dev", "--", "--port", "7210", "--strictPort"], "port": 7210 }
+    { "name": "waitlist", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "waitlist", "run", "dev", "--", "--port", "7210", "--strictPort"], "port": 7210 },
+    { "name": "waitlist-dist", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "waitlist", "run", "preview", "--", "--port", "7211", "--strictPort"], "port": 7211 }
   ]
 }
