@@ -34,6 +34,18 @@ export type RepairState =
 
 const IDLE: RepairState = { status: "idle" };
 
+/** Progress of "Repair all": pages are repaired one at a time, in page order. */
+export type BatchState =
+  | { status: "idle" }
+  /** `stopping`: no further pages start; the page in progress still finishes. */
+  | { status: "running"; total: number; finished: number; stopping: boolean }
+  | { status: "finished"; total: number; repaired: number; failed: number; stopped: boolean };
+
+const NO_BATCH: BatchState = { status: "idle" };
+
+/** How one repair job ended; `superseded` when it was replaced by a newer job or the page was removed. */
+type Outcome = "done" | "error" | "superseded";
+
 export interface RepairApi {
   stateOf: (id: string) => RepairState;
   styleOf: (id: string) => OutputStyle;
@@ -45,6 +57,11 @@ export interface RepairApi {
   rotate: (doc: SourceDocument, by: 90 | -90) => void;
   /** Repair with user-chosen corners (source-image pixels) instead of detecting the page. */
   applyCorners: (doc: SourceDocument, corners: Quad) => Promise<void>;
+  /** Repair every page given that has not been repaired or tried yet, one at a time. */
+  repairAll: (docs: SourceDocument[]) => Promise<void>;
+  /** Start no further pages of "Repair all". */
+  stopAll: () => void;
+  batch: BatchState;
 }
 
 /**
@@ -66,6 +83,9 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   const urls = useRef(new Map<string, { url: string; straightenedUrl: string }>());
   const jobs = useRef(new Map<string, number>());
   const alive = useRef(new Set<string>());
+  const [batch, setBatch] = useState<BatchState>(NO_BATCH);
+  // Set to stop a running "Repair all"; a new batch gets a new token.
+  const batchToken = useRef<{ stop: boolean } | null>(null);
 
   // Track which documents still exist; free results of removed ones.
   useEffect(() => {
@@ -90,6 +110,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   useEffect(() => {
     const held = urls.current;
     return () => {
+      if (batchToken.current) batchToken.current.stop = true;
       for (const h of held.values()) {
         URL.revokeObjectURL(h.url);
         URL.revokeObjectURL(h.straightenedUrl);
@@ -99,14 +120,18 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   }, []);
 
   const execute = useCallback(
-    async (doc: SourceDocument, style: OutputStyle, reuse?: RepairedView, manual?: Quad) => {
+    async (doc: SourceDocument, style: OutputStyle, reuse?: RepairedView, manual?: Quad): Promise<Outcome> => {
       const job = (jobs.current.get(doc.id) ?? 0) + 1;
       jobs.current.set(doc.id, job);
       const current = () => jobs.current.get(doc.id) === job && alive.current.has(doc.id);
       const set = (state: RepairState) => {
         if (current()) setStates((s) => ({ ...s, [doc.id]: state }));
       };
-      const fail = (message: string) => set({ status: "error", message });
+      const fail = (message: string): Outcome => {
+        if (!current()) return "superseded";
+        set({ status: "error", message });
+        return "error";
+      };
 
       const rotation = rotations.current[doc.id] ?? 0;
       const prior = statesRef.current[doc.id];
@@ -124,7 +149,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       });
       if (!repaired.ok) return fail(repaired.error.message);
 
-      if (!current()) return; // removed, or superseded by a newer job
+      if (!current()) return "superseded"; // removed, or superseded by a newer job
       const { png, straightenedPng } = repaired.value;
       const url = URL.createObjectURL(png);
       const straightenedUrl = straightenedPng ? URL.createObjectURL(straightenedPng) : reuseStraightened!;
@@ -156,6 +181,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       // The style or turn changed while the repair was running: apply it with these corners.
       const wanted = stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style;
       if (wanted !== style || (rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, view);
+      return "done";
     },
     [engine],
   );
@@ -166,11 +192,11 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   );
 
   const run = useCallback(
-    (doc: SourceDocument) => {
+    async (doc: SourceDocument) => {
       // "Repair again" starts from the current repaired state, so adjusted corners are kept.
       const state = statesRef.current[doc.id];
       const current = state?.status === "done" ? state.result : state?.status === "running" ? state.previous : undefined;
-      return execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, current);
+      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, current);
     },
     [execute],
   );
@@ -200,11 +226,49 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   );
 
   const applyCorners = useCallback(
-    (doc: SourceDocument, corners: Quad) =>
-      execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, undefined, corners),
+    async (doc: SourceDocument, corners: Quad) => {
+      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, undefined, corners);
+    },
     [execute],
   );
 
+  const repairAll = useCallback(
+    async (docs: SourceDocument[]) => {
+      if (batchToken.current) return; // one batch at a time
+      // Failed pages are left out: detecting again gives the same result, they need corners set by hand.
+      const todo = docs.filter((d) => (statesRef.current[d.id] ?? IDLE).status === "idle");
+      if (todo.length === 0) return;
+      const token = { stop: false };
+      batchToken.current = token;
+      let finished = 0;
+      let repaired = 0;
+      let failed = 0;
+      setBatch({ status: "running", total: todo.length, finished, stopping: false });
+      for (const doc of todo) {
+        if (token.stop) break;
+        // Removed, or repaired by hand, since the batch started.
+        const skip = !alive.current.has(doc.id) || (statesRef.current[doc.id] ?? IDLE).status !== "idle";
+        if (!skip) {
+          const outcome = await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style);
+          if (outcome === "done") repaired++;
+          else if (outcome === "error") failed++;
+        }
+        finished++;
+        if (!token.stop) setBatch({ status: "running", total: todo.length, finished, stopping: false });
+      }
+      batchToken.current = null;
+      setBatch({ status: "finished", total: todo.length, repaired, failed, stopped: finished < todo.length });
+    },
+    [execute],
+  );
+
+  const stopAll = useCallback(() => {
+    const token = batchToken.current;
+    if (!token || token.stop) return;
+    token.stop = true;
+    setBatch((b) => (b.status === "running" ? { ...b, stopping: true } : b));
+  }, []);
+
   const stateOf = useCallback((id: string) => states[id] ?? IDLE, [states]);
-  return { stateOf, styleOf, run, setStyle, rotate, applyCorners };
+  return { stateOf, styleOf, run, setStyle, rotate, applyCorners, repairAll, stopAll, batch };
 }

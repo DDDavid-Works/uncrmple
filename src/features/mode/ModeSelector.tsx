@@ -8,13 +8,15 @@ const MODES: { value: ProcessingMode; label: string; hint: string }[] = [
 interface Props {
   mode: ProcessingMode;
   onChange: (mode: ProcessingMode) => void;
+  /** Hold the current mode, e.g. while every page is being repaired. */
+  disabled?: boolean;
 }
 
 /** Global switch between the two workflows. Photos stay loaded when it changes. */
-export function ModeSelector({ mode, onChange }: Props) {
+export function ModeSelector({ mode, onChange, disabled = false }: Props) {
   const active = MODES.find((m) => m.value === mode)!;
   return (
-    <fieldset className="modes" aria-describedby="mode-hint">
+    <fieldset className="modes" aria-describedby="mode-hint" disabled={disabled}>
       <legend className="visually-hidden">Processing mode</legend>
       <div className="modes__track">
         {MODES.map((m) => (

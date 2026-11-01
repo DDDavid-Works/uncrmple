@@ -167,7 +167,7 @@ describe("ID & Card Crop mode", () => {
   it("offers a PDF of the cropped cards only", async () => {
     vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection() });
     const user = await uploadInCardMode();
-    expect(screen.queryByRole("region", { name: "Export PDF" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Export" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Find card" }));
     await screen.findByAltText("Cropped card: id.jpg");
     expect(screen.getByRole("button", { name: /Download PDF \(1 page\)/ })).toBeInTheDocument();

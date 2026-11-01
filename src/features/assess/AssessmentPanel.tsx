@@ -60,8 +60,9 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
         <span className="assessment__badge" aria-hidden="true">
           {VERDICT_ICON[assessment.verdict]}
         </span>
-        <span>
-          Photo assessment: <span>{title}</span>
+        {/* The verdict is what matters; the label only says what it is about. */}
+        <span className="assessment__heading">
+          <span className="assessment__label">Photo assessment:</span> <span className="assessment__verdict">{title}</span>
         </span>
       </h3>
       {!compact && <p>{assessment.summary}</p>}
@@ -76,7 +77,7 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
         </div>
       )}
       <details>
-        <summary>Details</summary>
+        <summary>View details</summary>
         {compact && <p className="assessment__summary">{assessment.summary}</p>}
         <ul className="assessment__findings">
           {assessment.findings.map((f) => (

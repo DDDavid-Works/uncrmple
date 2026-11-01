@@ -245,7 +245,7 @@ describe("photo assessment", () => {
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Repair possible, with limitations");
     expect(panel).toHaveTextContent(/Repair is possible, with limitations \(sharpness\)/);
-    await user.click(screen.getByText("Details"));
+    await user.click(screen.getByText("View details"));
     expect(screen.getByText(/Sharpness/)).toBeInTheDocument();
     expect(screen.getByText("The photo is slightly soft.")).toBeInTheDocument();
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
@@ -262,7 +262,7 @@ describe("photo assessment", () => {
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Good repair candidate");
     expect(screen.getByText("Good repair candidate: no problems found.")).not.toBeVisible();
-    await user.click(screen.getByText("Details"));
+    await user.click(screen.getByText("View details"));
     expect(screen.getByText("Good repair candidate: no problems found.")).toBeVisible();
   });
 
@@ -579,7 +579,7 @@ describe("export", () => {
     });
     vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
     vi.mocked(downloadBlob).mockClear();
-    vi.stubGlobal("fetch", vi.fn(async () => ({ blob: async () => new Blob(["png"]) })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ blob: async () => new Blob(["png"]), arrayBuffer: async () => new TextEncoder().encode("png").buffer })));
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -606,6 +606,19 @@ describe("export", () => {
     const [blob, name] = vi.mocked(downloadBlob).mock.calls[0]!;
     expect(name).toBe("repaired-document.pdf");
     expect((blob as Blob).type).toBe("application/pdf");
+  });
+
+  it("downloads every repaired image in one ZIP, named in page order", async () => {
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await user.click(await screen.findByRole("button", { name: "Download ZIP (1 image)" }));
+    await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
+    const [blob, name] = vi.mocked(downloadBlob).mock.calls[0]!;
+    expect(name).toBe("repaired-images.zip");
+    expect((blob as Blob).type).toBe("application/zip");
+    const bytes = new Uint8Array(await (blob as Blob).arrayBuffer());
+    expect(new TextDecoder().decode(bytes)).toContain("01-page-repaired.png");
+    expect(fetch).toHaveBeenCalledWith("blob:t/2");
   });
 });
 
@@ -682,5 +695,114 @@ describe("comparison and page order", () => {
     await user.click(screen.getByRole("button", { name: "Move first.jpg later" }));
     expect(labels()).toEqual(["1. second.jpg", "2. first.jpg"]);
     expect(screen.getByRole("button", { name: "Move first.jpg later" })).toBeDisabled();
+  });
+});
+
+describe("repair all", () => {
+  const FOUND = {
+    ok: true as const,
+    value: {
+      corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }] as const,
+      areaFraction: 0.7,
+      edgeSupport: 0.9,
+      method: "edges" as const,
+    },
+  };
+  const MISSED = { ok: false as const, error: { code: "no-document-found" as const, message: "No clear page boundary was found." } };
+
+  beforeEach(() => {
+    vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ blob: async () => new Blob(["png"]) })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function uploadThree() {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(
+      screen.getByLabelText("Choose document photos"),
+      ["one.jpg", "two.jpg", "three.jpg"].map((n) => new File([jpegHeader(400, 300)], n, { type: "image/jpeg" })),
+    );
+    await screen.findByRole("heading", { name: "one.jpg" });
+    await vi.waitFor(() => expect(screen.getAllByText(/^\d\. /)).toHaveLength(3));
+    return user;
+  }
+  const chip = (name: string) =>
+    within(screen.getByRole("list", { name: "Uploaded pages" })).getByRole("button", { name: new RegExp(`^[0-9]+[.] ${name.replace(".", "[.]")}`) });
+
+  it("is not offered for a single page", async () => {
+    await uploadOne();
+    expect(screen.queryByRole("button", { name: /Repair all/ })).toBeNull();
+  });
+
+  it("repairs every page in order, reports failures, and exports the repaired ones", async () => {
+    vi.mocked(processor.detectDocument)
+      .mockResolvedValueOnce(FOUND as never)
+      .mockResolvedValueOnce(MISSED)
+      .mockResolvedValueOnce(FOUND as never);
+    const user = await uploadThree();
+
+    await user.click(screen.getByRole("button", { name: "Repair all (3)" }));
+
+    const done = await screen.findByText(/^Repaired 2 of 3 pages\./);
+    expect(done).toHaveTextContent("1 page could not be repaired");
+    expect(processor.detectDocument).toHaveBeenCalledTimes(3);
+    expect(within(chip("one.jpg")).getByText("Repaired")).toBeInTheDocument();
+    expect(within(chip("two.jpg")).getByText("Failed")).toBeInTheDocument();
+    expect(within(chip("three.jpg")).getByText("Repaired")).toBeInTheDocument();
+    // The failed page is not retried automatically: it needs corners set by hand.
+    expect(screen.queryByRole("button", { name: /Repair all/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Download PDF (2 pages)" })).toBeInTheDocument();
+    expect(screen.getByText("1 page is not repaired yet and will be left out.")).toBeInTheDocument();
+  });
+
+  it("skips pages already repaired by hand", async () => {
+    vi.mocked(processor.detectDocument).mockResolvedValue(FOUND as never);
+    const user = await uploadThree();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: one.jpg");
+
+    await user.click(screen.getByRole("button", { name: "Repair all (2)" }));
+    await screen.findByText(/^Repaired 2 of 2 pages\./);
+    expect(processor.detectDocument).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops after the current page and can carry on later", async () => {
+    let release!: () => void;
+    vi.mocked(processor.detectDocument)
+      .mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve(FOUND as never))))
+      .mockResolvedValue(FOUND as never);
+    const user = await uploadThree();
+
+    await user.click(screen.getByRole("button", { name: "Repair all (3)" }));
+    await screen.findByText("Repairing page 1 of 3…");
+    expect(screen.getByRole("progressbar", { name: "Pages repaired" })).toHaveAttribute("max", "3");
+    await vi.waitFor(() => expect(processor.detectDocument).toHaveBeenCalledTimes(1));
+
+    // The pages, mode and export are held while the batch runs.
+    const workspace = screen.getByRole("list", { name: "Uploaded pages" }).closest(".workspace")!;
+    expect(workspace).toHaveAttribute("inert");
+    expect(workspace).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Repairing your pages")).toBeInTheDocument();
+    expect(screen.getByText(/^Page 1 of 3\. The pages are locked/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Stop" }));
+    expect(screen.getByText("Finishing the current page, then the pages are yours again.")).toBeInTheDocument();
+    expect(screen.getByText("Stopping after the current page (1 of 3)…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
+    release();
+
+    await screen.findByText("Stopped. Repaired 1 of 3 pages.");
+    expect(workspace).not.toHaveAttribute("inert");
+    expect(screen.queryByText("Repairing your pages")).toBeNull();
+    expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Download PDF (1 page)" })).toBeEnabled();
+    expect(processor.detectDocument).toHaveBeenCalledTimes(1);
+    expect(within(chip("two.jpg")).getByText("Not repaired")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Repair all (2)" }));
+    await screen.findByText("Repaired 2 of 2 pages.");
+    expect(within(chip("three.jpg")).getByText("Repaired")).toBeInTheDocument();
   });
 });
