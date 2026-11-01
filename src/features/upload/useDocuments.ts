@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { probeImage } from "../../lib/files/decode";
-import { MAX_FILES } from "../../lib/files/limits";
+import { MAX_FILES, MAX_TOTAL_PIXELS } from "../../lib/files/limits";
 import { validateImageFile } from "../../lib/files/validate";
 import type { RejectedFile, SourceDocument } from "../../types/document";
 
@@ -41,6 +41,7 @@ export function useDocuments(): DocumentsApi {
 
   const addFiles = useCallback(async (files: File[]) => {
     let room = MAX_FILES - live.current.length;
+    let pixelRoom = MAX_TOTAL_PIXELS - live.current.reduce((sum, d) => sum + d.width * d.height, 0);
     for (const file of files) {
       if (room <= 0) {
         setRejected((r) => [
@@ -58,6 +59,20 @@ export function useDocuments(): DocumentsApi {
           room++;
           continue;
         }
+        const pixels = result.dimensions.width * result.dimensions.height;
+        if (pixels > pixelRoom) {
+          setRejected((r) => [
+            ...r,
+            {
+              id: newId(),
+              name: file.name,
+              reason: `Too many large images open at once (limit ${MAX_TOTAL_PIXELS / 1e6} megapixels in total). Remove some pages or work in smaller batches.`,
+            },
+          ]);
+          room++;
+          continue;
+        }
+        pixelRoom -= pixels;
         const url = URL.createObjectURL(file);
         try {
           const { width, height } = await probeImage(url);
@@ -79,6 +94,7 @@ export function useDocuments(): DocumentsApi {
         } catch (e) {
           URL.revokeObjectURL(url);
           room++;
+          pixelRoom += pixels;
           const reason = e instanceof Error ? e.message : "The image could not be decoded.";
           setRejected((r) => [...r, { id: newId(), name: file.name, reason }]);
         }

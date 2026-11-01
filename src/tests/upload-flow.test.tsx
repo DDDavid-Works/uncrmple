@@ -57,6 +57,23 @@ describe("upload to preview", () => {
     expect(await screen.findByRole("heading", { name: "ok.jpg" })).toBeInTheDocument();
   });
 
+  it("stops a batch at the total pixel limit and counts pages already open", async () => {
+    // 7000×6800 is 47.6 MP, so twelve fit in 600 MP and a thirteenth does not.
+    vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(7000);
+    vi.spyOn(HTMLImageElement.prototype, "naturalHeight", "get").mockReturnValue(6800);
+    const big = (name: string) => new File([jpegHeader(7000, 6800)], name, { type: "image/jpeg" });
+    const user = userEvent.setup();
+    render(<App />);
+    const input = screen.getByLabelText("Choose document photos");
+
+    await user.upload(input, Array.from({ length: 11 }, (_, i) => big(`p${i + 1}.jpg`)));
+    await waitFor(() => expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(11));
+    await user.upload(input, [big("p12.jpg"), big("p13.jpg")]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/p13\.jpg.*600 megapixels in total/);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /p12\.jpg/ }).length).toBeGreaterThan(0);  });
+
   it("accepts an image pasted from the clipboard and names it", async () => {
     render(<App />);
     const clip = new File([jpegHeader(3000, 2000)], "image.png", { type: "image/jpeg" });
