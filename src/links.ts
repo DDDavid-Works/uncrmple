@@ -4,7 +4,14 @@
 /** Where the waitlist site is served until uncrmple.com is set up; override with VITE_SITE_URL at build time. */
 const DEFAULT_SITE_URL = "https://uncrmple-production.up.railway.app";
 
-export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? DEFAULT_SITE_URL).trim().replace(/\/+$/, "");
+/** Adds https:// when missing and drops trailing slashes, so "example.com/" still makes working links. */
+export function toOrigin(raw: string): string {
+  const s = raw.trim().replace(/\/+$/, "");
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+}
+
+export const SITE_URL: string = toOrigin(import.meta.env.VITE_SITE_URL?.trim() || DEFAULT_SITE_URL);
 export const PRIVACY_URL = `${SITE_URL}/privacy/`;
 export const TERMS_URL = `${SITE_URL}/terms/`;
-export const CONTACT_EMAIL = "hello@uncrmple.com";
+/** Same contact as the waitlist site (waitlist/src/config.ts); VITE_CONTACT_EMAIL overrides it. */
+export const CONTACT_EMAIL: string = import.meta.env.VITE_CONTACT_EMAIL?.trim() || "dddavid.works@gmail.com";

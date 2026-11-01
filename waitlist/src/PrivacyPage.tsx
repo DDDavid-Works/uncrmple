@@ -26,7 +26,8 @@ export function PrivacyPage() {
         <h2>Who we are</h2>
         <p>
           {PRODUCT_NAME} is run by {OPERATOR_NAME}, an individual based in {OPERATOR_COUNTRY}, who is responsible for
-          the personal information described here. For any privacy question or request, email <Mail />.
+          the personal information described here and is also our data protection officer. For any privacy question or
+          request, email <Mail />.
         </p>
 
         <h2>Your document photos</h2>

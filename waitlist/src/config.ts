@@ -1,3 +1,5 @@
+import { toOrigin } from "./lib/url";
+
 // Single place for branding and deployment settings; nothing else in the waitlist should hardcode the name.
 export const PRODUCT_NAME = "Uncrmple";
 /** Logotype shown in the header and footer; screen readers get PRODUCT_NAME instead. */
@@ -6,9 +8,13 @@ export const TAGLINE = "Fix your document photos.";
 export const DESCRIPTION =
   "Turn messy document photos into clean, readable scans in seconds. Straighten, remove shadows and export a PDF, right in your browser.";
 
-export const CONTACT_EMAIL = "hello@uncrmple.com";
-
 const env = import.meta.env;
+
+/**
+ * Contact for privacy requests and questions. A Gmail address until uncrmple.com is bought and
+ * hello@uncrmple.com receives mail; VITE_CONTACT_EMAIL overrides it without a code change.
+ */
+export const CONTACT_EMAIL: string = (env.VITE_CONTACT_EMAIL ?? "").trim() || "dddavid.works@gmail.com";
 
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
 
@@ -27,7 +33,7 @@ export const WAITLIST_FIELDS: Record<string, string> = {
   from_name: `${PRODUCT_NAME} waitlist`,
 };
 /** Public origin without trailing slash; empty disables canonical/sitemap output. */
-export const SITE_URL: string = (env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");
+export const SITE_URL: string = toOrigin(env.VITE_SITE_URL ?? "");
 
 /** Person responsible for the waitlist data (the "personal information controller"). */
 export const OPERATOR_NAME = "Darrel David";

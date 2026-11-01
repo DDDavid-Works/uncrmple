@@ -3,13 +3,28 @@ import { renderToString } from "react-dom/server";
 import { App } from "./App";
 import { PrivacyPage } from "./PrivacyPage";
 import { TermsPage } from "./TermsPage";
-import { DESCRIPTION, PRIVACY_PATH, PRODUCT_NAME, SITE_URL, TAGLINE, TERMS_PATH } from "./config";
+import {
+  CONTACT_EMAIL,
+  DESCRIPTION,
+  PRIVACY_PATH,
+  PRODUCT_NAME,
+  SITE_URL,
+  TAGLINE,
+  TERMS_PATH,
+  WAITLIST_ENDPOINT,
+} from "./config";
 
 function render(page: ReactNode): string {
   return renderToString(<StrictMode>{page}</StrictMode>);
 }
 
-export const site = { name: PRODUCT_NAME, siteUrl: SITE_URL };
+export const site = {
+  name: PRODUCT_NAME,
+  siteUrl: SITE_URL,
+  contactEmail: CONTACT_EMAIL,
+  /** The only outside origin the pages may contact (the signup form), or "" when signups are off. */
+  formOrigin: WAITLIST_ENDPOINT === "" ? "" : new URL(WAITLIST_ENDPOINT).origin,
+};
 
 /** Every pre-rendered page: its built HTML file under dist/, URL path and SEO text. */
 export const pages = [
