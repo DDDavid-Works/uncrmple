@@ -11,8 +11,8 @@ export const DESCRIPTION =
 const env = import.meta.env;
 
 /**
- * Contact for privacy requests and questions. A Gmail address until uncrmple.com is bought and
- * hello@uncrmple.com receives mail; VITE_CONTACT_EMAIL overrides it without a code change.
+ * Contact for privacy requests and questions. A Gmail address until uncrmple.app is live and
+ * hello@uncrmple.app receives mail; VITE_CONTACT_EMAIL overrides it without a code change.
  */
 export const CONTACT_EMAIL: string = (env.VITE_CONTACT_EMAIL ?? "").trim() || "dddavid.works@gmail.com";
 
