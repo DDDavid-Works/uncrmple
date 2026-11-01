@@ -149,6 +149,18 @@ describe("geometry findings", () => {
     expect(measureResolution(null, 1200, 900).level).toBe("moderate");
     expect(measureResolution(PAGE, W, H).level).toBe("poor");
   });
+  it("grades resolution by the size of the text when enough lines are found", () => {
+    // A small page with large type reads fine; the page size alone would call it poor.
+    const moderate = measureResolution(PAGE, W, H, { rowPitch: 11.3, lines: 40 });
+    expect(moderate.level).toBe("moderate");
+    expect(moderate.detail).toMatch(/Lines of text are about 11 px apart: readable/);
+    expect(measureResolution(PAGE, W, H, { rowPitch: 24, lines: 40 }).level).toBe("good");
+    expect(measureResolution(PAGE, W, H, { rowPitch: 7, lines: 40 }).level).toBe("poor");
+  });
+  it("falls back to the page size when too few lines of text are found", () => {
+    expect(measureResolution(PAGE, W, H, { rowPitch: 30, lines: 3 }).level).toBe("poor");
+    expect(measureResolution(null, 3000, 2000, { rowPitch: 5, lines: 40 }).level).toBe("good");
+  });
 });
 
 describe("summarise", () => {

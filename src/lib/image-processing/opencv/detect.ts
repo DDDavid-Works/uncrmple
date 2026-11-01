@@ -23,6 +23,17 @@ export const MIN_EDGE_SUPPORT = 0.25;
 /** A background trim is rejected if it lowers edge support by more than this. */
 const MAX_SUPPORT_LOSS = 0.1;
 
+/**
+ * The median-based Canny thresholds scale with brightness, not contrast: on a bright photo (white
+ * paper on a light wall) they reach about 130 and 255 and a soft paper edge leaves no edge at all.
+ * When no outline is found, or the final one is this weakly supported, the candidates are scored
+ * again on edges found with thresholds no higher than SOFT_CANNY. Only then: on most photos the softer edges also
+ * pick up folds and printed borders, which pull the outline inside the page.
+ */
+const WEAK_SUPPORT = 0.4;
+const SOFT_CANNY: readonly [number, number] = [60, 120];
+/** How much higher, on the softer edges, the new outline must score to replace the first. */
+const MIN_SOFT_GAIN = 0.15;
 /** Fixed, sensitive Canny thresholds for the line cue: a white page on a white surface leaves only a faint edge. */
 const LINE_CANNY: readonly [number, number] = [10, 30];
 /** Hough: votes needed for a line, and the longest gap bridged inside one segment. */
@@ -139,75 +150,89 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
       add([...quad], "lines");
     }
 
-    // Outlines no flat page could make (slivers, one side far shorter than its opposite) are
-    // dropped before ranking, so a plausible candidate can still win.
     if (trace) trace.candidates = candidates;
-    const viable = candidates.filter((c) => c.support >= MIN_EDGE_SUPPORT && isPlausiblePage(c.points));
-    // Sides on real edges, that separate the page from what surrounds it, and as much of the photo
-    // as that allows: an inner table scores low on contrast, a patch of background on support.
-    const score = (c: Candidate) => c.support * c.contrast * Math.sqrt(c.area / imageArea);
-    const ranked = viable.sort((a, b) => score(b) - score(a))[0];
-    const best =
-      ranked?.method === "lines"
-        ? viable
-            .filter((c) =>
-              c.method !== "lines" &&
-              c.area > ranked.area &&
-              score(c) >= MIN_ENCLOSING_SCORE_RATIO * score(ranked) &&
-              ranked.points.every((p) => pointInQuad(c.points, p, ENCLOSING_SLACK_PX)))
-            .sort((a, b) => b.area - a.area)[0] ?? ranked
-        : ranked;
-    if (!best) {
-      return {
-        ok: false,
-        error: {
-          code: "no-document-found",
-          message:
-            "No clear page boundary was found. Use Adjust corners to mark the page yourself, or try a photo where all four page edges are visible against a contrasting background.",
-        },
-      };
-    }
-    const ordered = orderCorners(best.points);
-    // A side left on the photo's frame may belong on a faint page edge just inside it.
-    const toFrameEdge = (q: Quad) => snapFrameSides(q, straight, sensitive.data, image.width, image.height);
-    // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
-    const extended = best.method === "lines" ? extendSides(ordered, boundaries, grey) : ordered;
-    if (extended !== ordered) {
-      const corners = toFrameEdge(extended);
-      return {
-        ok: true,
-        value: {
-          corners,
-          areaFraction: polygonArea(corners) / imageArea,
-          method: best.method,
-          edgeSupport: edgeSupport(corners, nearEdge.data, image.width, image.height),
-        },
-      };
-    }
-    // The hull of a crumpled page overshoots its curved sides; pull them in past strips of background.
-    const trimmed = trimBackground(ordered, neutral.data, image.width, image.height);
-    const trimmedSupport = edgeSupport(trimmed, nearEdge.data, image.width, image.height);
-    // Keep the trim only if the new outline still follows real edges about as well as the old one.
-    const useTrimmed =
-      trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS && isPlausiblePage(trimmed);
-    const kept = useTrimmed ? trimmed : ordered;
-    const corners = toFrameEdge(kept);
-    return {
-      ok: true,
-      value: {
-        corners,
-        areaFraction: polygonArea(corners) / imageArea,
-        method: best.method,
-        edgeSupport:
-          corners !== kept ? edgeSupport(corners, nearEdge.data, image.width, image.height)
-          : useTrimmed ? trimmedSupport : best.support,
+
+    /** Turn the chosen candidate into the final outline, measuring support on the given edges. */
+    const finish = (best: Candidate, near: Uint8Array): DetectionResult => {
+      const support = (q: readonly Point[]) => edgeSupport(q, near, image.width, image.height);
+      const result = (corners: Quad, edge: number): DetectionResult => ({
+        corners, areaFraction: polygonArea(corners) / imageArea, method: best.method, edgeSupport: edge,
+      });
+      const ordered = orderCorners(best.points);
+      // A side left on the photo's frame may belong on a faint page edge just inside it.
+      const toFrameEdge = (q: Quad) => snapFrameSides(q, straight, sensitive.data, image.width, image.height);
+      // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
+      const extended = best.method === "lines" ? extendSides(ordered, boundaries, grey) : ordered;
+      if (extended !== ordered) {
+        const corners = toFrameEdge(extended);
+        return result(corners, support(corners));
+      }
+      // The hull of a crumpled page overshoots its curved sides; pull them in past strips of background.
+      const trimmed = trimBackground(ordered, neutral.data, image.width, image.height);
+      const trimmedSupport = support(trimmed);
+      // Keep the trim only if the new outline still follows real edges about as well as the old one.
+      const useTrimmed =
+        trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS && isPlausiblePage(trimmed);
+      const kept = useTrimmed ? trimmed : ordered;
+      const corners = toFrameEdge(kept);
+      return result(corners, corners !== kept ? support(corners) : useTrimmed ? trimmedSupport : best.support);
+    };
+
+    const notFound: Result<DetectionResult> = {
+      ok: false,
+      error: {
+        code: "no-document-found",
+        message:
+          "No clear page boundary was found. Use Adjust corners to mark the page yourself, or try a photo where all four page edges are visible against a contrasting background.",
       },
     };
+    const best = pickPage(candidates, imageArea);
+    const found = best ? finish(best, nearEdge.data) : null;
+    if (found && found.edgeSupport >= WEAK_SUPPORT) return { ok: true, value: found };
+
+    // No outline, or a weakly supported one: score the candidates again on softer edges. A new
+    // outline replaces a found one only if it ranks clearly higher there. Support alone cannot tell
+    // them apart: softer edges also run along the margin of a text block, so contrast and area decide.
+    const soft = own(new cv.Mat());
+    cv.Canny(blur, soft, Math.min(lower, SOFT_CANNY[0]), Math.min(upper, SOFT_CANNY[1]));
+    const nearSoft = own(new cv.Mat());
+    cv.dilate(soft, nearSoft, nearKernel);
+    const rescored = candidates.map((c) => ({ ...c, support: edgeSupport(c.points, nearSoft.data, image.width, image.height) }));
+    const softBest = pickPage(rescored, imageArea);
+    if (!softBest) return found ? { ok: true, value: found } : notFound;
+    const retry = finish(softBest, nearSoft.data);
+    if (!found) return { ok: true, value: retry };
+    const softScore = (corners: Quad, support: number) =>
+      support * boundaryContrast(corners, grey) * Math.sqrt(polygonArea(corners) / imageArea);
+    const before = softScore(found.corners, edgeSupport(found.corners, nearSoft.data, image.width, image.height));
+    return { ok: true, value: softScore(retry.corners, retry.edgeSupport) >= before * (1 + MIN_SOFT_GAIN) ? retry : found };
   } catch (e) {
     return processingFailed("Document detection failed", e);
   } finally {
     for (const o of owned) o.delete();
   }
+}
+
+/**
+ * The page among the candidates. Outlines no flat page could make (slivers, one side far shorter
+ * than its opposite) are dropped before ranking, so a plausible candidate can still win.
+ */
+function pickPage(candidates: Candidate[], imageArea: number): Candidate | undefined {
+  const viable = candidates.filter((c) => c.support >= MIN_EDGE_SUPPORT && isPlausiblePage(c.points));
+  // Sides on real edges, that separate the page from what surrounds it, and as much of the photo
+  // as that allows: an inner table scores low on contrast, a patch of background on support.
+  const score = (c: Candidate) => c.support * c.contrast * Math.sqrt(c.area / imageArea);
+  const ranked = viable.sort((a, b) => score(b) - score(a))[0];
+  if (ranked?.method !== "lines") return ranked;
+  return (
+    viable
+      .filter((c) =>
+        c.method !== "lines" &&
+        c.area > ranked.area &&
+        score(c) >= MIN_ENCLOSING_SCORE_RATIO * score(ranked) &&
+        ranked.points.every((p) => pointInQuad(c.points, p, ENCLOSING_SLACK_PX)))
+      .sort((a, b) => b.area - a.area)[0] ?? ranked
+  );
 }
 
 /** Low-saturation, not-too-dark pixels: where a (white or grey) page can be. */

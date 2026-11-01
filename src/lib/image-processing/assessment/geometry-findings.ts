@@ -21,7 +21,23 @@ export const RESOLUTION = {
   moderateLongSide: 1000,
   /** Long side of an A4 page in inches (Letter is close enough for an estimate). */
   pageLongSideInches: 11.7,
+  /**
+   * Distance between rows of text in photo pixels. What makes a page readable is the size of its
+   * text, not of the page: large type in a small photo reads fine. On sample photos that read well
+   * rows were 19–100 px apart; a 450×600 photo of a typed contract, readable on screen but soft
+   * when zoomed, measured 11 px. Below 9 px letters are only a few pixels tall.
+   */
+  goodRowPitch: 18,
+  moderateRowPitch: 9,
+  /** Text rows needed before their spacing is trusted over the page size. */
+  minTextLines: 6,
 };
+
+/** Rows of text found on the straightened page, in photo pixels. */
+export interface TextSize {
+  rowPitch: number;
+  lines: number;
+}
 /** Fraction of the shorter photo side within which a page edge counts as lying on the photo border. */
 const BORDER_TOLERANCE = 0.01;
 
@@ -111,7 +127,7 @@ export function measureCompleteness(quad: Quad | null, width: number, height: nu
   };
 }
 
-export function measureResolution(quad: Quad | null, width: number, height: number): Finding {
+export function measureResolution(quad: Quad | null, width: number, height: number, text: TextSize | null = null): Finding {
   let longSide: number;
   if (quad) {
     const [top, right, bottom, left] = sides(quad);
@@ -121,9 +137,19 @@ export function measureResolution(quad: Quad | null, width: number, height: numb
   }
   const rounded = Math.round(longSide);
   const dpi = Math.round(longSide / RESOLUTION.pageLongSideInches / 10) * 10;
+  const base = `About ${rounded} px along the page's long side (roughly ${dpi} dpi if it is A4 or Letter).`;
+  if (quad && text && text.lines >= RESOLUTION.minTextLines) {
+    const pitch = Math.round(text.rowPitch);
+    const level: Finding["level"] =
+      text.rowPitch >= RESOLUTION.goodRowPitch ? "good" : text.rowPitch >= RESOLUTION.moderateRowPitch ? "moderate" : "poor";
+    const about =
+      level === "good" ? ` Lines of text are about ${pitch} px apart, large enough to read clearly.`
+      : level === "moderate" ? ` Lines of text are about ${pitch} px apart: readable, but small letters will look soft when zoomed in or printed.`
+      : ` Lines of text are only about ${pitch} px apart, so small print is likely to be unreadable.`;
+    return { dimension: "resolution", level, confidence: 0.8, detail: base + about };
+  }
   const level: Finding["level"] =
     longSide >= RESOLUTION.goodLongSide ? "good" : longSide >= RESOLUTION.moderateLongSide ? "moderate" : "poor";
-  const base = `About ${rounded} px along the page's long side (roughly ${dpi} dpi if it is A4 or Letter).`;
   const advice =
     level === "good" ? "" : level === "moderate" ? " Small print may be hard to read." : " This is low; small print is likely to be unreadable.";
   return { dimension: "resolution", level, confidence: quad ? 0.9 : 0.5, detail: base + advice };

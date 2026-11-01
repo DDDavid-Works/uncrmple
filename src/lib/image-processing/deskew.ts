@@ -59,15 +59,27 @@ export function deskewDecision(tilt: TiltMeasurement | null): Pick<Deskew, "appl
 /** True when the measured lines bend enough that one rotation cannot level the whole page. */
 export const isBent = (tilt: TiltMeasurement | null): boolean => tilt?.bend != null && tilt.bend >= DESKEW.bendDeg;
 
-/** Straighten (and, given `shift`, flatten) a downscaled copy of the page and measure the tilt of its printed lines. */
-export async function measurePageTilt(
+/**
+ * Straighten (and, given `shift`, flatten) a downscaled copy of the page. `scale` is the photo's
+ * pixels per pixel of the copy, for turning measurements on it back into photo pixels.
+ */
+export async function straightenSmall(
   processor: ImageProcessor, image: RasterImage, quad: Quad, shift?: ShiftMap,
-): Promise<Result<TiltMeasurement | null>> {
+): Promise<Result<{ page: RasterImage; scale: number }>> {
   const small = downscale(image, TILT_MAX_SIDE).image;
   const smallQuad = scaleQuad(quad, small.width / image.width, small.height / image.height);
   const warped = await (shift ? processor.correctPerspective(small, smallQuad, shift) : processor.correctPerspective(small, smallQuad));
   if (!warped.ok) return warped;
-  return { ok: true, value: measureTilt(toGray(warped.value)) };
+  return { ok: true, value: { page: warped.value, scale: image.width / small.width } };
+}
+
+/** Straighten (and, given `shift`, flatten) a downscaled copy of the page and measure the tilt of its printed lines. */
+export async function measurePageTilt(
+  processor: ImageProcessor, image: RasterImage, quad: Quad, shift?: ShiftMap,
+): Promise<Result<TiltMeasurement | null>> {
+  const straight = await straightenSmall(processor, image, quad, shift);
+  if (!straight.ok) return straight;
+  return { ok: true, value: measureTilt(toGray(straight.value.page)) };
 }
 
 /**

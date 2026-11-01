@@ -1,11 +1,14 @@
 import type { Assessment } from "../../../types/assessment";
 import type { ImageProcessor, Quad, RasterImage, Result } from "../../../types/repair";
-import { measurePageTilt } from "../deskew";
+import { straightenSmall } from "../deskew";
+import { traceLines } from "../dewarp/trace";
+import { measureTilt } from "../tilt";
 import { downscale } from "../downscale";
 import { scaleQuad } from "../geometry";
 import { DETECTION_MAX_SIDE, validateRaster } from "../pipeline";
 import { classifyLikeness, measureContent, withLikeness } from "./likeness";
 import { measureCompleteness, measureGeometry, measureResolution } from "./geometry-findings";
+import type { TextSize } from "./geometry-findings";
 import { measureLighting, measureReadability, measureSharpness } from "./photometric";
 import { blockStats, insetMask, quadMask, shrinkQuad, toGray } from "./pixels";
 import { summarise } from "./verdict";
@@ -38,9 +41,18 @@ export async function assessPhoto(processor: ImageProcessor, image: RasterImage)
     return detected;
   }
 
-  // Lean and bend of the printed lines once the page is straightened. A secondary measure: if the
-  // engine cannot warp here, the finding simply goes without it (repair reports its own errors).
-  const tilt = quad ? await measurePageTilt(processor, image, quad) : null;
+  // Lean and bend of the printed lines, and the size of the text, once the page is straightened.
+  // Secondary measures: if the engine cannot warp here, the findings simply go without them
+  // (repair reports its own errors).
+  const straight = quad ? await straightenSmall(processor, image, quad) : null;
+  const straightGray = straight?.ok ? toGray(straight.value.page) : null;
+  const tilt = straightGray ? measureTilt(straightGray) : null;
+  let text: TextSize | null = null;
+  if (straight?.ok && straightGray) {
+    const trace = traceLines(straightGray);
+    const textLines = trace.lines.filter((l) => l.kind === "text").length;
+    if (trace.rowPitch !== null) text = { rowPitch: trace.rowPitch * straight.value.scale, lines: textLines };
+  }
 
   const analysis = downscale(image, ANALYSIS_MAX_SIDE).image;
   const gray = toGray(analysis);
@@ -52,10 +64,10 @@ export async function assessPhoto(processor: ImageProcessor, image: RasterImage)
   const stats = blockStats(gray, mask, block);
 
   const findings = [
-    measureGeometry(quad, edgeSupport, tilt?.ok ? tilt.value : null),
+    measureGeometry(quad, edgeSupport, tilt),
     measureLighting(stats, gray, mask),
     measureSharpness(gray, mask),
-    measureResolution(quad, image.width, image.height),
+    measureResolution(quad, image.width, image.height, text),
     measureCompleteness(quad, image.width, image.height),
     measureReadability(stats),
   ];
