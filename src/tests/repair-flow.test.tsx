@@ -295,13 +295,18 @@ describe("steps panel", () => {
 
 describe("photo assessment", () => {
   it("shows the verdict and per-dimension findings right after upload, before any repair", async () => {
-    await uploadOne();
+    const user = await uploadOne();
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Repair possible, with limitations");
     expect(panel).toHaveTextContent(/Repair is possible, with limitations \(sharpness\)/);
     expect(screen.getByText(/Sharpness/)).toBeVisible();
-    expect(screen.getByText("The photo is slightly soft.")).toBeInTheDocument();
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
+    // The rows are always shown; their explanations open on request.
+    expect(screen.getByText("The photo is slightly soft.")).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "View details" }));
+    expect(screen.getByText("The photo is slightly soft.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Hide details" }));
+    expect(screen.getByText("The photo is slightly soft.")).not.toBeVisible();
     expect(processor.correctPerspective).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Repair" })).toBeEnabled();
   });

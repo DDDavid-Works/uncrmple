@@ -1,6 +1,8 @@
+import { useId, useState } from "react";
 import type { AssessmentDimension, FindingLevel, Verdict } from "../../types/assessment";
 import { BusyNotice } from "../../components/BusyNotice";
 import type { AssessmentState } from "./useAssessment";
+import { detailsShown, setDetailsShown } from "./details-state";
 
 const VERDICT_TITLE: Record<Verdict, string> = {
   good: "Good repair candidate",
@@ -36,6 +38,8 @@ interface Props {
 }
 
 export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, disabled }: Props) {
+  const [showDetails, setShowDetails] = useState(detailsShown);
+  const detailsId = useId();
   if (state.status === "idle") return null;
   if (state.status === "running") {
     return <BusyNotice task="Analysing the photo…" />;
@@ -70,7 +74,19 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
           </div>
         )}
       </div>
-      <ul className="assessment__findings">
+      <button
+        type="button"
+        className="assessment__more"
+        aria-expanded={showDetails}
+        aria-controls={detailsId}
+        onClick={() => {
+          setDetailsShown(!showDetails);
+          setShowDetails(!showDetails);
+        }}
+      >
+        {showDetails ? "Hide details" : "View details"}
+      </button>
+      <ul className="assessment__findings" id={detailsId}>
         {assessment.findings.map((f) => (
           <li key={f.dimension} className={`finding finding--${f.level}`}>
             <span className="finding__row">
@@ -80,7 +96,10 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
                 {f.level !== "unknown" && f.confidence < 0.5 ? " (low confidence)" : ""}
               </span>
             </span>
-            <span className="finding__detail">{f.detail}</span>
+            {/* The rows give the overview; the explanations are long, so they open on request. */}
+            <span className="finding__detail" hidden={!showDetails}>
+              {f.detail}
+            </span>
           </li>
         ))}
       </ul>

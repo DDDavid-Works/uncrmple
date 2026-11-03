@@ -266,10 +266,15 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
               </p>
             )}
           </fieldset>
+        </InspectorSection>
+
+        {/* Floats at the bottom of the panel while a long photo check pushes it out of view, then
+            settles here under the settings. */}
+        <div className="inspector__dock">
           <button type="button" className={done ? "btn btn--block" : "btn btn--primary btn--block"} onClick={onRepair} disabled={running}>
             {done ? "Repair again" : "Repair"}
           </button>
-        </InspectorSection>
+        </div>
 
         <InspectorSection index={3} title="Export">
           {repair.status === "done" && (
