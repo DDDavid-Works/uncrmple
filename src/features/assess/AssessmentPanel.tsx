@@ -49,47 +49,42 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
   }
   const { assessment } = state;
   const title = assessment.likeness === "not-document" ? "No document detected" : VERDICT_TITLE[assessment.verdict];
-  // A good page needs no attention: one line, with the explanation under Details.
-  const compact = assessment.verdict === "good" && assessment.likeness === "document";
   return (
-    <section
-      className={`assessment assessment--${assessment.verdict}${compact ? " assessment--compact" : ""}`}
-      aria-label="Photo assessment"
-    >
-      <h3 className="assessment__title">
-        <span className="assessment__badge" aria-hidden="true">
-          {VERDICT_ICON[assessment.verdict]}
-        </span>
-        {/* The verdict is what matters; the label only says what it is about. */}
-        <span className="assessment__heading">
-          <span className="assessment__label">Photo assessment:</span> <span className="assessment__verdict">{title}</span>
-        </span>
-      </h3>
-      {!compact && <p>{assessment.summary}</p>}
-      {assessment.likeness !== "document" && (
-        <div className="assessment__actions">
-          <button type="button" className="btn btn--small" onClick={onAdjustCorners} disabled={disabled}>
-            Mark corners
-          </button>
-          <button type="button" className="btn btn--small" onClick={onCleanWholeImage} disabled={disabled}>
-            Clean up whole image
-          </button>
-        </div>
-      )}
-      <details>
-        <summary>View details</summary>
-        {compact && <p className="assessment__summary">{assessment.summary}</p>}
-        <ul className="assessment__findings">
-          {assessment.findings.map((f) => (
-            <li key={f.dimension}>
-              <strong>{DIMENSION_TITLE[f.dimension]}</strong>: {LEVEL_TEXT[f.level]}
-              {f.level !== "unknown" && f.confidence < 0.5 ? " (low confidence)" : ""}
-              <br />
-              <span className="muted">{f.detail}</span>
-            </li>
-          ))}
-        </ul>
-      </details>
+    <section className={`assessment assessment--${assessment.verdict}`} aria-label="Photo assessment">
+      <div className="assessment__verdict-card">
+        <h4 className="assessment__title">
+          <span className="assessment__badge" aria-hidden="true">
+            {VERDICT_ICON[assessment.verdict]}
+          </span>
+          <span className="assessment__verdict">{title}</span>
+        </h4>
+        <p className="assessment__summary">{assessment.summary}</p>
+        {assessment.likeness !== "document" && (
+          <div className="assessment__actions">
+            <button type="button" className="btn btn--small" onClick={onAdjustCorners} disabled={disabled}>
+              Mark corners
+            </button>
+            <button type="button" className="btn btn--small" onClick={onCleanWholeImage} disabled={disabled}>
+              Clean up whole image
+            </button>
+          </div>
+        )}
+      </div>
+      <ul className="assessment__findings">
+        {assessment.findings.map((f) => (
+          <li key={f.dimension} className={`finding finding--${f.level}`}>
+            <span className="finding__row">
+              <span className="finding__name">{DIMENSION_TITLE[f.dimension]}</span>
+              <span className="finding__level">
+                {LEVEL_TEXT[f.level]}
+                {f.level !== "unknown" && f.confidence < 0.5 ? " (low confidence)" : ""}
+              </span>
+            </span>
+            <span className="finding__detail">{f.detail}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="assessment__note">Estimates from the photo's pixels, not a guarantee. Check the result yourself.</p>
     </section>
   );
 }

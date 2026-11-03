@@ -241,29 +241,27 @@ describe("flattening curved lines", () => {
 
 describe("photo assessment", () => {
   it("shows the verdict and per-dimension findings right after upload, before any repair", async () => {
-    const user = await uploadOne();
+    await uploadOne();
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Repair possible, with limitations");
     expect(panel).toHaveTextContent(/Repair is possible, with limitations \(sharpness\)/);
-    await user.click(screen.getByText("View details"));
-    expect(screen.getByText(/Sharpness/)).toBeInTheDocument();
+    expect(screen.getByText(/Sharpness/)).toBeVisible();
     expect(screen.getByText("The photo is slightly soft.")).toBeInTheDocument();
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
     expect(processor.correctPerspective).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Repair" })).toBeEnabled();
   });
 
-  it("collapses a good assessment to one line with the explanation under Details", async () => {
+  it("shows a good assessment with its summary and every finding", async () => {
     vi.mocked(assessPhoto).mockResolvedValue({
       ok: true,
       value: { ...LIMITED, verdict: "good", summary: "Good repair candidate: no problems found." },
     });
-    const user = await uploadOne();
+    await uploadOne();
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Good repair candidate");
-    expect(screen.getByText("Good repair candidate: no problems found.")).not.toBeVisible();
-    await user.click(screen.getByText("View details"));
     expect(screen.getByText("Good repair candidate: no problems found.")).toBeVisible();
+    expect(within(panel).getAllByRole("listitem")).toHaveLength(LIMITED.findings.length);
   });
 
   it("says the image engine is loading while the first analysis runs", async () => {
@@ -780,7 +778,9 @@ describe("repair all", () => {
     await vi.waitFor(() => expect(processor.detectDocument).toHaveBeenCalledTimes(1));
 
     // The pages, mode and export are held while the batch runs.
-    const workspace = screen.getByRole("list", { name: "Uploaded pages" }).closest(".workspace")!;
+    const pages = screen.getByRole("list", { name: "Uploaded pages" }).closest(".sidebar__pages")!;
+    const workspace = screen.getByRole("region", { name: "Photo preview" }).closest(".workspace")!;
+    expect(pages).toHaveAttribute("inert");
     expect(workspace).toHaveAttribute("inert");
     expect(workspace).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText("Repairing your pages")).toBeInTheDocument();
@@ -794,6 +794,7 @@ describe("repair all", () => {
     release();
 
     await screen.findByText("Stopped. Repaired 1 of 3 pages.");
+    expect(pages).not.toHaveAttribute("inert");
     expect(workspace).not.toHaveAttribute("inert");
     expect(screen.queryByText("Repairing your pages")).toBeNull();
     expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeEnabled();

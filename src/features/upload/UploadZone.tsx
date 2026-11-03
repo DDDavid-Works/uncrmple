@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { isCoarsePointer } from "../../lib/browser/pointer";
+import { MAX_FILE_BYTES, MAX_FILES } from "../../lib/files/limits";
 
 interface Props {
   compact: boolean;
@@ -83,8 +84,8 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           </p>
         </>
       )}
-      <button type="button" className="btn btn--primary" onClick={() => input.current?.click()}>
-        {compact ? "Add more photos" : touch ? "Choose or take photo" : "Choose photos"}
+      <button type="button" className={compact ? "btn btn--block" : "btn btn--primary"} onClick={() => input.current?.click()}>
+        {compact ? "Add photos" : touch ? "Choose or take photo" : "Choose photos"}
       </button>
       <input
         ref={input}
@@ -100,7 +101,12 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           if (files.length) onFiles(files);
         }}
       />
-      {compact && !touch && <span className="upload__drop-hint">or drop or paste images</span>}
+      {compact && !touch && <span className="upload__drop-hint">or drop or paste images here</span>}
+      {!compact && (
+        <p className="upload__limits">
+          JPG, PNG, WebP · Up to {MAX_FILE_BYTES / 1024 / 1024} MB each · {MAX_FILES} photos at a time
+        </p>
+      )}
       {busy && (
         <p role="status" className="upload__status">
           Reading images…

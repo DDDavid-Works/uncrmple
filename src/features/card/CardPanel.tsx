@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BusyNotice } from "../../components/BusyNotice";
 import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
@@ -6,6 +6,7 @@ import { baseName } from "../../lib/browser/download";
 import type { SourceDocument } from "../../types/document";
 import type { CardDetection, CardEnhanceOptions, CardQualityIssue, CardWarning, Quad } from "../../types/repair";
 import { CornerEditor } from "../preview/CornerEditor";
+import { InspectorSection } from "../preview/Inspector";
 import { formatBytes } from "../preview/PreviewPanel";
 import type { CardState, CardView } from "./useCardCrop";
 
@@ -44,6 +45,8 @@ interface Props {
   onCancelReview: () => void;
   onReset: () => void;
   onRemove: () => void;
+  /** Export of every cropped card, shown under this card's own download; null until one is done. */
+  exportAll: ReactNode;
 }
 
 /** Heuristic, not a calibrated probability: shown with that caveat. */
@@ -61,7 +64,7 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
   );
 }
 
-export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove }: Props) {
+export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove, exportAll }: Props) {
   const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
@@ -81,73 +84,46 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
 
   return (
     <section className="preview" aria-label="Card preview">
-      <header className="preview__head">
-        <div>
-          <h2 className="preview__name">{doc.name}</h2>
-          <p className="muted">
-            Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
-          </p>
-        </div>
-        <div className="preview__actions">
-          {/* One primary action per stage: Find card first, then Download once a crop exists. */}
-          {done && (
-            <a className="btn btn--primary" href={done.url} download={`${baseName(doc.name)}-card.png`}>
-              Download image
-            </a>
-          )}
-          <button type="button" className={done || reviewing ? "btn" : "btn btn--primary"} onClick={onDetect} disabled={working}>
-            {done || reviewing ? "Detect card again" : "Find card"}
-          </button>
-          {done && (
-            <button type="button" className="btn" onClick={onAdjust} disabled={working}>
-              Adjust corners
-            </button>
-          )}
-          {!done && !reviewing && (
-            <button type="button" className="btn" onClick={onAdjust} disabled={working}>
-              Place corners manually
-            </button>
-          )}
-          <div className="preview__actions-end">
-            {done && (
-              <button type="button" className="btn btn--quiet" onClick={onReset} disabled={working}>
-                Reset
-              </button>
-            )}
-            <RemoveButton name={doc.name} onRemove={onRemove} />
-          </div>
-        </div>
-      </header>
-
-      {working && (
-        <BusyNotice task={state.step === "detecting" ? "Looking for the card…" : "Cropping and straightening the card…"} />
-      )}
-      {state.status === "error" && (
-        <p role="alert" className="notice notice--error">
-          Card processing failed: {state.message} You can still place the corners manually.
-        </p>
-      )}
-      {state.status === "idle" && (
-        <p className="muted notice">
-          Choose “Find card” to detect the card automatically, or place its four corners yourself. The original photo is never changed.
-        </p>
-      )}
-
-      {state.status === "review" && (
-        <>
-          {state.detection ? (
-            <>
-              <p role="status" className="notice">
-                <strong>Card detected — please verify the corners.</strong> {scoreText(state.detection)}. Move any handle that is not on the real card edge, then crop.
-              </p>
-              <Warnings warnings={state.detection.warnings} />
-            </>
+      <div className="viewer">
+        <div className="viewer__bar">
+          {done ? (
+            <div className="toggle" role="group" aria-label="Choose version">
+              {views.map((v) => (
+                <button key={v.value} type="button" className="btn btn--small" aria-pressed={shown === v.value} onClick={() => setView(v.value)}>
+                  {v.label}
+                </button>
+              ))}
+              <label className="toggle__zoom">
+                <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
+                Actual size
+              </label>
+            </div>
           ) : (
-            <p role="alert" className="notice notice--warn">
-              <strong>{state.failure ? "Automatic detection failed — select the corners manually." : "Select the card corners."}</strong>{" "}
-              {state.failure ?? "Drag the four handles onto the card’s corners."}
-            </p>
+            <span className="viewer__label">{reviewing ? "Set the corners" : "Original"}</span>
           )}
+          <h2 className="viewer__name">{doc.name}</h2>
+        </div>
+
+        {working && (
+          <BusyNotice task={state.step === "detecting" ? "Looking for the card…" : "Cropping and straightening the card…"} />
+        )}
+        {state.status === "error" && (
+          <p role="alert" className="notice notice--error">
+            Card processing failed: {state.message} You can still place the corners manually.
+          </p>
+        )}
+        {done?.enhancing && (
+          <p role="status" className="notice">
+            Applying touch-ups…
+          </p>
+        )}
+        {done?.enhanceError && (
+          <p role="alert" className="notice notice--error">
+            Touch-ups could not be applied: {done.enhanceError} The plain crop is shown.
+          </p>
+        )}
+
+        {state.status === "review" ? (
           <CornerEditor
             key={`${doc.id}-${state.corners.map((c) => `${Math.round(c.x)},${Math.round(c.y)}`).join(";")}`}
             imageUrl={doc.originalUrl}
@@ -159,109 +135,165 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
             onApply={(c) => onCrop(c, null)}
             onCancel={onCancelReview}
           />
-        </>
-      )}
+        ) : done && shown === "touchups" ? (
+          <>
+            <p className="muted wipe__hint">
+              Drag across the card to compare the plain crop (left) with the touched-up version (right).
+            </p>
+            <CompareSlider
+              beforeUrl={done.cropUrl}
+              afterUrl={done.url}
+              beforeLabel="Crop only"
+              afterLabel="Enhanced"
+              beforeAlt={`Cropped card, no enhancement: ${doc.name}`}
+              afterAlt={resultAlt}
+            />
+          </>
+        ) : done && shown === "both" ? (
+          <div className="compare">
+            <figure>
+              <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
+              <figcaption>Original</figcaption>
+            </figure>
+            <figure>
+              <img src={done.url} alt={resultAlt} />
+              <figcaption>{enhanced ? "Enhanced" : "Cropped"}</figcaption>
+            </figure>
+          </div>
+        ) : done ? (
+          <div className={`preview__frame${zoom ? " preview__frame--zoom" : ""}`}>
+            <img
+              src={shown === "original" ? doc.originalUrl : shown === "crop" ? done.cropUrl : done.url}
+              alt={shown === "original" ? `Original photo: ${doc.name}` : shown === "crop" ? `Cropped card, no enhancement: ${doc.name}` : resultAlt}
+            />
+          </div>
+        ) : (
+          <div className="preview__frame">
+            <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
+          </div>
+        )}
 
-      {done && (
-        <>
-          <p role="status" className="notice">
-            {done.detection ? (
+        <div className="viewer__foot">
+          <div className="viewer__meta">
+            <p className="muted">
+              Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
+            </p>
+            {done && (
+              <p className="muted">
+                {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions{" "}
+                {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
+              </p>
+            )}
+          </div>
+          <div className="viewer__tools">
+            {done && (
+              <button type="button" className="btn btn--small" onClick={onAdjust} disabled={working}>
+                Adjust corners
+              </button>
+            )}
+            <div className="viewer__tools-end">
+              {done && (
+                <button type="button" className="btn btn--small btn--quiet" onClick={onReset} disabled={working}>
+                  Reset
+                </button>
+              )}
+              <RemoveButton name={doc.name} onRemove={onRemove} />
+            </div>
+          </div>
+          <p className="viewer__promise">Your original stays untouched. Nothing is added or redrawn.</p>
+        </div>
+      </div>
+
+      <div className="inspector">
+        <InspectorSection index={1} title="Find the card">
+          {state.status === "idle" && (
+            <p className="inspector__empty">
+              Choose “Find card” to detect the card automatically, or place its four corners yourself. The original photo is
+              never changed.
+            </p>
+          )}
+          {state.status === "review" &&
+            (state.detection ? (
               <>
-                <strong>Card detected and cropped.</strong> {scoreText(done.detection)}.
+                <p role="status" className="notice">
+                  <strong>Card detected — please verify the corners.</strong> {scoreText(state.detection)}. Move any handle
+                  that is not on the real card edge, then crop.
+                </p>
+                <Warnings warnings={state.detection.warnings} />
               </>
             ) : (
-              <strong>Cropped using the corners you set.</strong>
-            )}{" "}
-            Check the edges against the original. A clean crop does not make an ID image suitable for official verification.
-          </p>
-          {done.detection && <Warnings warnings={done.detection.warnings} />}
-          {done.quality.map((q) => (
-            <p key={q} role="alert" className="notice notice--warn">
-              {QUALITY_TEXT[q]}
-            </p>
-          ))}
-          <fieldset className="styles" aria-label="Optional enhancement">
-            <legend>Optional touch-ups (off by default)</legend>
-            {ENHANCE_OPTIONS.map((o) => (
-              <label key={o.key} className="styles__option" title={o.hint}>
-                <input
-                  type="checkbox"
-                  checked={enhance[o.key]}
-                  disabled={done.enhancing}
-                  onChange={(e) => onEnhance({ ...enhance, [o.key]: e.target.checked })}
-                />
-                {o.label}
-              </label>
-            ))}
-            <p className="muted styles__hint">
-              Touch-ups only adjust the pixels already in the photo. They never add or redraw content, and compare against the crop-only view before relying on them.
-            </p>
-          </fieldset>
-          {done.enhancing && (
-            <p role="status" className="notice">
-              Applying touch-ups…
-            </p>
-          )}
-          {done.enhanceError && (
-            <p role="alert" className="notice notice--error">
-              Touch-ups could not be applied: {done.enhanceError} The plain crop is shown.
-            </p>
-          )}
-          <div className="toggle" role="group" aria-label="Choose version">
-            {views.map((v) => (
-              <button key={v.value} type="button" className="btn btn--small" aria-pressed={shown === v.value} onClick={() => setView(v.value)}>
-                {v.label}
-              </button>
-            ))}
-            <label className="toggle__zoom">
-              <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
-              Actual size
-            </label>
-          </div>
-          <p className="muted">
-            {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
-          </p>
-          {shown === "touchups" ? (
-            <>
-              <p className="muted wipe__hint">
-                Drag across the card to compare the plain crop (left) with the touched-up version (right).
+              <p role="alert" className="notice notice--warn">
+                <strong>{state.failure ? "Automatic detection failed — select the corners manually." : "Select the card corners."}</strong>{" "}
+                {state.failure ?? "Drag the four handles onto the card’s corners."}
               </p>
-              <CompareSlider
-                beforeUrl={done.cropUrl}
-                afterUrl={done.url}
-                beforeLabel="Crop only"
-                afterLabel="Enhanced"
-                beforeAlt={`Cropped card, no enhancement: ${doc.name}`}
-                afterAlt={resultAlt}
-              />
+            ))}
+          {done && (
+            <>
+              <p role="status" className="notice">
+                {done.detection ? (
+                  <>
+                    <strong>Card detected and cropped.</strong> {scoreText(done.detection)}.
+                  </>
+                ) : (
+                  <strong>Cropped using the corners you set.</strong>
+                )}{" "}
+                Check the edges against the original. A clean crop does not make an ID image suitable for official verification.
+              </p>
+              {done.detection && <Warnings warnings={done.detection.warnings} />}
+              {done.quality.map((q) => (
+                <p key={q} role="alert" className="notice notice--warn">
+                  {QUALITY_TEXT[q]}
+                </p>
+              ))}
             </>
-          ) : shown === "both" ? (
-            <div className="compare">
-              <figure>
-                <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-                <figcaption>Original</figcaption>
-              </figure>
-              <figure>
-                <img src={done.url} alt={resultAlt} />
-                <figcaption>{enhanced ? "Enhanced" : "Cropped"}</figcaption>
-              </figure>
-            </div>
-          ) : (
-            <div className={`preview__frame${zoom ? " preview__frame--zoom" : ""}`}>
-              <img
-                src={shown === "original" ? doc.originalUrl : shown === "crop" ? done.cropUrl : done.url}
-                alt={shown === "original" ? `Original photo: ${doc.name}` : shown === "crop" ? `Cropped card, no enhancement: ${doc.name}` : resultAlt}
-              />
-            </div>
           )}
-        </>
-      )}
+          <div className="inspector__actions">
+            {/* One primary action per stage: Find card first, then Download once a crop exists. */}
+            <button type="button" className={done || reviewing ? "btn btn--block" : "btn btn--primary btn--block"} onClick={onDetect} disabled={working}>
+              {done || reviewing ? "Detect card again" : "Find card"}
+            </button>
+            {!done && !reviewing && (
+              <button type="button" className="btn btn--block" onClick={onAdjust} disabled={working}>
+                Place corners manually
+              </button>
+            )}
+          </div>
+        </InspectorSection>
 
-      {!done && !reviewing && (
-        <div className="preview__frame">
-          <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-        </div>
-      )}
+        <InspectorSection index={2} title="Touch-ups">
+          {done ? (
+            <fieldset className="styles" aria-label="Optional enhancement">
+              <legend>Optional, off by default</legend>
+              {ENHANCE_OPTIONS.map((o) => (
+                <label key={o.key} className="styles__option" title={o.hint}>
+                  <input
+                    type="checkbox"
+                    checked={enhance[o.key]}
+                    disabled={done.enhancing}
+                    onChange={(e) => onEnhance({ ...enhance, [o.key]: e.target.checked })}
+                  />
+                  {o.label}
+                </label>
+              ))}
+              <p className="muted styles__hint">
+                Touch-ups only adjust the pixels already in the photo. They never add or redraw content, and compare against
+                the crop-only view before relying on them.
+              </p>
+            </fieldset>
+          ) : (
+            <p className="inspector__empty">Optional touch-ups appear once the card is cropped.</p>
+          )}
+        </InspectorSection>
+
+        <InspectorSection index={3} title="Export">
+          {done && (
+            <a className="btn btn--primary btn--block" href={done.url} download={`${baseName(doc.name)}-card.png`}>
+              Download image
+            </a>
+          )}
+          {exportAll ?? <p className="inspector__empty">Crop the card to download it as an image or PDF.</p>}
+        </InspectorSection>
+      </div>
     </section>
   );
 }

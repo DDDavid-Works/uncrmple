@@ -81,38 +81,35 @@ export function ExportBar({
 
   return (
     <section className="export" aria-label="Export">
-      <div className="export__row">
-        <div className="export__title">
-          <h2 className="eyebrow">Export</h2>
-          <p className="muted export__count">
-            {pages.length} of {total} {doneWord}
-          </p>
-        </div>
-        <label className="export__field">
-          Paper
-          <select value={paper} onChange={(e) => setPaper(e.target.value as PaperSize)} disabled={busy || locked}>
-            {(Object.keys(PAPER_SIZES) as PaperSize[]).map((p) => (
-              <option key={p} value={p}>
-                {PAPER_SIZES[p].label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="export__actions">
-          <button type="button" className="btn btn--primary" onClick={() => void exportPdf()} disabled={busy || locked}>
-            {making === "pdf" ? "Creating PDF…" : `Download PDF (${count(pages.length, "page")})`}
-          </button>
-          <button type="button" className="btn" onClick={() => void exportZip()} disabled={busy || locked}>
-            {making === "zip" ? "Creating ZIP…" : `Download ZIP (${count(pages.length, "image")})`}
-          </button>
-        </div>
+      <p className="export__title">
+        All pages <span className="muted export__count">{pages.length} of {total} {doneWord}</span>
+      </p>
+      <label className="export__field">
+        PDF paper size
+        <select value={paper} onChange={(e) => setPaper(e.target.value as PaperSize)} disabled={busy || locked}>
+          {(Object.keys(PAPER_SIZES) as PaperSize[]).map((p) => (
+            <option key={p} value={p}>
+              {PAPER_SIZES[p].label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="export__actions">
+        <button type="button" className="btn btn--block" onClick={() => void exportPdf()} disabled={busy || locked}>
+          {making === "pdf" ? "Creating PDF…" : `Download PDF (${count(pages.length, "page")})`}
+        </button>
+        <button type="button" className="btn btn--block" onClick={() => void exportZip()} disabled={busy || locked}>
+          {making === "zip" ? "Creating ZIP…" : `Download ZIP (${count(pages.length, "image")})`}
+        </button>
       </div>
       {locked ? (
         <p className="muted export__skipped">The PDF can be made once every page is repaired.</p>
-      ) : skipped > 0 && (
+      ) : skipped > 0 ? (
         <p className="muted export__skipped">
           {skipped} {skipped === 1 ? "page is" : "pages are"} not {doneWord} yet and will be left out.
         </p>
+      ) : (
+        <p className="muted export__skipped">Page order is preserved.</p>
       )}
       {error && (
         <p role="alert" className="notice notice--error">

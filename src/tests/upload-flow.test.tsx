@@ -33,6 +33,14 @@ describe("upload to preview", () => {
     expect(screen.getByText(/IDs and medical or financial records/)).toBeInTheDocument();
   });
 
+  it("shows the empty workspace with the limits and no repair or export controls", () => {
+    render(<App />);
+    expect(screen.getByText("Your pages will appear here.")).toBeInTheDocument();
+    expect(screen.getByText(/Up to 25 MB each · 50 photos at a time/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /repair|download/i })).toBeNull();
+    expect(screen.getAllByLabelText("Choose document photos")).toHaveLength(1);
+  });
+
   it("shows the original preview for a valid upload and offers no unimplemented controls", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -64,11 +72,12 @@ describe("upload to preview", () => {
     const big = (name: string) => new File([jpegHeader(7000, 6800)], name, { type: "image/jpeg" });
     const user = userEvent.setup();
     render(<App />);
-    const input = screen.getByLabelText("Choose document photos");
+    const chooser = () => screen.getByLabelText("Choose document photos");
 
-    await user.upload(input, Array.from({ length: 11 }, (_, i) => big(`p${i + 1}.jpg`)));
+    await user.upload(chooser(), Array.from({ length: 11 }, (_, i) => big(`p${i + 1}.jpg`)));
     await waitFor(() => expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(11));
-    await user.upload(input, [big("p12.jpg"), big("p13.jpg")]);
+    // The large drop zone gives way to the page list's "Add photos" once pages exist.
+    await user.upload(chooser(), [big("p12.jpg"), big("p13.jpg")]);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/p13\.jpg.*600 megapixels in total/);
     expect(screen.getAllByRole("alert")).toHaveLength(1);
