@@ -4,7 +4,7 @@ import { CONTACT_EMAIL, OPERATOR_COUNTRY, OPERATOR_NAME, PRIVACY_PATH, PRODUCT_N
 export function TermsPage() {
   return (
     <>
-      <SiteHeader waitlistHref="/#waitlist" />
+      <SiteHeader />
       <main className="wrap legal">
         <h1>Terms of use</h1>
         <p className="legal-updated">Last updated {TERMS_UPDATED}</p>

@@ -16,7 +16,7 @@ function External({ href, children }: { href: string; children: string }) {
 export function PrivacyPage() {
   return (
     <>
-      <SiteHeader waitlistHref="/#waitlist" />
+      <SiteHeader />
       <main className="wrap legal">
         <h1>Privacy policy</h1>
         <p className="legal-updated">Last updated {PRIVACY_UPDATED}</p>

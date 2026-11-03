@@ -12,20 +12,27 @@ function Logo() {
 }
 
 type HeaderProps = {
-  /** Where "Join the waitlist" points: the on-page form, or the home page's form from other pages. */
-  waitlistHref: string;
+  /** On the home page the links jump within the page; elsewhere they lead back to the home page's sections. */
+  onHome?: boolean;
 };
 
-export function SiteHeader({ waitlistHref }: HeaderProps) {
+export function SiteHeader({ onHome = false }: HeaderProps) {
+  const base = onHome ? "" : "/";
   return (
-    <header className="site-header wrap">
-      <a href="/" className="logo-link" aria-label={`${PRODUCT_NAME} home`}>
-        <Logo />
-      </a>
-      <a className="btn" href={waitlistHref}>
-        Join the waitlist
-      </a>
-    </header>
+    <div className="site-header-bar">
+      <header className="site-header wrap">
+        <a href="/" className="logo-link" aria-label={`${PRODUCT_NAME} home`}>
+          <Logo />
+        </a>
+        <nav aria-label="Main" className="site-nav">
+          <a href={`${base}#how`}>How it works</a>
+          <a href={`${base}#privacy`}>Privacy</a>
+        </nav>
+        <a className="btn" href={`${base}#waitlist`}>
+          Join the waitlist
+        </a>
+      </header>
+    </div>
   );
 }
 

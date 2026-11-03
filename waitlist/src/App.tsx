@@ -26,33 +26,37 @@ const CONSENT = (
 export function App() {
   return (
     <>
-      <SiteHeader waitlistHref="#waitlist" />
+      <SiteHeader onHome />
       <main>
         <section className="hero wrap">
-          <div className="hero-copy">
-            <p className="eyebrow">FOR RECEIPTS, FORMS, LETTERS AND NOTES</p>
-            <h1>
-              <mark>Fix</mark> your document photos.
-            </h1>
-            <p className="lead">{DESCRIPTION}</p>
-            <WaitlistForm
-              endpoint={WAITLIST_ENDPOINT}
-              fields={WAITLIST_FIELDS}
-              consent={CONSENT}
-              note="No uploads. No account. Just a cleaner document."
-            />
-          </div>
-          <BeforeAfter />
+          <p className="eyebrow">For receipts, forms, letters and notes</p>
+          <h1>
+            <mark>Fix</mark> your document photos.
+          </h1>
+          <p className="lead">{DESCRIPTION}</p>
+          <WaitlistForm
+            endpoint={WAITLIST_ENDPOINT}
+            fields={WAITLIST_FIELDS}
+            consent={CONSENT}
+            note="No uploads. No account. Just a cleaner document."
+          />
         </section>
 
-        <section className="wrap section" aria-labelledby="how">
-          <h2 id="how">
+        <div className="wrap showcase">
+          <div className="showcase-panel">
+            <BeforeAfter />
+          </div>
+        </div>
+
+        <section id="how" className="wrap section" aria-labelledby="how-title">
+          <p className="eyebrow">How it works</p>
+          <h2 id="how-title">
             Crooked. Skewed. Dim. <mark>Fixed.</mark>
           </h2>
-          <ol className="cards cards-4">
+          <ol className="steps">
             {STEPS.map((s, i) => (
-              <li key={s.title} className="card">
-                <span className="card-num">{String(i + 1).padStart(2, "0")}</span>
+              <li key={s.title}>
+                <span className="step-num">{String(i + 1).padStart(2, "0")}</span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
               </li>
@@ -61,12 +65,14 @@ export function App() {
         </section>
 
         <section className="wrap section" aria-labelledby="why">
+          <p className="eyebrow">Why {PRODUCT_NAME}</p>
           <h2 id="why">
             A cleaner document. <mark>Nothing lost.</mark>
           </h2>
-          <ul className="cards cards-2">
-            {BENEFITS.map((b) => (
-              <li key={b.title} className="card card-compact">
+          <ul className="cards">
+            {BENEFITS.map((b, i) => (
+              <li key={b.title} className="card">
+                <span className="card-num">{String(i + 1).padStart(2, "0")}</span>
                 <h3>{b.title}</h3>
                 <p>{b.text}</p>
               </li>
@@ -76,9 +82,12 @@ export function App() {
 
         <section id="privacy" className="band band-dark" aria-labelledby="privacy-title">
           <div className="wrap band-split">
-            <h2 id="privacy-title">
-              Your documents <mark>stay yours.</mark>
-            </h2>
+            <div>
+              <p className="eyebrow">Private by design</p>
+              <h2 id="privacy-title">
+                Your documents <mark>stay yours.</mark>
+              </h2>
+            </div>
             <div>
               <p>
                 Repairs run locally in your browser. Your document photos are never uploaded or stored. The waitlist asks
@@ -97,8 +106,9 @@ export function App() {
           </div>
         </section>
 
-        <section id="waitlist" className="band band-accent" aria-labelledby="cta-title">
+        <section id="waitlist" className="band band-sage" aria-labelledby="cta-title">
           <div className="wrap cta">
+            <p className="eyebrow">Early access</p>
             <h2 id="cta-title">Stop retaking document photos.</h2>
             <p>Keep the document. Lose the shadows. Get early access to {PRODUCT_NAME}.</p>
             <WaitlistForm
@@ -106,7 +116,7 @@ export function App() {
               fields={WAITLIST_FIELDS}
               consent={CONSENT}
               note="Only launch news. No paper trail of spam."
-              className="form-center"
+              className="form-center form-stack"
             />
           </div>
         </section>

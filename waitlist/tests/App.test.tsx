@@ -12,6 +12,15 @@ describe("App privacy section", () => {
     expect(privacy.getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", PRIVACY_PATH);
   });
 
+  it("links the header to sections on the same page", () => {
+    render(<App />);
+    const nav = within(screen.getByRole("navigation", { name: "Main" }));
+    expect(nav.getByRole("link", { name: "How it works" })).toHaveAttribute("href", "#how");
+    expect(nav.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "#privacy");
+    expect(screen.getAllByRole("link", { name: "Join the waitlist" })[0]).toHaveAttribute("href", "#waitlist");
+    for (const id of ["how", "privacy", "waitlist"]) expect(document.getElementById(id)).not.toBeNull();
+  });
+
   it("links the privacy policy and terms from the footer", () => {
     render(<App />);
     const footer = within(screen.getByRole("navigation", { name: "Footer" }));

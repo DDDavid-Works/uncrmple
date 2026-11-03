@@ -27,5 +27,6 @@ describe("PrivacyPage", () => {
   it("points the header button back to the home page form", () => {
     render(<PrivacyPage />);
     expect(screen.getByRole("link", { name: "Join the waitlist" })).toHaveAttribute("href", "/#waitlist");
+    expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute("href", "/#how");
   });
 });
