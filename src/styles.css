@@ -231,7 +231,33 @@ a { color: var(--link); }
 .viewer__label {
   padding: 6px 14px; border-radius: var(--radius); background: var(--surface); font-size: 0.85rem; font-weight: 500;
 }
+.viewer__where { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+.viewer__position { font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
 .viewer__name { font-size: 0.85rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; letter-spacing: 0; }
+
+/* Image area. With several pages, the white box spans the full width and holds previous/next arrows
+   in their own columns either side, so they never cover the page or the corner handles. */
+.stage-view { display: grid; min-width: 0; }
+.stage-view--nav {
+  grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3);
+  min-height: 320px; padding: var(--space-4) var(--space-3); background: var(--surface); border: var(--line); border-radius: var(--radius-lg);
+}
+.stage-view__content { display: grid; gap: var(--space-3); min-width: 0; }
+/* The box is drawn once, around the arrows; the views inside drop their own. */
+.stage-view--nav :is(.preview__frame, .wipe, .corners__stage) { background: none; border: 0; border-radius: 0; padding: 0; min-height: 0; }
+.stage-view--nav .compare figure { background: var(--surface-sunk); border: 0; }
+.stage-view__arrow {
+  display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer;
+  box-shadow: 0 1px 3px rgb(37 44 40 / 10%);
+}
+.stage-view__arrow svg { width: 20px; height: 20px; }
+.stage-view__arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.stage-view__arrow:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+@media (max-width: 759px) {
+  .stage-view--nav { gap: var(--space-1); padding: var(--space-2) var(--space-1); }
+  .stage-view__arrow { width: 36px; height: 36px; }
+}
 .viewer__foot { display: grid; gap: var(--space-3); }
 .viewer__meta { display: grid; gap: 2px; }
 .viewer__meta .muted { font-size: 0.8rem; }
@@ -307,9 +333,20 @@ a { color: var(--link); }
   .preview .viewer { border-right: var(--line); }
   .preview .inspector { border-left: 0; }
 }
-.inspector__section { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-6); }
+.inspector__section { padding: var(--space-2) var(--space-4) var(--space-6); }
+.inspector__section--closed { padding-bottom: var(--space-2); }
 .inspector__section + .inspector__section { border-top: var(--line); }
 .inspector__title { font-size: 0.95rem; }
+.inspector__toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%;
+  min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.inspector__toggle:hover .inspector__chevron { color: var(--text); }
+.inspector__chevron { width: 16px; height: 16px; flex: none; color: var(--muted); transition: transform 150ms; }
+.inspector__section--closed .inspector__chevron { transform: rotate(-90deg); }
+.inspector__body { display: grid; gap: var(--space-3); }
+.inspector__body[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .inspector__chevron { transition: none; } }
 .inspector__index { color: var(--accent); }
 .inspector__empty { padding: var(--space-3); border-radius: var(--radius); background: var(--surface-sunk); color: var(--muted); font-size: 0.85rem; }
 .inspector__actions { display: grid; gap: var(--space-2); }

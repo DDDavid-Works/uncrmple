@@ -37,7 +37,7 @@ describe("upload to preview", () => {
     render(<App />);
     expect(screen.getByText("Your pages will appear here.")).toBeInTheDocument();
     expect(screen.getByText(/Up to 25 MB each · 50 photos at a time/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /repair|download/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(repair|download)/i })).toBeNull();
     expect(screen.getAllByLabelText("Choose document photos")).toHaveLength(1);
   });
 

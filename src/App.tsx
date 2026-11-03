@@ -13,6 +13,7 @@ import { ExportBar } from "./features/export/ExportBar";
 import { PageList, cardStatus, repairStatus } from "./features/pages/PageList";
 import { EmptyInspector } from "./features/preview/Inspector";
 import { PreviewPanel } from "./features/preview/PreviewPanel";
+import type { PageNav } from "./features/preview/ViewerStage";
 import { RepairAllBar, RepairAllLock } from "./features/repair/RepairAllBar";
 import { useRepair } from "./features/repair/useRepair";
 import { UploadZone } from "./features/upload/UploadZone";
@@ -50,6 +51,17 @@ export function App() {
   }, [documents, selectedId]);
 
   const selected = documents.find((d) => d.id === selectedId) ?? null;
+  const selectedIndex = documents.findIndex((d) => d.id === selectedId);
+  // Previous/next arrows beside the image, for stepping through a batch without the page list.
+  const nav: PageNav | null =
+    documents.length > 1 && selectedIndex >= 0
+      ? {
+          index: selectedIndex,
+          total: documents.length,
+          onPrevious: () => setSelectedId(documents[Math.max(0, selectedIndex - 1)]!.id),
+          onNext: () => setSelectedId(documents[Math.min(documents.length - 1, selectedIndex + 1)]!.id),
+        }
+      : null;
   const exportPages = documents.flatMap((d) => {
     if (mode === "card") {
       const state = cards.stateOf(d.id);
@@ -86,7 +98,7 @@ export function App() {
             <span aria-hidden="true">{WORDMARK}</span>
             <span className="visually-hidden">{PRODUCT_NAME}</span>
           </h1>
-          <p className="brand__context">Photo repair workspace</p>
+          <p className="brand__context">Document Photo Repair Workspace</p>
         </div>
         <div className="topbar__end">
           <p className="topbar__privacy">
@@ -187,6 +199,7 @@ export function App() {
                   onReset={() => cards.reset(selected.id)}
                   onRemove={() => remove(selected.id)}
                   exportAll={exportAll}
+                  nav={nav}
                 />
               )}
               {selected && mode === "document" && (
@@ -202,6 +215,7 @@ export function App() {
                   onApplyCorners={(c) => void applyCorners(selected, c)}
                   onRemove={() => remove(selected.id)}
                   exportAll={exportAll}
+                  nav={nav}
                 />
               )}
             </div>

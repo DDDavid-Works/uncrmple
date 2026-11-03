@@ -239,6 +239,60 @@ describe("flattening curved lines", () => {
   });
 });
 
+describe("page arrows", () => {
+  it("steps through the pages and stops at either end", async () => {
+    const user = await uploadOne();
+    // A single page has nothing to step to.
+    expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
+
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
+      new File([jpegHeader(400, 300)], "third.jpg", { type: "image/jpeg" }),
+    ]);
+    await screen.findByRole("button", { name: /^3\. third\.jpg/ });
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("heading", { name: "second.jpg" });
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^2\. second\.jpg/ })).toHaveAttribute("aria-current", "true");
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("heading", { name: "third.jpg" });
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(await screen.findByRole("heading", { name: "second.jpg" })).toBeInTheDocument();
+  });
+});
+
+describe("steps panel", () => {
+  it("collapses a step and keeps it collapsed for the next page", async () => {
+    const user = await uploadOne();
+    const toggle = screen.getByRole("button", { name: /Repair settings/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("radio", { name: "Color" })).toBeVisible();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("radio", { name: "Color" })).toBeNull();
+    // The other steps stay open.
+    expect(screen.getByRole("button", { name: /Photo check/ })).toHaveAttribute("aria-expanded", "true");
+
+    await user.upload(
+      screen.getByLabelText("Choose document photos"),
+      new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
+    );
+    await user.click(await screen.findByRole("button", { name: /^2\. second\.jpg/ }));
+    await screen.findByRole("heading", { name: "second.jpg" });
+    expect(screen.getByRole("button", { name: /Repair settings/ })).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(screen.getByRole("button", { name: /Repair settings/ }));
+    expect(screen.getByRole("radio", { name: "Color" })).toBeVisible();
+  });
+});
+
 describe("photo assessment", () => {
   it("shows the verdict and per-dimension findings right after upload, before any repair", async () => {
     await uploadOne();

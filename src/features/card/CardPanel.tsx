@@ -7,6 +7,7 @@ import type { SourceDocument } from "../../types/document";
 import type { CardDetection, CardEnhanceOptions, CardQualityIssue, CardWarning, Quad } from "../../types/repair";
 import { CornerEditor } from "../preview/CornerEditor";
 import { InspectorSection } from "../preview/Inspector";
+import { ViewerStage, type PageNav } from "../preview/ViewerStage";
 import { formatBytes } from "../preview/PreviewPanel";
 import type { CardState, CardView } from "./useCardCrop";
 
@@ -47,6 +48,8 @@ interface Props {
   onRemove: () => void;
   /** Export of every cropped card, shown under this card's own download; null until one is done. */
   exportAll: ReactNode;
+  /** Previous/next page arrows; null with a single photo. */
+  nav: PageNav | null;
 }
 
 /** Heuristic, not a calibrated probability: shown with that caveat. */
@@ -64,7 +67,7 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
   );
 }
 
-export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove, exportAll }: Props) {
+export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav }: Props) {
   const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
@@ -101,7 +104,10 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
           ) : (
             <span className="viewer__label">{reviewing ? "Set the corners" : "Original"}</span>
           )}
-          <h2 className="viewer__name">{doc.name}</h2>
+          <div className="viewer__where">
+            {nav && <span className="viewer__position">Page {nav.index + 1} of {nav.total}</span>}
+            <h2 className="viewer__name">{doc.name}</h2>
+          </div>
         </div>
 
         {working && (
@@ -123,55 +129,57 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
           </p>
         )}
 
-        {state.status === "review" ? (
-          <CornerEditor
-            key={`${doc.id}-${state.corners.map((c) => `${Math.round(c.x)},${Math.round(c.y)}`).join(";")}`}
-            imageUrl={doc.originalUrl}
-            imageAlt={`Original photo: ${doc.name}`}
-            width={doc.width}
-            height={doc.height}
-            initial={state.corners}
-            subject="card"
-            onApply={(c) => onCrop(c, null)}
-            onCancel={onCancelReview}
-          />
-        ) : done && shown === "touchups" ? (
-          <>
-            <p className="muted wipe__hint">
-              Drag across the card to compare the plain crop (left) with the touched-up version (right).
-            </p>
-            <CompareSlider
-              beforeUrl={done.cropUrl}
-              afterUrl={done.url}
-              beforeLabel="Crop only"
-              afterLabel="Enhanced"
-              beforeAlt={`Cropped card, no enhancement: ${doc.name}`}
-              afterAlt={resultAlt}
+        <ViewerStage nav={nav}>
+          {state.status === "review" ? (
+            <CornerEditor
+              key={`${doc.id}-${state.corners.map((c) => `${Math.round(c.x)},${Math.round(c.y)}`).join(";")}`}
+              imageUrl={doc.originalUrl}
+              imageAlt={`Original photo: ${doc.name}`}
+              width={doc.width}
+              height={doc.height}
+              initial={state.corners}
+              subject="card"
+              onApply={(c) => onCrop(c, null)}
+              onCancel={onCancelReview}
             />
-          </>
-        ) : done && shown === "both" ? (
-          <div className="compare">
-            <figure>
+          ) : done && shown === "touchups" ? (
+            <>
+              <p className="muted wipe__hint">
+                Drag across the card to compare the plain crop (left) with the touched-up version (right).
+              </p>
+              <CompareSlider
+                beforeUrl={done.cropUrl}
+                afterUrl={done.url}
+                beforeLabel="Crop only"
+                afterLabel="Enhanced"
+                beforeAlt={`Cropped card, no enhancement: ${doc.name}`}
+                afterAlt={resultAlt}
+              />
+            </>
+          ) : done && shown === "both" ? (
+            <div className="compare">
+              <figure>
+                <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
+                <figcaption>Original</figcaption>
+              </figure>
+              <figure>
+                <img src={done.url} alt={resultAlt} />
+                <figcaption>{enhanced ? "Enhanced" : "Cropped"}</figcaption>
+              </figure>
+            </div>
+          ) : done ? (
+            <div className={`preview__frame${zoom ? " preview__frame--zoom" : ""}`}>
+              <img
+                src={shown === "original" ? doc.originalUrl : shown === "crop" ? done.cropUrl : done.url}
+                alt={shown === "original" ? `Original photo: ${doc.name}` : shown === "crop" ? `Cropped card, no enhancement: ${doc.name}` : resultAlt}
+              />
+            </div>
+          ) : (
+            <div className="preview__frame">
               <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-              <figcaption>Original</figcaption>
-            </figure>
-            <figure>
-              <img src={done.url} alt={resultAlt} />
-              <figcaption>{enhanced ? "Enhanced" : "Cropped"}</figcaption>
-            </figure>
-          </div>
-        ) : done ? (
-          <div className={`preview__frame${zoom ? " preview__frame--zoom" : ""}`}>
-            <img
-              src={shown === "original" ? doc.originalUrl : shown === "crop" ? done.cropUrl : done.url}
-              alt={shown === "original" ? `Original photo: ${doc.name}` : shown === "crop" ? `Cropped card, no enhancement: ${doc.name}` : resultAlt}
-            />
-          </div>
-        ) : (
-          <div className="preview__frame">
-            <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-          </div>
-        )}
+            </div>
+          )}
+        </ViewerStage>
 
         <div className="viewer__foot">
           <div className="viewer__meta">

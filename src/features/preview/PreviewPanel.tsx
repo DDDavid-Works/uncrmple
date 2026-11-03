@@ -12,6 +12,7 @@ import { fullFrameQuad } from "../../lib/image-processing/geometry";
 import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges } from "../repair/review";
 import { CornerEditor, defaultCorners } from "./CornerEditor";
 import { InspectorSection } from "./Inspector";
+import { ViewerStage, type PageNav } from "./ViewerStage";
 
 const STYLE_OPTIONS: { value: OutputStyle; label: string }[] = [
   { value: "color", label: "Color" },
@@ -32,6 +33,8 @@ interface Props {
   onRemove: () => void;
   /** Export of every finished page, shown under this page's own download; null until one is done. */
   exportAll: ReactNode;
+  /** Previous/next page arrows; null with a single page. */
+  nav: PageNav | null;
 }
 
 /** How a turned page reads in the status line. */
@@ -43,7 +46,7 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // While a new style is being applied, keep showing the last result.
@@ -81,7 +84,10 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           ) : (
             <span className="viewer__label">Original</span>
           )}
-          <h2 className="viewer__name">{doc.name}</h2>
+          <div className="viewer__where">
+            {nav && <span className="viewer__position">Page {nav.index + 1} of {nav.total}</span>}
+            <h2 className="viewer__name">{doc.name}</h2>
+          </div>
         </div>
 
         {running && <BusyNotice task={repair.previous ? "Applying style…" : "Repairing the page…"} />}
@@ -132,55 +138,57 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             )}
           </>
         )}
-  
-        {editing ? (
-          <CornerEditor
-            imageUrl={doc.originalUrl}
-            imageAlt={`Original photo: ${doc.name}`}
-            width={doc.width}
-            height={doc.height}
-            initial={done?.corners ?? defaultCorners(doc.width, doc.height)}
-            onApply={(corners: Quad) => {
-              setEditing(false);
-              onApplyCorners(corners);
-            }}
-            onCancel={() => setEditing(false)}
-          />
-        ) : view === "cleanup" && done ? (
-          <>
-            <p className="muted wipe__hint">
-              Drag across the page to compare it straightened but uncleaned (left) with the cleaned result (right).
-              Check that no faint text, stamps or pencil marks were lost.
-            </p>
-            <CompareSlider
-              beforeUrl={done.straightenedUrl}
-              afterUrl={done.url}
-              beforeLabel="Straightened"
-              afterLabel="Cleaned"
-              beforeAlt={`Straightened page before cleanup: ${doc.name}`}
-              afterAlt={`Repaired document: ${doc.name}`}
+
+        <ViewerStage nav={nav}>
+          {editing ? (
+            <CornerEditor
+              imageUrl={doc.originalUrl}
+              imageAlt={`Original photo: ${doc.name}`}
+              width={doc.width}
+              height={doc.height}
+              initial={done?.corners ?? defaultCorners(doc.width, doc.height)}
+              onApply={(corners: Quad) => {
+                setEditing(false);
+                onApplyCorners(corners);
+              }}
+              onCancel={() => setEditing(false)}
             />
-          </>
-        ) : view === "both" && done ? (
-          <div className="compare">
-            <figure>
-              <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-              <figcaption>Original</figcaption>
-            </figure>
-            <figure>
-              <img src={done.url} alt={`Repaired document: ${doc.name}`} />
-              <figcaption>Repaired</figcaption>
-            </figure>
-          </div>
-        ) : (
-          <div className="preview__frame">
-            {showRepaired ? (
-              <img src={done.url} alt={`Repaired document: ${doc.name}`} />
-            ) : (
-              <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
-            )}
-          </div>
-        )}
+          ) : view === "cleanup" && done ? (
+            <>
+              <p className="muted wipe__hint">
+                Drag across the page to compare it straightened but uncleaned (left) with the cleaned result (right).
+                Check that no faint text, stamps or pencil marks were lost.
+              </p>
+              <CompareSlider
+                beforeUrl={done.straightenedUrl}
+                afterUrl={done.url}
+                beforeLabel="Straightened"
+                afterLabel="Cleaned"
+                beforeAlt={`Straightened page before cleanup: ${doc.name}`}
+                afterAlt={`Repaired document: ${doc.name}`}
+              />
+            </>
+          ) : view === "both" && done ? (
+            <div className="compare">
+              <figure>
+                <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
+                <figcaption>Original</figcaption>
+              </figure>
+              <figure>
+                <img src={done.url} alt={`Repaired document: ${doc.name}`} />
+                <figcaption>Repaired</figcaption>
+              </figure>
+            </div>
+          ) : (
+            <div className="preview__frame">
+              {showRepaired ? (
+                <img src={done.url} alt={`Repaired document: ${doc.name}`} />
+              ) : (
+                <img src={doc.originalUrl} alt={`Original photo: ${doc.name}`} />
+              )}
+            </div>
+          )}
+        </ViewerStage>
 
         <div className="viewer__foot">
           <div className="viewer__meta">
