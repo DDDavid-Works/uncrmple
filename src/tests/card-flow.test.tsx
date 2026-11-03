@@ -158,6 +158,32 @@ describe("ID & Card Crop mode", () => {
     expect(screen.getByRole("button", { name: "Find card" })).toBeInTheDocument();
   });
 
+  it("turns the cropped card with the same corners, and reset clears the turn", async () => {
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection() });
+    const user = await uploadInCardMode();
+    await user.click(screen.getByRole("button", { name: "Find card" }));
+    await screen.findByAltText("Cropped card: id.jpg");
+
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    expect(await screen.findByText(/200×318px .* turned right/)).toBeInTheDocument();
+    expect(processor.correctPerspective).toHaveBeenCalledTimes(2);
+    expect(processor.correctPerspective).toHaveBeenLastCalledWith(expect.anything(), CARD);
+    expect(processor.detectCard).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:t/2");
+
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    expect(await screen.findByText(/318×200px .* turned upside down/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Rotate left (anticlockwise)" }));
+    await user.click(screen.getByRole("button", { name: "Rotate left (anticlockwise)" }));
+    expect(await screen.findByText(/Cropped · 318×200px/)).not.toHaveTextContent(/turned/);
+
+    await user.click(screen.getByRole("button", { name: "Rotate left (anticlockwise)" }));
+    expect(await screen.findByText(/turned left/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+    await user.click(screen.getByRole("button", { name: "Find card" }));
+    expect(await screen.findByText(/Cropped · 318×200px/)).not.toHaveTextContent(/turned/);
+  });
+
   it("does not run page assessment in card mode", async () => {
     await uploadInCardMode();
     expect(assessPhoto).not.toHaveBeenCalled();
@@ -256,6 +282,19 @@ describe("optional card enhancement", () => {
     expect(await screen.findByAltText("Enhanced card: id.jpg")).toBeInTheDocument();
     expect(processor.enhanceCard).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("checkbox", { name: /Reduce noise/ })).toBeChecked();
+  });
+
+  it("applies the chosen touch-ups to the turned card", async () => {
+    const user = await cropped();
+    await user.click(screen.getByRole("checkbox", { name: /Reduce noise/ }));
+    await screen.findByAltText("Enhanced card: id.jpg");
+    await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
+    await screen.findByText(/turned right/);
+    expect(processor.enhanceCard).toHaveBeenLastCalledWith(
+      expect.objectContaining({ width: 200, height: 318 }),
+      expect.objectContaining({ denoise: true }),
+    );
+    expect(screen.getByAltText("Enhanced card: id.jpg")).toBeInTheDocument();
   });
 
   it("warns about glare and blur instead of implying enhancement fixed them", async () => {

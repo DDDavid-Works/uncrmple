@@ -194,6 +194,7 @@ export function App() {
                   onEnhance={(o) => void cards.setEnhance(selected, o)}
                   onDetect={() => void cards.detect(selected)}
                   onCrop={(c, d) => void cards.crop(selected, c, d)}
+                  onRotate={(by) => void cards.rotate(selected, by)}
                   onAdjust={() => cards.adjust(selected, defaultCardCorners(selected.width, selected.height))}
                   onCancelReview={() => cards.cancelReview(selected.id)}
                   onReset={() => cards.reset(selected.id)}

@@ -9,6 +9,7 @@ import { detectCardCorners } from "../image-processing/card-pipeline";
 import { measureCardQuality } from "../image-processing/card-quality";
 import { createOpenCvProcessor } from "../image-processing/opencv/processor";
 import { repair, validateRaster } from "../image-processing/pipeline";
+import { isQuarterTurn, rotateQuarter } from "../image-processing/rotate";
 
 export interface RepairJob {
   file: Blob;
@@ -43,7 +44,8 @@ export interface Engine {
   repair(job: RepairJob): Promise<Result<RepairedPage>>;
   assess(file: Blob): Promise<Result<Assessment>>;
   detectCard(file: Blob): Promise<Result<CardDetection>>;
-  cropCard(file: Blob, corners: Quad): Promise<Result<CroppedCard>>;
+  /** Crop the card inside `corners`, then turn it clockwise by `rotate`; touch-ups apply to the turned crop. */
+  cropCard(file: Blob, corners: Quad, rotate: QuarterTurn): Promise<Result<CroppedCard>>;
   enhanceCard(crop: RasterImage, options: CardEnhanceOptions): Promise<Result<Blob>>;
 }
 
@@ -79,14 +81,16 @@ export function localEngine(processor: CardImageProcessor = createOpenCvProcesso
       return detectCardCorners(processor, raster.value);
     },
 
-    async cropCard(file, corners) {
+    async cropCard(file, corners, rotate) {
+      if (!isQuarterTurn(rotate)) return { ok: false, error: { code: "invalid-input", message: "A card can only be rotated by 0, 90, 180 or 270 degrees." } };
       const raster = await fileToRaster(file);
       if (!raster.ok) return raster;
       const warped = await processor.correctPerspective(raster.value, corners);
       if (!warped.ok) return warped;
-      const png = await rasterToPng(warped.value);
+      const crop = rotateQuarter(warped.value, rotate);
+      const png = await rasterToPng(crop);
       if (!png.ok) return png;
-      return { ok: true, value: { crop: warped.value, png: png.value, quality: measureCardQuality(warped.value) } };
+      return { ok: true, value: { crop, png: png.value, quality: measureCardQuality(crop) } };
     },
 
     async enhanceCard(crop, options) {

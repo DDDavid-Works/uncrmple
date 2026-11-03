@@ -8,7 +8,7 @@ import type { CardDetection, CardEnhanceOptions, CardQualityIssue, CardWarning, 
 import { CornerEditor } from "../preview/CornerEditor";
 import { InspectorSection } from "../preview/Inspector";
 import { ViewerStage, type PageNav } from "../preview/ViewerStage";
-import { formatBytes } from "../preview/PreviewPanel";
+import { formatBytes, TURN_TEXT } from "../preview/PreviewPanel";
 import type { CardState, CardView } from "./useCardCrop";
 
 const WARNING_TEXT: Record<CardWarning, string> = {
@@ -42,6 +42,8 @@ interface Props {
   onEnhance: (options: CardEnhanceOptions) => void;
   onDetect: () => void;
   onCrop: (corners: Quad, detection: CardDetection | null) => void;
+  /** Turn the cropped card a further 90° clockwise (90) or anticlockwise (-90). */
+  onRotate: (by: 90 | -90) => void;
   onAdjust: () => void;
   onCancelReview: () => void;
   onReset: () => void;
@@ -67,7 +69,7 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
   );
 }
 
-export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav }: Props) {
+export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onRotate, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav }: Props) {
   const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
@@ -190,6 +192,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
               <p className="muted">
                 {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions{" "}
                 {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
+                {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
               </p>
             )}
           </div>
@@ -198,6 +201,16 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
               <button type="button" className="btn btn--small" onClick={onAdjust} disabled={working}>
                 Adjust corners
               </button>
+            )}
+            {done && (
+              <div className="viewer__rotate" role="group" aria-label="Rotate card">
+                <button type="button" className="btn btn--small" onClick={() => onRotate(-90)} disabled={working || done.enhancing} aria-label="Rotate left (anticlockwise)">
+                  <span aria-hidden="true">↺</span> Left
+                </button>
+                <button type="button" className="btn btn--small" onClick={() => onRotate(90)} disabled={working || done.enhancing} aria-label="Rotate right (clockwise)">
+                  <span aria-hidden="true">↻</span> Right
+                </button>
+              </div>
             )}
             <div className="viewer__tools-end">
               {done && (

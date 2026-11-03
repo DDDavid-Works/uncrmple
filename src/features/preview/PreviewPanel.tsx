@@ -38,7 +38,7 @@ interface Props {
 }
 
 /** How a turned page reads in the status line. */
-const TURN_TEXT: Record<QuarterTurn, string> = { 0: "", 90: "right", 180: "upside down", 270: "left" };
+export const TURN_TEXT: Record<QuarterTurn, string> = { 0: "", 90: "right", 180: "upside down", 270: "left" };
 
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
