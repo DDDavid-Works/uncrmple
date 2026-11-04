@@ -58,7 +58,7 @@ mark { background: none; color: var(--accent); }
 }
 
 .wrap { max-width: 1120px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
-.eyebrow { font-size: 12px; font-weight: 500; line-height: 1.4; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+.eyebrow { font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
 
 /* Header and footer */
 .site-header-bar { border-bottom: 1px solid var(--line); }
@@ -207,7 +207,7 @@ h2 { font-size: clamp(30px, 4vw, 40px); line-height: 1.15; letter-spacing: -.04e
 .band-dark .eyebrow, .band-dark mark { color: var(--band-accent); }
 .band-split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
 .band-dark h2 { margin: 0; }
-.band-dark p { font-size: 17px; line-height: 1.65; }
+.band-dark p:not(.eyebrow) { font-size: 17px; line-height: 1.65; }
 .band-dark .privacy-note { margin: 16px 0 0; font-size: 14px; color: var(--band-muted); }
 .privacy-note a { color: inherit; text-underline-offset: 3px; }
 .band-sage { background: var(--sage); text-align: center; }
@@ -270,6 +270,8 @@ h2 { font-size: clamp(30px, 4vw, 40px); line-height: 1.15; letter-spacing: -.04e
 @media (max-width: 640px) {
   .wrap { padding-left: 16px; padding-right: 16px; }
   .site-nav { display: none; }
+  /* Smaller and tighter, so the longest label stays on one line on a 360px-wide phone. */
+  .eyebrow { font-size: 14px; letter-spacing: .04em; }
   .site-header .btn { margin-left: auto; padding: 10px 16px; }
   .logo-mark { width: 28px; height: 28px; }
   .hero { padding-top: 44px; }
