@@ -1,0 +1,3 @@
+# The app runs on a temporary address for now; the public site is https://uncrmple.app.
+User-agent: *
+Disallow: /

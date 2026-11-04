@@ -1,0 +1,3 @@
+# Railway (Railpack) serves dist/ with Caddy. The app has no client-side routes, so unknown paths
+# (including missing files like /sitemap.xml) return 404 instead of index.html.
+index_fallback: false
