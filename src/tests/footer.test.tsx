@@ -1,12 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import { App } from "../App";
-import { CONTACT_EMAIL, PRIVACY_URL, TERMS_URL, toOrigin } from "../links";
+import { BLOG_URL, CONTACT_EMAIL, PRIVACY_URL, TERMS_URL, toOrigin } from "../links";
 
 describe("app footer", () => {
   it("links the privacy policy and terms in a new tab, so open work is kept", () => {
     render(<App />);
     const footer = within(screen.getByRole("navigation", { name: "Footer" }));
     for (const [name, href] of [
+      [/^blog/i, BLOG_URL],
       [/privacy policy/i, PRIVACY_URL],
       [/terms of use/i, TERMS_URL],
     ] as const) {
@@ -20,6 +21,7 @@ describe("app footer", () => {
   it("points at the site's privacy and terms pages", () => {
     expect(PRIVACY_URL).toMatch(/^https:\/\/[^/]+\/privacy\/$/);
     expect(TERMS_URL).toMatch(/^https:\/\/[^/]+\/terms\/$/);
+    expect(BLOG_URL).toMatch(/^https:\/\/[^/]+\/blog\/$/);
   });
 
   it("adds https:// to a site address configured without it", () => {

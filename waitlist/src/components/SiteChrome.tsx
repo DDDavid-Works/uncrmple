@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, PRIVACY_PATH, PRODUCT_NAME, TERMS_PATH, WORDMARK } from "../config";
+import { BLOG_PATH, CONTACT_EMAIL,PRIVACY_PATH, PRODUCT_NAME, TERMS_PATH, WORDMARK } from "../config";
 import { Logo as LogoMark } from "./Logo";
 
 function Logo() {
@@ -27,6 +27,7 @@ export function SiteHeader({ onHome = false }: HeaderProps) {
         <nav aria-label="Main" className="site-nav">
           <a href={`${base}#how`}>How it works</a>
           <a href={`${base}#privacy`}>Privacy</a>
+          <a href={BLOG_PATH}>Blog</a>
         </nav>
         <a className="btn" href={`${base}#waitlist`}>
           Join the waitlist
@@ -42,6 +43,7 @@ export function SiteFooter() {
       <Logo />
       <p className="fine">&copy; {PRODUCT_NAME} {new Date().getFullYear()}</p>
       <nav aria-label="Footer" className="footer-links">
+        <a href={BLOG_PATH}>Blog</a>
         <a href={PRIVACY_PATH}>Privacy policy</a>
         <a href={TERMS_PATH}>Terms of use</a>
         <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>

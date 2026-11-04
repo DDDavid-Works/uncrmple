@@ -13,5 +13,7 @@ export function toOrigin(raw: string): string {
 export const SITE_URL: string = toOrigin(import.meta.env.VITE_SITE_URL?.trim() || DEFAULT_SITE_URL);
 export const PRIVACY_URL = `${SITE_URL}/privacy/`;
 export const TERMS_URL = `${SITE_URL}/terms/`;
+/** The blog, built by the waitlist site from waitlist/content/blog/; the app links to it rather than copying it. */
+export const BLOG_URL = `${SITE_URL}/blog/`;
 /** Same contact as the waitlist site (waitlist/src/config.ts); VITE_CONTACT_EMAIL overrides it. */
 export const CONTACT_EMAIL: string = import.meta.env.VITE_CONTACT_EMAIL?.trim() || "dddavid.works@gmail.com";

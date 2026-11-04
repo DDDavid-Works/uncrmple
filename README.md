@@ -111,6 +111,26 @@ npm run dev
 
 Copy `waitlist/.env.example` to `waitlist/.env.local` and set `VITE_WEB3FORMS_ACCESS_KEY` to enable signups. Without it the form says signups are not open yet. The waitlist site also hosts the privacy policy (`/privacy/`) and terms of use (`/terms/`) that the app links to.
 
+### Blog
+
+The blog lives at `/blog/` on the waitlist site, and the app's footer links to it. Each post is a Markdown file in `waitlist/content/blog/`. The file name becomes its address (`fix-a-photo.md` → `/blog/fix-a-photo/`):
+
+```md
+---
+title: How to fix a photo of a receipt
+description: One or two sentences for search results, 70 to 160 characters.
+date: 2026-11-04
+updated: 2026-11-20   # optional, when the post is revised
+draft: true           # optional, leaves the post out of the build
+---
+
+Start sections at `##`; the title is the page heading.
+```
+
+The build checks every post and fails, naming the file, if the title is over 60 characters, the description is outside 70–160, a date is invalid or the body has a `#` heading. Each post page is plain HTML with no script, and gets its own title, description, canonical link, Open Graph article tags, `BlogPosting` and breadcrumb structured data, an entry in the sitemap with its last-modified date, and an item in the RSS feed (`/blog/feed.xml`). `npm run dev` shows posts as you write them; the SEO tags are only added by `npm run build`. Posts are written by us and committed, so their HTML is not sanitised.
+
+The posts sit inside `waitlist/` because Railway builds that folder on its own. At launch, when the app takes over uncrmple.app, the blog has to move into the app build with the privacy policy and terms, keeping the same addresses.
+
 ## Privacy and security
 
 - Client-side processing only; no analytics on document content.

@@ -40,6 +40,8 @@ export const OPERATOR_NAME = "Darrel David";
 export const OPERATOR_COUNTRY = "the Philippines";
 export const PRIVACY_PATH = "/privacy/";
 export const TERMS_PATH = "/terms/";
+/** Posts live under this path, one folder each: /blog/<slug>/. */
+export const BLOG_PATH = "/blog/";
 /** Bump whenever the privacy policy text changes. */
 export const PRIVACY_UPDATED = "30 October 2026";
 /** Bump whenever the terms of use text change. */
