@@ -1,7 +1,7 @@
 # ID & Card Crop mode
 
 Second workflow alongside Document Repair: find a rectangular card in a photo, straighten it,
-optionally touch it up, and export it. Everything runs in the browser; nothing is uploaded, stored
+optionally touch it up and turn it, and export it. Everything runs in the browser; nothing is uploaded, stored
 or logged.
 
 ## How it works
@@ -12,8 +12,10 @@ or logged.
 | Score | `lib/image-processing/card-geometry.ts` | Heuristic confidence 0..1 (not a probability). |
 | Straighten | `lib/image-processing/opencv/warp.ts` (shared with Document Repair) | Output size from the longer of each pair of opposite edges; proportions come from the geometry. |
 | Touch up (optional) | `lib/image-processing/opencv/enhance-card.ts` | Off by default, separate from the crop. |
+| Rotate (optional) | `features/card/useCardCrop.ts` | Turns the card a quarter left or right. The crop is redone from the same corners and turned before encoding, so touch-ups apply to the turned card. Reset clears the turn. |
 | Quality checks | `lib/image-processing/card-quality.ts` | Glare and blur warnings only; nothing is "fixed". |
-| UI | `features/card/`, `features/mode/` | Global mode selector; reuses `CornerEditor` and `ExportBar`. |
+| UI | `features/card/`, `features/mode/` | Global mode selector; reuses `CornerEditor` and `ExportBar` (image, ZIP and PDF export). |
+| Engine | `lib/engine/` | Detection, cropping and touch-ups run as jobs in the shared Web Worker. |
 
 ### Detection
 
@@ -71,8 +73,9 @@ These are known, not hypothetical:
    images and need calibration on real photos. A blank, featureless card can be reported as blurry.
 8. **Enhancement cannot recover information.** Sharpening raises edge contrast only; it does not fix
    blur. Lighting correction is clamped to gentle gradients on purpose.
-9. **No workers.** Detection and warping run on the main thread (the OpenCV engine is the same one
-   Document Repair uses). Very large photos can briefly freeze the page.
+9. **One job at a time.** Detection, cropping and touch-ups run in the same Web Worker as Document
+   Repair (on the page only where a worker cannot decode images), so the page stays responsive, but
+   jobs queue behind each other. There is no "crop all" yet.
 10. **Touch dragging** of corner handles uses the existing editor and has been checked in an
     emulated mobile viewport (no horizontal overflow), but not on a physical touch device.
 11. **HEIC** photos are not accepted (existing limitation): convert to JPEG first.
@@ -138,7 +141,8 @@ adjusting anything else.
 
 - Desktop and mobile browsers (Chrome, Safari on iOS, Firefox).
 - Drag, keyboard and touch corner adjustment; reset; adjust after crop; cancel.
-- Download image and PDF; open both and confirm the complete card boundary is present.
+- Rotate left and right, then touch up and reset; confirm the turn is kept with touch-ups and cleared by reset.
+- Download image, ZIP and PDF; open each and confirm the complete card boundary is present.
 - Browser memory after processing ten large photos in a row.
 
 ## First real-photo results (3 photos, 2026-10-17 run)
