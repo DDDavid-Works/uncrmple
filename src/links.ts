@@ -1,8 +1,8 @@
 // Links to the public website, which hosts the privacy policy and terms. Kept out of config.ts because
 // vite.config.ts imports that file in Node, where import.meta.env does not exist.
 
-/** The public website (the waitlist); override with VITE_SITE_URL at build time. */
-const DEFAULT_SITE_URL = "https://uncrmple.app";
+/** The official site (the waitlist until launch, then this app); override with VITE_SITE_URL at build time. */
+export const DEFAULT_SITE_URL = "https://uncrmple.app";
 
 /** Adds https:// when missing and drops trailing slashes, so "example.com/" still makes working links. */
 export function toOrigin(raw: string): string {

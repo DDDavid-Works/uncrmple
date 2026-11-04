@@ -22,6 +22,12 @@
 
 	respond /health 200
 
+	# Keep every address except the official domain out of search (the temporary Railway address,
+	# previews), so the app needs no change to become indexable once it is served from uncrmple.app.
+	# src/tests/seo.test.ts checks this host against the site address in src/links.ts.
+	@unofficial not host uncrmple.app
+	header @unofficial X-Robots-Tag "noindex"
+
 	header {
 		Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains"

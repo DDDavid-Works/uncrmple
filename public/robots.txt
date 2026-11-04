@@ -1,3 +1,4 @@
-# The app runs on a temporary address for now; the public site is https://uncrmple.app.
+# Crawling is allowed everywhere; addresses other than uncrmple.app are kept out of search by an
+# X-Robots-Tag: noindex header (Caddyfile.template), which crawlers only see if they may fetch the page.
 User-agent: *
-Disallow: /
+Allow: /
