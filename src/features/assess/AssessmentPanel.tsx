@@ -84,7 +84,7 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
           setShowDetails(!showDetails);
         }}
       >
-        {showDetails ? "Hide details" : "View details"}
+        {showDetails ? "Hide details" : "View more details"}
       </button>
       <ul className="assessment__findings" id={detailsId}>
         {assessment.findings.map((f) => (

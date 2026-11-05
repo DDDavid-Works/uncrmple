@@ -30,7 +30,7 @@ export function ViewerStage({ nav, children }: { nav: PageNav | null; children: 
         className="stage-view__arrow"
         onClick={onPrevious}
         disabled={index === 0}
-        aria-label="Previous page"
+        aria-label="Previous photo"
       >
         <Arrow direction="left" />
       </button>
@@ -40,7 +40,7 @@ export function ViewerStage({ nav, children }: { nav: PageNav | null; children: 
         className="stage-view__arrow"
         onClick={onNext}
         disabled={index === total - 1}
-        aria-label="Next page"
+        aria-label="Next photo"
       >
         <Arrow direction="right" />
       </button>

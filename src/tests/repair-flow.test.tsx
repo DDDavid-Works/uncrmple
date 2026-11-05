@@ -281,26 +281,26 @@ describe("page arrows", () => {
   it("steps through the pages and stops at either end", async () => {
     const user = await uploadOne();
     // A single page has nothing to step to.
-    expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Next photo" })).toBeNull();
 
     await user.upload(screen.getByLabelText("Choose document photos"), [
       new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
       new File([jpegHeader(400, 300)], "third.jpg", { type: "image/jpeg" }),
     ]);
     await screen.findByRole("button", { name: /^3\. third\.jpg/ });
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(screen.getByText("Photo 1 of 3", { ignore: ".viewswitch__option" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous photo" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await user.click(screen.getByRole("button", { name: "Next photo" }));
     await screen.findByRole("heading", { name: "second.jpg" });
-    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Photo 2 of 3", { ignore: ".viewswitch__option" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^2\. second\.jpg/ })).toHaveAttribute("aria-current", "true");
 
-    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await user.click(screen.getByRole("button", { name: "Next photo" }));
     await screen.findByRole("heading", { name: "third.jpg" });
-    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next photo" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Previous page" }));
+    await user.click(screen.getByRole("button", { name: "Previous photo" }));
     expect(await screen.findByRole("heading", { name: "second.jpg" })).toBeInTheDocument();
   });
 });
@@ -341,7 +341,7 @@ describe("photo assessment", () => {
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
     // The rows are always shown; their explanations open on request.
     expect(screen.getByText("The photo is slightly soft.")).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "View details" }));
+    await user.click(screen.getByRole("button", { name: "View more details" }));
     expect(screen.getByText("The photo is slightly soft.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Hide details" }));
     expect(screen.getByText("The photo is slightly soft.")).not.toBeVisible();
@@ -805,10 +805,130 @@ describe("comparison and page order", () => {
     const labels = () => screen.getAllByText(/^\d\. /).map((e) => e.textContent);
     await vi.waitFor(() => expect(labels()).toEqual(["1. first.jpg", "2. second.jpg"]));
 
-    expect(screen.getByRole("button", { name: "Move first.jpg earlier" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Move first.jpg later" }));
+    // From the grip, with the keyboard; focus stays on the moved page's grip.
+    const grip = screen.getByRole("button", { name: /^Reorder first\.jpg/ });
+    grip.focus();
+    await user.keyboard("{ArrowDown}");
     expect(labels()).toEqual(["1. second.jpg", "2. first.jpg"]);
-    expect(screen.getByRole("button", { name: "Move first.jpg later" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reorder first.jpg, photo 2 of 2" })).toHaveFocus();
+    expect(screen.getByText("first.jpg moved to position 2 of 2.")).toBeInTheDocument();
+    await user.keyboard("{ArrowDown}"); // already last
+    expect(labels()).toEqual(["1. second.jpg", "2. first.jpg"]);
+    await user.keyboard("{Home}");
+    expect(labels()).toEqual(["1. first.jpg", "2. second.jpg"]);
+  });
+
+  it("switches between the page list and the selected page (one at a time on phones)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      new File([jpegHeader(400, 300)], "first.jpg", { type: "image/jpeg" }),
+      new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
+    ]);
+    await screen.findByRole("heading", { name: "first.jpg" });
+    const switcher = screen.getByRole("group", { name: "Show" });
+    const view = () => document.querySelector<HTMLElement>(".workbench")!.dataset.view;
+    expect(within(switcher).getByRole("button", { name: "Photo 1 of 2" })).toHaveAttribute("aria-pressed", "true");
+    expect(view()).toBe("page");
+
+    await user.click(within(switcher).getByRole("button", { name: "Photos 2" }));
+    expect(view()).toBe("pages");
+    // Choosing a page shows it.
+    await user.click(screen.getByText("2. second.jpg"));
+    expect(view()).toBe("page");
+    expect(within(switcher).getByRole("button", { name: "Photo 2 of 2" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("puts adding photos above the page list on phones, so it is there in either view", async () => {
+    const real = window.matchMedia;
+    window.matchMedia = ((q: string) => ({
+      matches: q === "(max-width: 759px)", media: q, addEventListener: () => {}, removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    try {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.upload(screen.getByLabelText("Choose document photos"), [
+        new File([jpegHeader(400, 300)], "first.jpg", { type: "image/jpeg" }),
+        new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
+      ]);
+      await screen.findByRole("heading", { name: "first.jpg" });
+      const add = screen.getByLabelText("Choose document photos");
+      expect(screen.getByRole("complementary", { name: "Your photos" })).not.toContainElement(add);
+      expect(add.compareDocumentPosition(screen.getByRole("group", { name: "Show" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      // A refused file is reported there too.
+      await user.upload(add, new File(["not an image"], "notes.jpg", { type: "image/jpeg" }));
+      const errors = await screen.findByRole("list", { name: "Files that could not be added" });
+      expect(screen.getByRole("complementary", { name: "Your photos" })).not.toContainElement(errors);
+    } finally {
+      window.matchMedia = real;
+    }
+  });
+
+  it("reorders pages by dragging, without selecting the dragged page", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(
+      screen.getByLabelText("Choose document photos"),
+      ["a.jpg", "b.jpg", "c.jpg"].map((n) => new File([jpegHeader(400, 300)], n, { type: "image/jpeg" })),
+    );
+    await screen.findByRole("heading", { name: "a.jpg" });
+    const labels = () => screen.getAllByText(/^\d\. /).map((e) => e.textContent);
+    await vi.waitFor(() => expect(labels()).toEqual(["1. a.jpg", "2. b.jpg", "3. c.jpg"]));
+
+    // jsdom has no layout: stack the pages 100 px apart, in their current order.
+    const list = screen.getByRole("list", { name: "Uploaded photos" });
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const entries = [...list.querySelectorAll("[data-page-id]")];
+      const i = entries.indexOf(this);
+      return { left: 0, right: 200, width: 200, top: i * 100, bottom: i * 100 + 90, height: 90, x: 0, y: i * 100, toJSON() {} } as DOMRect;
+    });
+    list.setPointerCapture = vi.fn();
+    try {
+      const a = within(list).getByText("1. a.jpg");
+      fireEvent.pointerDown(a, { pointerId: 1, button: 0, pointerType: "mouse", clientX: 50, clientY: 40 });
+      fireEvent.pointerMove(a, { pointerId: 1, pointerType: "mouse", clientX: 50, clientY: 160 }); // past b's middle
+      expect(labels()).toEqual(["1. b.jpg", "2. a.jpg", "3. c.jpg"]);
+      fireEvent.pointerMove(a, { pointerId: 1, pointerType: "mouse", clientX: 50, clientY: 260 }); // past c's middle
+      expect(labels()).toEqual(["1. b.jpg", "2. c.jpg", "3. a.jpg"]);
+      fireEvent.pointerUp(a, { pointerId: 1, pointerType: "mouse", clientX: 50, clientY: 260 });
+      fireEvent.click(a);
+      // The release did not select the dragged page.
+      expect(screen.getByRole("heading", { name: "a.jpg" })).toBeInTheDocument();
+      expect(screen.getByText("a.jpg moved to position 3 of 3.")).toBeInTheDocument();
+
+      // A swipe on a touch screen scrolls instead; only the grip starts a drag there.
+      const b = within(list).getByText("1. b.jpg");
+      fireEvent.pointerDown(b, { pointerId: 2, button: 0, pointerType: "touch", clientX: 50, clientY: 40 });
+      fireEvent.pointerMove(b, { pointerId: 2, pointerType: "touch", clientX: 50, clientY: 260 });
+      fireEvent.pointerUp(b, { pointerId: 2, pointerType: "touch" });
+      expect(labels()).toEqual(["1. b.jpg", "2. c.jpg", "3. a.jpg"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("removes a page from the page list after confirming", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      new File([jpegHeader(400, 300)], "first.jpg", { type: "image/jpeg" }),
+      new File([jpegHeader(400, 300)], "second.jpg", { type: "image/jpeg" }),
+    ]);
+    await screen.findByRole("heading", { name: "first.jpg" });
+    const labels = () => screen.getAllByText(/^\d\. /).map((e) => e.textContent);
+    await vi.waitFor(() => expect(labels()).toEqual(["1. first.jpg", "2. second.jpg"]));
+
+    await user.click(screen.getByRole("button", { name: "Remove second.jpg" }));
+    const confirm = screen.getByRole("group", { name: "Confirm removing second.jpg" });
+    expect(within(confirm).getByRole("button", { name: "Keep" })).toHaveFocus();
+    await user.click(within(confirm).getByRole("button", { name: "Keep" }));
+    expect(labels()).toEqual(["1. first.jpg", "2. second.jpg"]);
+
+    await user.click(screen.getByRole("button", { name: "Remove second.jpg" }));
+    await user.click(within(screen.getByRole("group", { name: "Confirm removing second.jpg" })).getByRole("button", { name: "Remove" }));
+    expect(labels()).toEqual(["1. first.jpg"]);
+    expect(screen.getByRole("heading", { name: "first.jpg" })).toBeInTheDocument();
   });
 });
 
@@ -842,7 +962,7 @@ describe("repair all", () => {
     return user;
   }
   const chip = (name: string) =>
-    within(screen.getByRole("list", { name: "Uploaded pages" })).getByRole("button", { name: new RegExp(`^[0-9]+[.] ${name.replace(".", "[.]")}`) });
+    within(screen.getByRole("list", { name: "Uploaded photos" })).getByRole("button", { name: new RegExp(`^[0-9]+[.] ${name.replace(".", "[.]")}`) });
 
   it("is not offered for a single page", async () => {
     await uploadOne();
@@ -858,8 +978,8 @@ describe("repair all", () => {
 
     await user.click(screen.getByRole("button", { name: "Repair all (3)" }));
 
-    const done = await screen.findByText(/^Repaired 2 of 3 pages\./);
-    expect(done).toHaveTextContent("1 page could not be repaired");
+    const done = await screen.findByText(/^Repaired 2 of 3 photos\./);
+    expect(done).toHaveTextContent("1 photo could not be repaired");
     expect(processor.detectDocument).toHaveBeenCalledTimes(3);
     expect(within(chip("one.jpg")).getByText("Repaired")).toBeInTheDocument();
     expect(within(chip("two.jpg")).getByText("Failed")).toBeInTheDocument();
@@ -867,7 +987,7 @@ describe("repair all", () => {
     // The failed page is not retried automatically: it needs corners set by hand.
     expect(screen.queryByRole("button", { name: /Repair all/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Download PDF (2 pages)" })).toBeInTheDocument();
-    expect(screen.getByText("1 page is not repaired yet and will be left out.")).toBeInTheDocument();
+    expect(screen.getByText("1 photo is not repaired yet and will be left out.")).toBeInTheDocument();
   });
 
   it("skips pages already repaired by hand", async () => {
@@ -877,7 +997,7 @@ describe("repair all", () => {
     await screen.findByAltText("Repaired document: one.jpg");
 
     await user.click(screen.getByRole("button", { name: "Repair all (2)" }));
-    await screen.findByText(/^Repaired 2 of 2 pages\./);
+    await screen.findByText(/^Repaired 2 of 2 photos\./);
     expect(processor.detectDocument).toHaveBeenCalledTimes(3);
   });
 
@@ -889,37 +1009,37 @@ describe("repair all", () => {
     const user = await uploadThree();
 
     await user.click(screen.getByRole("button", { name: "Repair all (3)" }));
-    await screen.findByText("Repairing page 1 of 3…");
-    expect(screen.getByRole("progressbar", { name: "Pages repaired" })).toHaveAttribute("max", "3");
+    await screen.findByText("Repairing photo 1 of 3…");
+    expect(screen.getByRole("progressbar", { name: "Photos repaired" })).toHaveAttribute("max", "3");
     await vi.waitFor(() => expect(processor.detectDocument).toHaveBeenCalledTimes(1));
 
     // The pages, mode and export are held while the batch runs.
-    const pages = screen.getByRole("list", { name: "Uploaded pages" }).closest(".sidebar__pages")!;
+    const pages = screen.getByRole("list", { name: "Uploaded photos" }).closest(".sidebar__pages")!;
     const workspace = screen.getByRole("region", { name: "Photo preview" }).closest(".workspace")!;
     expect(pages).toHaveAttribute("inert");
     expect(workspace).toHaveAttribute("inert");
     expect(workspace).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByText("Repairing your pages")).toBeInTheDocument();
-    expect(screen.getByText(/^Page 1 of 3\. The pages are locked/)).toBeInTheDocument();
+    expect(screen.getByText("Repairing your photos")).toBeInTheDocument();
+    expect(screen.getByText(/^Photo 1 of 3\. The photos are locked/)).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Stop" }));
-    expect(screen.getByText("Finishing the current page, then the pages are yours again.")).toBeInTheDocument();
-    expect(screen.getByText("Stopping after the current page (1 of 3)…")).toBeInTheDocument();
+    expect(screen.getByText("Finishing the current photo, then the photos are yours again.")).toBeInTheDocument();
+    expect(screen.getByText("Stopping after the current photo (1 of 3)…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
     release();
 
-    await screen.findByText("Stopped. Repaired 1 of 3 pages.");
+    await screen.findByText("Stopped. Repaired 1 of 3 photos.");
     expect(pages).not.toHaveAttribute("inert");
     expect(workspace).not.toHaveAttribute("inert");
-    expect(screen.queryByText("Repairing your pages")).toBeNull();
+    expect(screen.queryByText("Repairing your photos")).toBeNull();
     expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Download PDF (1 page)" })).toBeEnabled();
     expect(processor.detectDocument).toHaveBeenCalledTimes(1);
     expect(within(chip("two.jpg")).getByText("Not repaired")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Repair all (2)" }));
-    await screen.findByText("Repaired 2 of 2 pages.");
+    await screen.findByText("Repaired 2 of 2 photos.");
     expect(within(chip("three.jpg")).getByText("Repaired")).toBeInTheDocument();
   });
 });

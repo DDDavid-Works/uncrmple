@@ -66,7 +66,7 @@ export function EmptyInspector({ mode }: { mode: ProcessingMode }) {
         </p>
       </InspectorSection>
       <InspectorSection index={3} title="Export">
-        <p className="inspector__empty">Download images, a ZIP or one PDF in your page order.</p>
+        <p className="inspector__empty">Download images, a ZIP or one PDF in your photo order.</p>
       </InspectorSection>
     </div>
   );

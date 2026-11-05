@@ -14,7 +14,7 @@ export interface DocumentsApi {
   pending: number;
   addFiles: (files: File[]) => Promise<void>;
   remove: (id: string) => void;
-  move: (id: string, delta: -1 | 1) => void;
+  move: (id: string, to: number) => void;
   dismissRejected: (id: string) => void;
 }
 
@@ -66,7 +66,7 @@ export function useDocuments(): DocumentsApi {
             {
               id: newId(),
               name: file.name,
-              reason: `Too many large images open at once (limit ${MAX_TOTAL_PIXELS / 1e6} megapixels in total). Remove some pages or work in smaller batches.`,
+              reason: `Too many large images open at once (limit ${MAX_TOTAL_PIXELS / 1e6} megapixels in total). Remove some photos or work in smaller batches.`,
             },
           ]);
           room++;
@@ -110,14 +110,14 @@ export function useDocuments(): DocumentsApi {
     setDocuments((d) => d.filter((x) => x.id !== id));
   }, []);
 
-  /** Move a page one position earlier (-1) or later (+1); the PDF follows this order. */
-  const move = useCallback((id: string, delta: -1 | 1) => {
+  /** Move a page to position `to` (0-based), shifting the pages between; the PDF follows this order. */
+  const move = useCallback((id: string, to: number) => {
     setDocuments((docs) => {
       const from = docs.findIndex((d) => d.id === id);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= docs.length) return docs;
+      if (from < 0 || to < 0 || to >= docs.length || to === from) return docs;
       const next = [...docs];
-      [next[from], next[to]] = [next[to]!, next[from]!];
+      const [page] = next.splice(from, 1);
+      next.splice(to, 0, page!);
       return next;
     });
   }, []);

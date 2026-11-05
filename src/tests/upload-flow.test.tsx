@@ -35,7 +35,7 @@ describe("upload to preview", () => {
 
   it("shows the empty workspace with the limits and no repair or export controls", () => {
     render(<App />);
-    expect(screen.getByText("Your pages will appear here.")).toBeInTheDocument();
+    expect(screen.getByText("Your photos will appear here.")).toBeInTheDocument();
     expect(screen.getByText(/Up to 25 MB each · 20 photos at a time/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^(repair|download)/i })).toBeNull();
     expect(screen.getAllByLabelText("Choose document photos")).toHaveLength(1);

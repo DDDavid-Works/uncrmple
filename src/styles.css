@@ -132,8 +132,8 @@ a { color: var(--link); }
 .btn--quiet:hover:not(:disabled) { background: var(--surface-sunk); border-color: transparent; color: var(--text); }
 .btn--danger { background: var(--danger); border-color: var(--danger); color: var(--danger-text); }
 .btn--danger:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); opacity: 0.9; }
-.btn--danger-quiet { background: transparent; border-color: transparent; color: var(--danger); }
-.btn--danger-quiet:hover:not(:disabled) { background: var(--danger-bg); border-color: transparent; }
+.btn--danger-quiet { background: var(--surface); border-color: var(--danger); color: var(--danger); }
+.btn--danger-quiet:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger); }
 .btn--small { min-height: 34px; padding: 4px 12px; font-size: 0.85rem; border-radius: var(--radius-sm); }
 .btn--block { width: 100%; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -156,6 +156,22 @@ a { color: var(--link); }
   border: 1px dashed var(--border-strong); border-radius: var(--radius); font-size: 0.875rem;
 }
 .sidebar__empty svg { width: 24px; height: 24px; color: var(--muted); }
+/* Pages / Page switch: phones only (see the narrow-screen rules). */
+.viewswitch { display: none; }
+/* Tabs: the open one is underlined in the accent colour and joins the content below. */
+.viewswitch__option {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px;
+  margin-bottom: -1px; padding: 0 var(--space-3); font: inherit; font-size: 0.9rem; color: var(--muted); background: none;
+  border: 0; border-bottom: 3px solid transparent; border-radius: 0; cursor: pointer;
+}
+.viewswitch__option:hover { color: var(--text); border-bottom-color: var(--border-strong); }
+.viewswitch__option[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+/* Repair all, like the steps panel's Repair: sticks to the bottom edge of the column until scrolled to. */
+.sidebar__dock {
+  position: sticky; bottom: calc(-1 * var(--space-4)); z-index: 1; margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4); background: var(--surface); box-shadow: 0 -8px 16px -12px rgb(37 44 40 / 35%);
+}
+.sidebar__dock:empty { display: none; }
 .sidebar__note { margin-top: auto; padding: var(--space-3); border-radius: var(--radius); background: var(--surface-sunk); }
 .sidebar__note-title { font-size: 0.85rem; font-weight: 500; margin-bottom: 2px; }
 .sidebar__note .muted { font-size: 0.8rem; }
@@ -211,9 +227,32 @@ a { color: var(--link); }
 .pages__item img {
   grid-row: 1 / 3; width: 56px; height: 64px; object-fit: contain; background: var(--surface-sunk); border-radius: var(--radius-sm);
 }
-.pages__label { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 56px; }
-.pages__move { position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; }
-.pages__move .btn { min-height: 24px; width: 24px; padding: 0; font-size: 0.8rem; line-height: 1; border-radius: var(--radius-sm); }
+.pages__label { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 32px; }
+/* Grip (drag or arrow keys to reorder) down the page's left side; remove in its top-right corner. */
+.pages--sortable .pages__item { padding-left: 30px; }
+.pages__grip {
+  position: absolute; top: 1px; bottom: 1px; left: 1px; width: 26px; display: grid; place-items: center;
+  padding: 0; border: 0; border-radius: var(--radius) 0 0 var(--radius); background: none;
+  color: var(--muted); cursor: grab; touch-action: none;
+}
+.pages__grip:hover { color: var(--text); background: var(--surface-sunk); }
+.pages__grip svg { width: 8px; height: 13px; fill: currentColor; }
+.pages__tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+.pages__tools .btn { min-height: 26px; width: 26px; padding: 0; font-size: 0.75rem; line-height: 1; border-radius: var(--radius-sm); }
+.pages__item img { -webkit-user-drag: none; }
+/* The Remove? confirmation covers the page it asks about. */
+.pages__tools:has(.confirm--compact) { inset: 0; }
+.confirm__icon { width: 14px; height: 14px; }
+.confirm--compact .btn { display: inline-grid; place-items: center; }
+.confirm--compact .confirm__text { flex-basis: 100%; text-align: center; }
+.confirm--compact {
+  position: absolute; inset: 0; justify-content: center; padding: var(--space-2);
+  border-radius: var(--radius); background: var(--surface); border: 1px solid var(--danger);
+}
+/* While dragging, the moving page is lifted and nothing is selected as text. */
+.pages--dragging { cursor: grabbing; user-select: none; }
+.pages--dragging .pages__item { cursor: grabbing; }
+.pages__entry--dragging .pages__item { border-color: var(--accent); box-shadow: var(--shadow); opacity: 0.9; }
 
 .chip {
   display: inline-flex; align-items: center; gap: 4px; justify-self: start;
@@ -509,10 +548,27 @@ a { color: var(--link); }
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .sidebar { border-right: 0; border-bottom: var(--line); gap: var(--space-3); }
   .sidebar__note { display: none; }
-  .pages { display: flex; overflow-x: auto; padding-bottom: var(--space-1); }
-  .pages__entry { flex: none; width: 200px; }
+  /* One view at a time: the page list, or the selected page. */
+  .viewswitch {
+    position: sticky; top: 0; z-index: 2; display: flex; padding: 0 var(--space-4);
+    background: var(--surface); border-bottom: var(--line);
+  }
+  .workbench[data-view="pages"] .workspace-frame, .workbench[data-view="page"] .sidebar { display: none; }
+  .workbench[data-view] .sidebar__head { display: none; }
+  .workbench__add { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4) 0; }
   .stage__main, .viewer { padding: var(--space-3); }
   .upload { padding: 32px var(--space-4); }
   .preview__frame { min-height: 0; padding: var(--space-2); }
   .app__footer { padding: var(--space-4); }
+  /* The steps panel sits below the photo here, so Repair is pinned to the bottom of the screen
+     rather than floating only once that panel is scrolled to; the page leaves room for it. */
+  .inspector__dock { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; z-index: 2; }
+  .app:has([data-view="page"] .inspector__dock) { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  /* Likewise Repair all, with how many pages are left, under the page list. */
+  .sidebar__dock:not(:empty) {
+    position: fixed; left: 0; right: 0; bottom: 0; margin: 0; z-index: 2;
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  }
+  .sidebar__dock .batch { padding: 0; border: 0; background: none; }
+  .app:has([data-view="pages"] .sidebar__dock:not(:empty)) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 }

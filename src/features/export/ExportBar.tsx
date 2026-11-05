@@ -82,7 +82,7 @@ export function ExportBar({
   return (
     <section className="export" aria-label="Export">
       <p className="export__title">
-        All pages <span className="muted export__count">{pages.length} of {total} {doneWord}</span>
+        All photos <span className="muted export__count">{pages.length} of {total} {doneWord}</span>
       </p>
       <label className="export__field">
         PDF paper size
@@ -103,13 +103,13 @@ export function ExportBar({
         </button>
       </div>
       {locked ? (
-        <p className="muted export__skipped">The PDF can be made once every page is repaired.</p>
+        <p className="muted export__skipped">The PDF can be made once every photo is repaired.</p>
       ) : skipped > 0 ? (
         <p className="muted export__skipped">
-          {skipped} {skipped === 1 ? "page is" : "pages are"} not {doneWord} yet and will be left out.
+          {skipped} {skipped === 1 ? "photo is" : "photos are"} not {doneWord} yet and will be left out.
         </p>
       ) : (
-        <p className="muted export__skipped">Page order is preserved.</p>
+        <p className="muted export__skipped">The PDF follows your photo order.</p>
       )}
       {error && (
         <p role="alert" className="notice notice--error">

@@ -107,7 +107,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
             <span className="viewer__label">{reviewing ? "Set the corners" : "Original"}</span>
           )}
           <div className="viewer__where">
-            {nav && <span className="viewer__position">Page {nav.index + 1} of {nav.total}</span>}
+            {nav && <span className="viewer__position">Photo {nav.index + 1} of {nav.total}</span>}
             <h2 className="viewer__name">{doc.name}</h2>
           </div>
         </div>

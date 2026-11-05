@@ -85,7 +85,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             <span className="viewer__label">Original</span>
           )}
           <div className="viewer__where">
-            {nav && <span className="viewer__position">Page {nav.index + 1} of {nav.total}</span>}
+            {nav && <span className="viewer__position">Photo {nav.index + 1} of {nav.total}</span>}
             <h2 className="viewer__name">{doc.name}</h2>
           </div>
         </div>
@@ -306,7 +306,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
               Download image
             </a>
           )}
-          {exportAll ?? <p className="inspector__empty">Repair this page to download it as an image or PDF.</p>}
+          {exportAll ?? <p className="inspector__empty">Repair this photo to download it as an image or PDF.</p>}
         </InspectorSection>
       </div>
     </section>

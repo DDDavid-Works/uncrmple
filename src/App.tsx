@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SourceDocument } from "./types/document";
 import { PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
 import { AppFooter } from "./components/AppFooter";
@@ -20,6 +20,7 @@ import { UploadZone } from "./features/upload/UploadZone";
 import { useDocuments } from "./features/upload/useDocuments";
 import { MAX_FILES } from "./lib/files/limits";
 import { baseName } from "./lib/browser/download";
+import { PHONE_QUERY, useMediaQuery } from "./lib/browser/useMediaQuery";
 
 const NO_DOCUMENTS: SourceDocument[] = [];
 
@@ -40,6 +41,20 @@ export function App() {
   // Page assessment is for the document workflow only; skip the work in card mode.
   const assessmentOf = useAssessment(mode === "document" ? documents : NO_DOCUMENTS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Phones show the page list and the selected page one at a time; wider screens show both.
+  const [view, setView] = useState<"pages" | "page">("page");
+  const workbenchRef = useRef<HTMLElement>(null);
+  // A view switched to after scrolling down the other one starts at its top.
+  useEffect(() => {
+    const bench = workbenchRef.current;
+    if (bench && bench.getBoundingClientRect().top < 0) bench.scrollIntoView?.({ block: "start" });
+  }, [view]);
+  const openPage = (id: string) => {
+    setSelectedId(id);
+    setView("page");
+  };
+  // On phones, adding photos sits above the Pages / Page switch so it is there in either view.
+  const phone = useMediaQuery(PHONE_QUERY);
 
   // Keep a valid selection: first doc when none is chosen or the chosen one was removed.
   useEffect(() => {
@@ -89,6 +104,32 @@ export function App() {
       />
     ) : null;
 
+  // Adding photos and the files that could not be added.
+  const addArea = (
+    <>
+      {documents.length > 0 && <UploadZone compact busy={pending > 0} onFiles={addFiles} />}
+      {rejected.length > 0 && (
+        <ul className="errors" aria-label="Files that could not be added">
+          {rejected.map((r) => (
+            <li key={r.id} role="alert">
+              <span>
+                <strong>{r.name}</strong>: {r.reason}
+              </span>
+              <button
+                type="button"
+                className="btn btn--small"
+                onClick={() => dismissRejected(r.id)}
+                aria-label={`Dismiss message for ${r.name}`}
+              >
+                Dismiss
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
   return (
     <div className="app">
       <header className="topbar">
@@ -118,40 +159,31 @@ export function App() {
         <ModeSelector mode={mode} onChange={setMode} disabled={locked} />
       </div>
 
-      <main className="workbench">
-        <aside className="sidebar" aria-label="Your pages">
+      <main ref={workbenchRef} className="workbench" data-view={documents.length > 0 ? view : undefined}>
+        {phone && (documents.length > 0 || rejected.length > 0) && <div className="workbench__add">{addArea}</div>}
+        {documents.length > 0 && (
+          <div className="viewswitch" role="group" aria-label="Show">
+            <button type="button" className="viewswitch__option" aria-pressed={view === "pages"} onClick={() => setView("pages")}>
+              Photos <span className="count">{documents.length}</span>
+            </button>
+            <button type="button" className="viewswitch__option" aria-pressed={view === "page"} onClick={() => setView("page")}>
+              {selectedIndex >= 0 ? `Photo ${selectedIndex + 1} of ${documents.length}` : "Photo"}
+            </button>
+          </div>
+        )}
+        <aside className="sidebar" aria-label="Your photos">
           <div className="sidebar__head">
-            <h2 className="sidebar__title">Your pages</h2>
-            <span className="count" aria-label={`${documents.length} ${documents.length === 1 ? "page" : "pages"}`}>
+            <h2 className="sidebar__title">Your photos</h2>
+            <span className="count" aria-label={`${documents.length} ${documents.length === 1 ? "photo" : "photos"}`}>
               {documents.length}
             </span>
           </div>
 
-          {documents.length > 0 && <UploadZone compact busy={pending > 0} onFiles={addFiles} />}
-
-          {rejected.length > 0 && (
-            <ul className="errors" aria-label="Files that could not be added">
-              {rejected.map((r) => (
-                <li key={r.id} role="alert">
-                  <span>
-                    <strong>{r.name}</strong>: {r.reason}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn--small"
-                    onClick={() => dismissRejected(r.id)}
-                    aria-label={`Dismiss message for ${r.name}`}
-                  >
-                    Dismiss
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {!phone && addArea}
 
           {documents.length > 0 ? (
             <div className="sidebar__pages" inert={locked}>
-              <PageList documents={documents} selectedId={selectedId} statusOf={statusOf} onSelect={setSelectedId} onMove={move} />
+              <PageList documents={documents} selectedId={selectedId} statusOf={statusOf} onSelect={openPage} onMove={move} onRemove={remove} />
             </div>
           ) : (
             <div className="sidebar__empty">
@@ -159,13 +191,15 @@ export function App() {
                 <path d="M6 3h8l4 4v14H6z" />
                 <path d="M14 3v4h4M9 12h6M9 15.5h6" strokeLinecap="round" />
               </svg>
-              <p>Your pages will appear here.</p>
+              <p>Your photos will appear here.</p>
               <p className="muted">Add up to {MAX_FILES} photos. Reorder before export.</p>
             </div>
           )}
 
           {mode === "document" && documents.length > 1 && (
-            <RepairAllBar batch={batch} pending={unrepaired} onStart={() => void repairAll(documents)} onStop={stopAll} />
+            <div className="sidebar__dock">
+              <RepairAllBar batch={batch} pending={unrepaired} onStart={() => void repairAll(documents)} onStop={stopAll} />
+            </div>
           )}
 
           <div className="sidebar__note">

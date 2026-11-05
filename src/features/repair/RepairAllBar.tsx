@@ -8,11 +8,11 @@ interface Props {
   onStop: () => void;
 }
 
-const pages = (n: number) => `${n} ${n === 1 ? "page" : "pages"}`;
+const photos = (n: number) => `${n} ${n === 1 ? "photo" : "photos"}`;
 
 function summary(b: Extract<BatchState, { status: "finished" }>): string {
-  const parts = [b.stopped ? `Stopped. Repaired ${b.repaired} of ${pages(b.total)}.` : `Repaired ${b.repaired} of ${pages(b.total)}.`];
-  if (b.failed > 0) parts.push(`${pages(b.failed)} could not be repaired; select ${b.failed === 1 ? "it" : "them"} to see why or to set the corners by hand.`);
+  const parts = [b.stopped ? `Stopped. Repaired ${b.repaired} of ${photos(b.total)}.` : `Repaired ${b.repaired} of ${photos(b.total)}.`];
+  if (b.failed > 0) parts.push(`${photos(b.failed)} could not be repaired; select ${b.failed === 1 ? "it" : "them"} to see why or to set the corners by hand.`);
   return parts.join(" ");
 }
 
@@ -26,11 +26,11 @@ export function RepairAllLock({ batch }: { batch: Extract<BatchState, { status: 
       <div className="lock__card">
         <span className="busy__spinner" aria-hidden="true" />
         <div>
-          <p className="lock__title">Repairing your pages</p>
+          <p className="lock__title">Repairing your photos</p>
           <p className="muted lock__text">
             {batch.stopping
-              ? "Finishing the current page, then the pages are yours again."
-              : `Page ${batch.finished + 1} of ${batch.total}. The pages are locked until this finishes so nothing changes mid-repair. Use Stop to end early.`}
+              ? "Finishing the current photo, then the photos are yours again."
+              : `Photo ${batch.finished + 1} of ${batch.total}. The photos are locked until this finishes so nothing changes mid-repair. Use Stop to end early.`}
           </p>
         </div>
       </div>
@@ -43,16 +43,16 @@ export function RepairAllBar({ batch, pending, onStart, onStop }: Props) {
   if (batch.status === "running") {
     const { total, finished, stopping } = batch;
     return (
-      <section className="batch" aria-label="Repair all pages">
+      <section className="batch" aria-label="Repair all photos">
         <div className="batch__row">
           <p role="status" className="batch__status">
-            {stopping ? `Stopping after the current page (${finished + 1} of ${total})…` : `Repairing page ${finished + 1} of ${total}…`}
+            {stopping ? `Stopping after the current photo (${finished + 1} of ${total})…` : `Repairing photo ${finished + 1} of ${total}…`}
           </p>
           <button type="button" className="btn" onClick={onStop} disabled={stopping}>
             Stop
           </button>
         </div>
-        <progress className="batch__progress" value={finished} max={total} aria-label="Pages repaired" />
+        <progress className="batch__progress" value={finished} max={total} aria-label="Photos repaired" />
       </section>
     );
   }
@@ -60,14 +60,14 @@ export function RepairAllBar({ batch, pending, onStart, onStop }: Props) {
   if (pending === 0 && batch.status === "idle") return null;
 
   return (
-    <section className="batch" aria-label="Repair all pages">
+    <section className="batch" aria-label="Repair all photos">
       <div className="batch__row">
         {batch.status === "finished" ? (
           <p role="status" className={batch.failed > 0 ? "batch__status batch__status--warn" : "batch__status"}>
             {summary(batch)}
           </p>
         ) : (
-          <p className="batch__status muted">{pages(pending)} not repaired yet.</p>
+          <p className="batch__status muted">{photos(pending)} not repaired yet.</p>
         )}
         {pending > 0 && (
           <button type="button" className="btn btn--primary" onClick={onStart}>
