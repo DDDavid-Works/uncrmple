@@ -468,6 +468,11 @@ a { color: var(--link); }
   position: sticky; top: 30vh; display: flex; gap: var(--space-3); align-items: flex-start; max-width: 26rem;
   padding: var(--space-4); border: var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow);
 }
+/* Wide screens: the workspace fills the window, so the card is centred in the window rather than in
+   the columns it locks. It is narrow enough to stay clear of the pages column and its Stop button. */
+@media (min-width: 1100px) and (min-height: 640px) {
+  .lock__card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: max-content; }
+}
 .lock__title { margin: 0; font-weight: 500; }
 .lock__text { margin: var(--space-1) 0 0; font-size: 0.875rem; }
 
