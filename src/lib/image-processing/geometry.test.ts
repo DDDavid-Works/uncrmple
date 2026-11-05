@@ -1,5 +1,5 @@
 import type { Quad } from "../../types/repair";
-import { interiorAngles, isConvex, isPlausiblePage, orderCorners, outputSize, polygonArea, scaleQuad, validateQuad } from "./geometry";
+import { fullFrameQuad, interiorAngles, isConvex, isPlausiblePage, orderCorners, outputSize, polygonArea, scaleQuad, validateQuad } from "./geometry";
 
 const rect: Quad = [{ x: 10, y: 10 }, { x: 110, y: 10 }, { x: 110, y: 160 }, { x: 10, y: 160 }];
 
@@ -47,6 +47,13 @@ describe("validateQuad", () => {
     expect(validateQuad([rect[0], rect[2], rect[1], rect[3]], 200, 200).ok).toBe(false);
     const tiny: Quad = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }, { x: 0, y: 5 }];
     expect(validateQuad(tiny, 200, 200)).toMatchObject({ ok: false, error: { code: "invalid-corners" } });
+  });
+  it("accepts the whole image scaled to a smaller copy, despite rounding past its border", () => {
+    // 1312 × 773/1312 is 773.0000000000001 in floating point.
+    const scaled = scaleQuad(fullFrameQuad(1312, 2038), 773 / 1312, 1200 / 2038);
+    expect(scaled[1].x).toBeGreaterThan(773);
+    expect(validateQuad(scaled, 773, 1200).ok).toBe(true);
+    expect(validateQuad(scaleQuad(rect, 1.01, 1), 110, 200).ok).toBe(false);
   });
 });
 

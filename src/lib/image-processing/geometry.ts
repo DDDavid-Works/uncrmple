@@ -98,11 +98,18 @@ const invalid = (message: string): Result<never> => ({
   error: { code: "invalid-corners", message } satisfies RepairError,
 });
 
+/**
+ * Corners on the image border can land a rounding error outside it once scaled to a smaller copy
+ * (1312 × 773/1312 is 773.0000000000001), so the border check allows that much.
+ */
+const BORDER_TOLERANCE = 1e-6;
+
 /** Check that corners describe a usable page inside the image. */
 export function validateQuad(quad: Quad, width: number, height: number): Result<Quad> {
+  const t = BORDER_TOLERANCE;
   for (const p of quad) {
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return invalid("Corner coordinates are not valid numbers.");
-    if (p.x < 0 || p.y < 0 || p.x > width || p.y > height) return invalid("Corners must lie inside the image.");
+    if (p.x < -t || p.y < -t || p.x > width + t || p.y > height + t) return invalid("Corners must lie inside the image.");
   }
   if (!isConvex(quad)) return invalid("The corners must form a convex four-sided shape without crossing.");
   if (polygonArea(quad) < MIN_QUAD_AREA_FRACTION * width * height) {
