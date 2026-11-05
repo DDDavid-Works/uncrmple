@@ -420,7 +420,7 @@ Decided 2026-11-01 as the planned direction. Nothing here is implemented; until 
 The line is batch size: one page is casual use, a pile of pages is real work.
 
 \- Free: unlimited single-page repair and image download at full quality; batches (Repair all, ZIP, multi-page PDF) up to about 5 pages.
-\- Pro (one-time unlock) and Pass (24-hour or 7-day): batches up to the app's file limit, currently 50 (`MAX_FILES`).
+\- Pro (one-time unlock) and Pass (24-hour or 7-day): batches up to the app's file limit, currently 20 (`MAX_FILES`).
 \- Show the batch limit at upload, before any work starts. Never let a user repair a batch and then block its download.
 \- Set the free limit before public launch; taking away what free users already have would feel like a bait-and-switch.
 
@@ -435,7 +435,7 @@ The line is batch size: one page is casual use, a pile of pages is real work.
 \- Teams: a license with a few seats for business users (accountants, HR, legal), sold on documents never leaving the device.
 \- Subscriptions or accounts: only when a feature gives ongoing value that needs them, such as cross-device access.
 \- Cloud credits: only for a server-side feature such as advanced restoration, opt-in, with defined retention limits.
-\- Do not promise unlimited or very high volume. The 50-page limit is set by browser memory; going further needs a desktop build or server processing. Confirm 50 pages works on a mid-range phone before selling it.
+\- Do not promise unlimited or very high volume. The 20-page limit is set by browser memory; going further needs a desktop build or server processing. Confirm 20 pages works on a mid-range phone before selling it.
 
 \### Validation before launch
 

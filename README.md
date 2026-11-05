@@ -30,7 +30,7 @@ On wide screens the app is three columns: the pages on the left, the viewer in t
 | --- | --- |
 | File size | 25 MB per image |
 | Image size | 100 px to 12,000 px per side, at most 50 megapixels |
-| Open at once | 50 images, and 600 megapixels in total (about fifty 12 MP phone photos) |
+| Open at once | 20 images, and 600 megapixels in total |
 
 The total-pixel limit keeps memory in check, since every page keeps its original and full-size results until it is removed. It is provisional until tested on a mid-range phone. HEIC photos are not accepted: convert them to JPEG first.
 
