@@ -4,7 +4,7 @@ import type { Gray } from "../boundary";
 import { mergeSegments, quadsFromLines } from "../card-lines";
 import { extendSides } from "../extend";
 import { snapFrameSides } from "../frame-sides";
-import type { Segment } from "../card-lines";
+import type { EdgeLine, Segment } from "../card-lines";
 import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
 import type { OpenCv } from "./loader";
@@ -39,6 +39,13 @@ const LINE_CANNY: readonly [number, number] = [10, 30];
 /** Hough: votes needed for a line, and the longest gap bridged inside one segment. */
 const HOUGH_THRESHOLD = 40;
 const HOUGH_MAX_GAP_PX = 6;
+/**
+ * Coarser distance resolution for the lines a side may be moved out to (see extendSides). Paper
+ * edges are rarely straight to the pixel (a sheet lying on others sags a little), and at 1 px a
+ * gently curving edge breaks into pieces too short to keep. Only used for moving sides: building
+ * outlines from these lines too picks up far more print.
+ */
+const EXTEND_RHO_PX = 2;
 const MAX_SEGMENTS = 800;
 /** Segments and merged lines shorter than these fractions of the shorter image side are ignored. */
 const MIN_SEGMENT_FRACTION = 0.1;
@@ -137,9 +144,12 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
     const sensitive = own(new cv.Mat());
     cv.Canny(blur, sensitive, LINE_CANNY[0], LINE_CANNY[1]);
     const minSide = Math.min(image.width, image.height);
-    const segments = houghSegments(cv, sensitive, MIN_SEGMENT_FRACTION * minSide, own);
-    segments.sort((a, b) => Math.hypot(b.x2 - b.x1, b.y2 - b.y1) - Math.hypot(a.x2 - a.x1, a.y2 - a.y1));
-    const straight = mergeSegments(segments.slice(0, MAX_SEGMENTS), MIN_LINE_FRACTION * minSide);
+    const linesAt = (rho: number) => {
+      const segments = houghSegments(cv, sensitive, MIN_SEGMENT_FRACTION * minSide, own, rho);
+      segments.sort((a, b) => Math.hypot(b.x2 - b.x1, b.y2 - b.y1) - Math.hypot(a.x2 - a.x1, a.y2 - a.y1));
+      return mergeSegments(segments.slice(0, MAX_SEGMENTS), MIN_LINE_FRACTION * minSide);
+    };
+    const straight = linesAt(1);
     const boundaries = straight.filter((l) => lineStep(grey, l) >= BOUNDARY_STEP);
     for (const quad of quadsFromLines(boundaries, {
       width: image.width, height: image.height,
@@ -152,6 +162,10 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
 
     if (trace) trace.candidates = candidates;
 
+    // Computed only when a line-built page may be extended.
+    let coarse: EdgeLine[] | null = null;
+    const extendTargets = () => (coarse ??= linesAt(EXTEND_RHO_PX).filter((l) => lineStep(grey, l) >= BOUNDARY_STEP));
+
     /** Turn the chosen candidate into the final outline, measuring support on the given edges. */
     const finish = (best: Candidate, near: Uint8Array): DetectionResult => {
       const support = (q: readonly Point[]) => edgeSupport(q, near, image.width, image.height);
@@ -162,7 +176,9 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
       // A side left on the photo's frame may belong on a faint page edge just inside it.
       const toFrameEdge = (q: Quad) => snapFrameSides(q, straight, sensitive.data, image.width, image.height);
       // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
-      const extended = best.method === "lines" ? extendSides(ordered, boundaries, grey) : ordered;
+      // The coarse lines also catch a gently curving edge, but more of what lies around a page, so
+      // moves onto them must also add paper of the page's colour.
+      const extended = best.method === "lines" ? extendSides(extendSides(ordered, boundaries, grey), extendTargets(), grey, image) : ordered;
       if (extended !== ordered) {
         const corners = toFrameEdge(extended);
         return result(corners, support(corners));
@@ -345,9 +361,9 @@ export function edgeSupport(quad: readonly Point[], nearEdge: Uint8Array, width:
 }
 
 /** Straight segments found in an edge map (probabilistic Hough). */
-function houghSegments(cv: OpenCv, edgeMap: InstanceType<OpenCv["Mat"]>, minLength: number, own: Own): Segment[] {
+function houghSegments(cv: OpenCv, edgeMap: InstanceType<OpenCv["Mat"]>, minLength: number, own: Own, rho = 1): Segment[] {
   const lines = own(new cv.Mat());
-  cv.HoughLinesP(edgeMap, lines, 1, Math.PI / 180, HOUGH_THRESHOLD, minLength, HOUGH_MAX_GAP_PX);
+  cv.HoughLinesP(edgeMap, lines, rho, Math.PI / 180, HOUGH_THRESHOLD, minLength, HOUGH_MAX_GAP_PX);
   const d = lines.data32S;
   const out: Segment[] = [];
   for (let i = 0; i + 3 < d.length; i += 4) out.push({ x1: d[i]!, y1: d[i + 1]!, x2: d[i + 2]!, y2: d[i + 3]! });

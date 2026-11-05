@@ -1,7 +1,7 @@
 import type { Gray } from "./boundary";
 import type { EdgeLine } from "./card-lines";
 import { isPlausiblePage } from "./geometry";
-import type { Point, Quad } from "../../types/repair";
+import type { Point, Quad, RasterImage } from "../../types/repair";
 
 /**
  * Replacement lines must run within this many degrees of the side they replace. Print is often
@@ -14,8 +14,11 @@ const MAX_ANGLE_DEG = 10;
 const MAX_INWARD_PX = 2;
 /** A side moves at least this far (smaller moves are the same edge) ... */
 const MIN_MOVE_PX = 6;
-/** ... and at most this fraction of the page's extent across it. */
-const MAX_MOVE_FRACTION = 0.35;
+/**
+ * ... and at most this fraction of the page's extent across it: a side stopped at the divider of a
+ * two-column form can double the page, but not more.
+ */
+const MAX_MOVE_FRACTION = 1;
 /**
  * The replacement line must run alongside at least this share of the side. Low on purpose: a
  * curled or bent page edge is straight only in short runs; the strip test is what guards the move.
@@ -29,6 +32,12 @@ const INK_FRACTION = 0.6;
 /** The strip added to the page must be mostly paper-bright and contain at least some print. */
 const MIN_BRIGHT_SHARE = 0.75;
 const MIN_INK_SHARE = 0.01;
+/**
+ * With a colour image given, the paper-bright part of the strip must also match the page's paper
+ * colour within this many levels per channel: a pale packet or a sheet of another colour lying
+ * beside the page can be as bright as its paper in grey.
+ */
+const MAX_COLOUR_DIFF = 30;
 /** Strip samples keep clear of both lines and of the corners. */
 const LINE_MARGIN_PX = 3;
 const SIDE_START = 0.1;
@@ -69,16 +78,17 @@ function sample(g: Gray, p: Point): number | null {
  * Move sides of a page built from straight lines outward when they stopped at a line printed on
  * the page (a coloured header band, a fold, a box border) rather than at its edge.
  *
- * For each side, the candidates are boundary lines roughly parallel to it, further out by up to a
- * third of the page. A side moves to the farthest candidate such that the strip it adds looks like
+ * For each side, the candidates are boundary lines roughly parallel to it, further out by up to the
+ * page's own extent across that side (one column of a two-column form found as the page). A side moves to the farthest candidate such that the strip it adds looks like
  * page content: mostly as bright as the page's paper and holding some print. A strip of dark
  * background fails the first test and a strip of blank table or another sheet's margin fails the
  * second, so a side already on the page edge stays. The result must still be a plausible page
  * inside the image; otherwise that side is left alone.
  */
-export function extendSides(quad: Quad, lines: readonly EdgeLine[], g: Gray): Quad {
+export function extendSides(quad: Quad, lines: readonly EdgeLine[], g: Gray, colour?: RasterImage): Quad {
   const paper = paperLevel(quad, g);
   if (paper === null) return quad;
+  const tint = colour ? paperColour(quad, g, colour, paper) : null;
   let current = quad;
   for (let side = 0; side < 4; side++) {
     const a = current[side]!, b = current[(side + 1) % 4]!;
@@ -107,7 +117,7 @@ export function extendSides(quad: Quad, lines: readonly EdgeLine[], g: Gray): Qu
       // A tilted line can cross the old side; then part of the page would be cut off, not added.
       const outward = (p: Point) => (p.x - a.x) * n.x + (p.y - a.y) * n.y;
       if (outward(moved[side]!) < -MAX_INWARD_PX || outward(moved[(side + 1) % 4]!) < -MAX_INWARD_PX) continue;
-      if (!looksLikePage(g, current, moved, side, paper)) continue;
+      if (!looksLikePage(g, current, moved, side, paper, colour && tint ? { image: colour, tint } : undefined)) continue;
       best = { quad: moved, move };
     }
     if (best) current = best.quad;
@@ -154,8 +164,43 @@ function paperLevel(quad: Quad, g: Gray): number | null {
   return values.length === 0 ? null : percentile(values, PAPER_PERCENTILE);
 }
 
-/** Whether the strip between side `side` of `from` and of `to` is mostly paper with some print on it. */
-function looksLikePage(g: Gray, from: Quad, to: Quad, side: number, paper: number): boolean {
+type Rgb = [number, number, number];
+
+/** Mean colour of the paper-bright samples on a grid inside the quad. */
+function paperColour(quad: Quad, g: Gray, image: RasterImage, paper: number): Rgb | null {
+  const sum: Rgb = [0, 0, 0];
+  let n = 0;
+  const [tl, tr, br, bl] = quad;
+  for (let i = 1; i < 20; i++) {
+    for (let j = 1; j < 20; j++) {
+      const u = i / 20, v = j / 20;
+      const top = { x: tl.x + (tr.x - tl.x) * u, y: tl.y + (tr.y - tl.y) * u };
+      const bottom = { x: bl.x + (br.x - bl.x) * u, y: bl.y + (br.y - bl.y) * u };
+      const p = { x: top.x + (bottom.x - top.x) * v, y: top.y + (bottom.y - top.y) * v };
+      const s = sample(g, p);
+      if (s === null || s < BRIGHT_FRACTION * paper) continue;
+      addRgb(sum, image, p);
+      n++;
+    }
+  }
+  return n === 0 ? null : [sum[0] / n, sum[1] / n, sum[2] / n];
+}
+
+function addRgb(sum: Rgb, image: RasterImage, p: Point) {
+  const i = (Math.round(p.y) * image.width + Math.round(p.x)) * 4;
+  sum[0] += image.data[i]!;
+  sum[1] += image.data[i + 1]!;
+  sum[2] += image.data[i + 2]!;
+}
+
+/**
+ * Whether the strip between side `side` of `from` and of `to` is mostly paper with some print on
+ * it, and, given `colour`, whether that paper has the page's colour.
+ */
+function looksLikePage(
+  g: Gray, from: Quad, to: Quad, side: number, paper: number, colour?: { image: RasterImage; tint: Rgb },
+): boolean {
+  const sum: Rgb = [0, 0, 0];
   const a0 = from[side]!, b0 = from[(side + 1) % 4]!;
   const a1 = to[side]!, b1 = to[(side + 1) % 4]!;
   const len = Math.hypot(b0.x - a0.x, b0.y - a0.y);
@@ -170,9 +215,13 @@ function looksLikePage(g: Gray, from: Quad, to: Quad, side: number, paper: numbe
       const v = sample(g, { x: p0.x + ((p1.x - p0.x) * d) / depth, y: p0.y + ((p1.y - p0.y) * d) / depth });
       if (v === null) continue;
       tested++;
-      if (v >= BRIGHT_FRACTION * paper) bright++;
+      if (v >= BRIGHT_FRACTION * paper) {
+        bright++;
+        if (colour) addRgb(sum, colour.image, { x: p0.x + ((p1.x - p0.x) * d) / depth, y: p0.y + ((p1.y - p0.y) * d) / depth });
+      }
       if (v < INK_FRACTION * paper) ink++;
     }
   }
-  return tested > 0 && bright / tested >= MIN_BRIGHT_SHARE && ink / tested >= MIN_INK_SHARE;
+  if (tested === 0 || bright / tested < MIN_BRIGHT_SHARE || ink / tested < MIN_INK_SHARE) return false;
+  return !colour || sum.every((c, k) => Math.abs(c / bright - colour.tint[k]!) <= MAX_COLOUR_DIFF);
 }

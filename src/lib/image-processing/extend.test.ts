@@ -1,4 +1,4 @@
-import type { Quad } from "../../types/repair";
+import type { Quad, RasterImage } from "../../types/repair";
 import type { Gray } from "./boundary";
 import { mergeSegments } from "./card-lines";
 import { extendSides } from "./extend";
@@ -70,10 +70,44 @@ describe("extendSides", () => {
     expect(extendSides(STOPPED, [crossing], g)).toBe(STOPPED);
   });
 
+  const vertical = (x: number) => mergeSegments([{ x1: x, y1: PAGE_TOP, x2: x, y2: 350 }])[0]!;
+  /** The detector stopped at the divider between two printed columns, at x = `divider`. */
+  const column = (divider: number): Quad => [{ x: 100, y: PAGE_TOP }, { x: divider, y: PAGE_TOP }, { x: divider, y: 350 }, { x: 100, y: 350 }];
+
+  it("moves a side stopped at a column divider out past the second column to the page edge", () => {
+    const stopped = column(210);
+    const out = extendSides(stopped, [vertical(210), vertical(300)], scene(60, true));
+    expect(out[1].x).toBeCloseTo(300, 0);
+    expect(out[2].x).toBeCloseTo(300, 0);
+    expect(out[0]).toEqual(stopped[0]);
+  });
+
+  /** The scene in colour: the page's paper tinted `page`, the strip above the band tinted `header`. */
+  function coloured(g: Gray, page: [number, number, number], header: [number, number, number]): RasterImage {
+    const data = new Uint8ClampedArray(W * H * 4);
+    for (let i = 0; i < W * H; i++) {
+      const v = g.data[i]!, y = Math.floor(i / W);
+      const tint = v === 230 ? (y < BAND_TOP ? header : page) : [v, v, v];
+      data.set([...tint, 255], i * 4);
+    }
+    return { width: W, height: H, data };
+  }
+
+  it("given a colour image, moves only across paper of the page's colour", () => {
+    const g = scene(60, true);
+    const lines = [horizontal(PAGE_TOP), horizontal(BAND_TOP)];
+    const pink: [number, number, number] = [245, 215, 230];
+    expect(extendSides(STOPPED, lines, g, coloured(g, pink, pink))[0].y).toBeCloseTo(PAGE_TOP, 0);
+    // A yellow packet beside a pink receipt is as bright in grey, but not the same paper.
+    expect(extendSides(STOPPED, lines, g, coloured(g, pink, [235, 225, 120]))).toBe(STOPPED);
+  });
+
   it("ignores lines that are not parallel or too far out", () => {
     const g = scene(60, true);
     const steep = mergeSegments([{ x1: 100, y1: 90, x2: 300, y2: 40 }])[0]!; // ~14 degrees off
     expect(extendSides(STOPPED, [steep], g)).toBe(STOPPED);
-    expect(extendSides(STOPPED, [horizontal(5)], g)).toBe(STOPPED); // beyond a third of the page height
+    // 160 px out from a 40 px wide outline: more than the outline's own width.
+    const narrow = column(140);
+    expect(extendSides(narrow, [vertical(300)], g)).toBe(narrow);
   });
 });
