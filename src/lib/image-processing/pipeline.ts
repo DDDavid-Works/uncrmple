@@ -1,15 +1,26 @@
 import type {
   ImageProcessor, Quad, RasterImage, RepairError, RepairOptions, RepairResult, Result, ShiftMap,
 } from "../../types/repair";
+import { frameLikeness } from "./assessment/likeness";
 import { DESKEW, measurePageTilt, planDeskew } from "./deskew";
 import { planDewarp } from "./dewarp/plan";
 import { downscale } from "./downscale";
-import { scaleQuad, validateQuad } from "./geometry";
+import { fullFrameQuad, scaleQuad, validateQuad } from "./geometry";
 import { DEFAULT_ENHANCE_OPTIONS, validateEnhanceOptions } from "./options";
 import { isQuarterTurn, rotateQuarter } from "./rotate";
 
 /** Longest side of the copy used for page detection. */
 export const DETECTION_MAX_SIDE = 800;
+
+/**
+ * An outline this weakly on real edges that still covers most of the photo is usually a page shot
+ * so tight that its edges are outside the frame, with a shadow or fold taken for a side. Cropping to
+ * it distorts the page; cleaning up the whole photo keeps it intact, so that is the default and the
+ * outline is offered instead (see RepairResult.detectedOutline). A photo where no outline is found
+ * at all is cleaned up whole too, if it still looks like paper and print (a page filling the frame,
+ * a scan); a scene or a plain image is left alone and the error stands (see frameLikeness).
+ */
+export const WHOLE_IMAGE = { maxEdgeSupport: 0.4, minAreaFraction: 0.7 } as const;
 
 const fail = (error: RepairError): Result<never> => ({ ok: false, error });
 
@@ -63,6 +74,7 @@ export async function repair(
   let source: RepairResult["source"] = "manual";
   let areaFraction: number | undefined;
   let edgeSupport: number | undefined;
+  let detectedOutline: Quad | undefined;
 
   if (corners) {
     const valid = validateQuad(corners, image.width, image.height);
@@ -71,15 +83,35 @@ export async function repair(
     // Detect on a small copy, then map the corners back to full resolution.
     const small = downscale(image, DETECTION_MAX_SIDE);
     const detected = await processor.detectDocument(small.image);
-    if (!detected.ok) return detected;
-    corners = scaleQuad(
-      detected.value.corners,
-      image.width / small.image.width,
-      image.height / small.image.height,
-    );
-    source = detected.value.method;
-    areaFraction = detected.value.areaFraction;
-    edgeSupport = detected.value.edgeSupport;
+    if (!detected.ok) {
+      if (detected.error.code !== "no-document-found") return detected;
+      if (frameLikeness(image) === "not-document") {
+        return fail({
+          code: "no-document-found",
+          message:
+            "No page was found, and this does not look like a photo of a paper page. To repair it anyway, mark the corners yourself or clean up the whole image.",
+        });
+      }
+      corners = fullFrameQuad(image.width, image.height);
+      source = "whole-image";
+    } else {
+      const found = scaleQuad(
+        detected.value.corners,
+        image.width / small.image.width,
+        image.height / small.image.height,
+      );
+      const { method, areaFraction: area, edgeSupport: support } = detected.value;
+      if (support < WHOLE_IMAGE.maxEdgeSupport && area >= WHOLE_IMAGE.minAreaFraction) {
+        corners = fullFrameQuad(image.width, image.height);
+        source = "whole-image";
+        detectedOutline = found;
+      } else {
+        corners = found;
+        source = method;
+        areaFraction = area;
+        edgeSupport = support;
+      }
+    }
   }
 
   // Paper that is not flat can leave the print leaning inside a square outline: measure that and
@@ -141,6 +173,7 @@ export async function repair(
       style: style.value.style,
       areaFraction,
       edgeSupport,
+      detectedOutline,
     },
   };
 }

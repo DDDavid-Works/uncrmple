@@ -9,6 +9,9 @@ export const LOW_COVERAGE = 0.3;
 export const lowCoverage = (v: RepairedView) => v.areaFraction !== undefined && v.areaFraction < LOW_COVERAGE;
 export const weakEdges = (v: RepairedView) => v.edgeSupport !== undefined && v.edgeSupport < LOW_EDGE_SUPPORT;
 
+/** No outline was found, or one too weak to crop to, so the whole photo was cleaned up instead. */
+export const wholeImage = (v: RepairedView) => v.source === "whole-image";
+
 /** The print bends across the page (curved or creased paper) and could not be flattened, so some lines still slope. */
 export const bentPage = (v: RepairedView) => v.deskew.bent && !v.dewarp.applied;
 
@@ -22,4 +25,4 @@ export const DEWARP_SKIP_REASONS: Record<DewarpSkip, string> = {
 };
 
 /** True when a repaired page carries a warning the user should look at. */
-export const needsCheck = (v: RepairedView) => lowCoverage(v) || weakEdges(v) || bentPage(v);
+export const needsCheck = (v: RepairedView) => lowCoverage(v) || weakEdges(v) || wholeImage(v) || bentPage(v);

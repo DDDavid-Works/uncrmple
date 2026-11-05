@@ -19,6 +19,8 @@ export interface RepairedView {
   rotation: QuarterTurn;
   areaFraction?: number;
   edgeSupport?: number;
+  /** The weak outline set aside for a whole-image result (see RepairResult.detectedOutline). */
+  detectedOutline?: Quad;
   /** Residual tilt of the print and whether it was levelled. */
   deskew: RepairResult["deskew"];
   /** Whether curved lines were flattened, and why not. */
@@ -173,6 +175,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         rotation,
         areaFraction: reuse && !manual ? reuse.areaFraction : repaired.value.areaFraction,
         edgeSupport: reuse && !manual ? reuse.edgeSupport : repaired.value.edgeSupport,
+        detectedOutline: reuse && !manual ? reuse.detectedOutline : repaired.value.detectedOutline,
         deskew: repaired.value.deskew,
         dewarp: repaired.value.dewarp,
       };

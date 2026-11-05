@@ -266,6 +266,11 @@ describe("page likeness", () => {
     expect(classify(PAPER, null)).toBe("uncertain");
   });
 
+  it("rejects a plain image with no print at all, however paper-like its tone", () => {
+    expect(classify({ ...PAPER, edgeDensity: 0 }, null)).toBe("not-document");
+    expect(classify({ ...PAPER, edgeDensity: 0.01 })).toBe("not-document");
+  });
+
   it("makes no document claim when there are too few pixels to measure", () => {
     expect(classify(null, null)).toBe("not-document");
     expect(classify(null)).toBe("uncertain");

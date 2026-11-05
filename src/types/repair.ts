@@ -157,11 +157,14 @@ export interface RepairResult {
   deskew: Deskew;
   /** Whether curved lines were flattened, and why not. */
   dewarp: Dewarp;
-  source: "manual" | DetectionMethod;
+  /** "whole-image": no outline was found, or only one too weak to trust (see detectedOutline), so the whole photo was used. */
+  source: "manual" | "whole-image" | DetectionMethod;
   style: OutputStyle;
-  /** Only set for automatic detection. */
+  /** Only set when the detected outline was used. */
   areaFraction?: number;
   edgeSupport?: number;
+  /** For a whole-image result: the weak outline that was found, in source-image pixels, to offer instead. */
+  detectedOutline?: Quad;
 }
 
 /** Output look. Lighting correction is applied for every style. */

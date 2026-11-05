@@ -6,19 +6,15 @@ import { measureTilt } from "../tilt";
 import { downscale } from "../downscale";
 import { scaleQuad } from "../geometry";
 import { DETECTION_MAX_SIDE, validateRaster } from "../pipeline";
-import { classifyLikeness, measureContent, withLikeness } from "./likeness";
+import { ANALYSIS_MAX_SIDE, blockSize, classifyLikeness, FRAME_INSET, measureContent, withLikeness } from "./likeness";
 import { measureCompleteness, measureGeometry, measureResolution } from "./geometry-findings";
 import type { TextSize } from "./geometry-findings";
 import { measureLighting, measureReadability, measureSharpness } from "./photometric";
 import { blockStats, insetMask, quadMask, shrinkQuad, toGray } from "./pixels";
 import { summarise } from "./verdict";
 
-/** Longest side of the copy used for pixel measurements (sharpness needs more detail than detection). */
-export const ANALYSIS_MAX_SIDE = 1600;
 /** Share of the page pulled in from each edge so the page border does not count as content. */
 const PAGE_INSET = 0.04;
-const FRAME_INSET = 0.02;
-const BLOCKS_ACROSS = 24;
 
 /**
  * Estimate how repairable a photo is, before repairing it. Page detection goes through the
@@ -60,7 +56,7 @@ export async function assessPhoto(processor: ImageProcessor, image: RasterImage)
   const mask = scaled
     ? quadMask(analysis.width, analysis.height, shrinkQuad(scaled, PAGE_INSET))
     : insetMask(analysis.width, analysis.height, FRAME_INSET);
-  const block = Math.max(16, Math.round(Math.max(analysis.width, analysis.height) / BLOCKS_ACROSS));
+  const block = blockSize(analysis);
   const stats = blockStats(gray, mask, block);
 
   const findings = [

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
-import { bentTextPage, leaningTextPhoto, solid } from "./synthetic";
+import { bentTextPage, leaningTextPhoto, solid, textSheet } from "./synthetic";
 import { downloadBlob } from "../lib/browser/download";
 import { jpegHeader } from "./fixtures";
 import type { Assessment } from "../types/assessment";
@@ -17,9 +17,10 @@ const processor: ImageProcessor = {
 vi.mock("../lib/image-processing/opencv/processor", () => ({ createOpenCvProcessor: () => processor }));
 vi.mock("../lib/image-processing/assessment/assess", () => ({ assessPhoto: vi.fn() }));
 vi.mock("../lib/browser/download", async (orig) => ({ ...(await orig<typeof import("../lib/browser/download")>()), downloadBlob: vi.fn() }));
+// Decoded photos are a sheet of print: where no page is found, it is cleaned up whole rather than refused.
 vi.mock("../lib/browser/raster", () => ({
   blobToJpeg: vi.fn(async () => ({ ok: true, value: { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), width: 320, height: 240 } })),
-  fileToRaster: vi.fn(async () => ({ ok: true, value: solid(400, 300, 200) })),
+  fileToRaster: vi.fn(async () => ({ ok: true, value: textSheet(400, 300) })),
   rasterToPng: vi.fn(async () => ({ ok: true, value: new Blob(["png"], { type: "image/png" }) })),
 }));
 
@@ -88,14 +89,51 @@ describe("repair workflow", () => {
   it("reports a detection failure and never shows a repaired image", async () => {
     vi.mocked(processor.detectDocument).mockResolvedValue({
       ok: false,
-      error: { code: "no-document-found", message: "No clear page boundary was found." },
+      error: { code: "processing-failed", message: "Document detection failed" },
     });
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Repair failed: No clear page boundary/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Repair failed: Document detection failed/);
     expect(screen.queryByAltText(/Repaired document/)).toBeNull();
     expect(screen.getByAltText("Original photo: page.jpg")).toBeInTheDocument();
+  });
+
+  it("refuses to clean up a photo with no page that is not a document at all", async () => {
+    const { fileToRaster } = await import("../lib/browser/raster");
+    vi.mocked(fileToRaster).mockResolvedValue({ ok: true, value: solid(400, 300, 200) }); // a plain image
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: false,
+      error: { code: "no-document-found", message: "No clear page boundary was found." },
+    });
+    try {
+      const user = await uploadOne();
+      await user.click(screen.getByRole("button", { name: "Repair" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/does not look like a photo of a paper page/);
+      expect(screen.queryByAltText(/Repaired document/)).toBeNull();
+      expect(processor.correctPerspective).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(fileToRaster).mockResolvedValue({ ok: true, value: textSheet(400, 300) });
+    }
+  });
+
+  it("cleans up the whole photo when no page is found, and says so", async () => {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: false,
+      error: { code: "no-document-found", message: "No clear page boundary was found." },
+    });
+    vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(400, 300, 255) });
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+
+    await screen.findByAltText("Repaired document: page.jpg");
+    expect(vi.mocked(processor.correctPerspective).mock.lastCall?.[1]).toEqual([
+      { x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 },
+    ]);
+    expect(screen.getByText(/whole photo$/)).toBeInTheDocument();
+    const notice = screen.getByText(/No page edges were found/).closest("[role=alert]") as HTMLElement;
+    expect(within(notice).getByRole("button", { name: "Adjust corners" })).toBeEnabled();
+    expect(within(notice).queryByRole("button", { name: "Use detected outline" })).toBeNull();
   });
 
   it("warns when the detected page covers a small part of the photo", async () => {
@@ -387,12 +425,13 @@ describe("photo assessment", () => {
 });
 
 describe("edge support warning", () => {
-  async function repairWith(edgeSupport: number) {
+  // Below 70% of the photo, so a weak outline is still used (see WHOLE_IMAGE).
+  async function repairWith(edgeSupport: number, areaFraction = 0.6) {
     vi.mocked(processor.detectDocument).mockResolvedValue({
       ok: true,
       value: {
         corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }],
-        areaFraction: 0.7,
+        areaFraction,
         edgeSupport,
         method: "colour",
       },
@@ -426,6 +465,24 @@ describe("edge support warning", () => {
     await repairWith(0.9);
     expect(screen.queryByText(/edges were faint, curved/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Clean up whole image" })).toBeNull();
+  });
+
+  it("cleans up the whole photo when a weak outline covers most of it, and offers the outline instead", async () => {
+    await repairWith(0.36, 0.73);
+    const full = [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }];
+    expect(vi.mocked(processor.correctPerspective).mock.lastCall?.[1]).toEqual(full);
+    expect(screen.getByText(/whole photo$/)).toBeInTheDocument();
+    expect(screen.queryByText(/edges were faint, curved/)).toBeNull();
+    const notice = screen.getByText(/could not be found reliably/).closest("[role=alert]") as HTMLElement;
+    expect(within(notice).getByRole("button", { name: "Adjust corners" })).toBeEnabled();
+
+    await userEvent.setup().click(within(notice).getByRole("button", { name: "Use detected outline" }));
+    await waitFor(() => expect(screen.getByText(/manual corners/)).toBeInTheDocument());
+    expect(vi.mocked(processor.correctPerspective).mock.lastCall?.[1]).toEqual([
+      { x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 },
+    ]);
+    expect(processor.detectDocument).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/could not be found reliably/)).toBeNull();
   });
 });
 
@@ -551,7 +608,7 @@ describe("manual corners", () => {
   it("offers manual corners after detection fails and repairs with them", async () => {
     vi.mocked(processor.detectDocument).mockResolvedValue({
       ok: false,
-      error: { code: "no-document-found", message: "No clear page boundary was found." },
+      error: { code: "processing-failed", message: "Document detection failed" },
     });
     vi.mocked(processor.correctPerspective).mockResolvedValue(manualResult);
     const user = await uploadOne();
@@ -765,7 +822,7 @@ describe("repair all", () => {
       method: "edges" as const,
     },
   };
-  const MISSED = { ok: false as const, error: { code: "no-document-found" as const, message: "No clear page boundary was found." } };
+  const MISSED = { ok: false as const, error: { code: "processing-failed" as const, message: "Document detection failed" } };
 
   beforeEach(() => {
     vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });

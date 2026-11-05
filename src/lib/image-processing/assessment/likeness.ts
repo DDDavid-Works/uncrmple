@@ -1,7 +1,17 @@
 import type { Assessment, PageLikeness } from "../../../types/assessment";
 import type { Quad, RasterImage } from "../../../types/repair";
+import { downscale } from "../downscale";
 import { polygonArea } from "../geometry";
-import { histPercentile, type Gray } from "./pixels";
+import { histPercentile, insetMask, toGray, type Gray } from "./pixels";
+
+/** Longest side of the copy used for pixel measurements (sharpness needs more detail than detection). */
+export const ANALYSIS_MAX_SIDE = 1600;
+/** Share of the photo left out at each edge when there is no page outline to measure inside. */
+export const FRAME_INSET = 0.02;
+/** Blocks across the longer side of the copy, for the per-block paper level. */
+export const BLOCKS_ACROSS = 24;
+
+export const blockSize = (image: RasterImage) => Math.max(16, Math.round(Math.max(image.width, image.height) / BLOCKS_ACROSS));
 
 /** Thresholds are first estimates; tune them against real photographs. */
 export const LIKENESS = {
@@ -21,6 +31,11 @@ export const LIKENESS = {
   vividSaturation: 0.4,
   /** Text and rules give a page many strong edges; measured on test photos: pages 0.10-0.26, cards and scenes 0.01-0.08. */
   minEdgeDensity: 0.09,
+  /**
+   * Below this there is no print at all: a plain or blank image. Measured over the whole frame of the
+   * test photos: document photos 0.052-0.30, other scenes 0.030-0.18, a plain image 0.
+   */
+  minPrintDensity: 0.015,
   /** Paper must be reasonably bright. */
   minPaperLevel: 110,
   /** A block darker than this cannot be paper, however uniform it is (night scenes, dark tables). */
@@ -129,13 +144,31 @@ export function classifyLikeness({ quad, edgeSupport, width, height, content }: 
     content.paperShare >= LIKENESS.minPaperShare &&
     content.saturation <= LIKENESS.maxSaturation &&
     content.edgeDensity >= LIKENESS.minEdgeDensity;
-  // Clearly not a page whatever outline was found: little paper and few edges, or vivid colour.
+  // Clearly not a page whatever outline was found: little paper and few edges, vivid colour, or no print at all.
   const clearlyNotPaper =
     (content.paperShare < LIKENESS.maxNonPaperShare && content.edgeDensity < LIKENESS.minEdgeDensity) ||
-    content.saturation > LIKENESS.vividSaturation;
+    content.saturation > LIKENESS.vividSaturation ||
+    content.edgeDensity < LIKENESS.minPrintDensity;
   if (clearlyNotPaper) return "not-document";
   if (outlineOk && paperLike) return "document";
   return "uncertain";
+}
+
+/**
+ * Likeness of a photo in which no page outline was found, judged on the whole frame: "uncertain"
+ * when it still looks like paper and print (a page filling the frame, a scan), "not-document" for
+ * a scene, a plain image or vivid colour. The same measures and thresholds as the photo check.
+ */
+export function frameLikeness(image: RasterImage): PageLikeness {
+  const analysis = downscale(image, ANALYSIS_MAX_SIDE).image;
+  const gray = toGray(analysis);
+  const mask = insetMask(analysis.width, analysis.height, FRAME_INSET);
+  return classifyLikeness({
+    quad: null,
+    width: image.width,
+    height: image.height,
+    content: measureContent(analysis, gray, mask, blockSize(analysis)),
+  });
 }
 
 /**

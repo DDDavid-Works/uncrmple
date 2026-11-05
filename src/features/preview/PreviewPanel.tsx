@@ -9,7 +9,7 @@ import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
 import { baseName } from "../../lib/browser/download";
 import { fullFrameQuad } from "../../lib/image-processing/geometry";
-import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges } from "../repair/review";
+import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges, wholeImage } from "../repair/review";
 import { CornerEditor, defaultCorners } from "./CornerEditor";
 import { InspectorSection } from "./Inspector";
 import { ViewerStage, type PageNav } from "./ViewerStage";
@@ -128,6 +128,30 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
                 </div>
               </div>
             )}
+            {wholeImage(done) && (
+              <div role="alert" className="notice notice--warn">
+                <p>
+                  {done.detectedOutline
+                    ? "The page edges could not be found reliably, so the whole photo was cleaned up without cropping. If the page does not fill the photo, use the outline that was found or adjust the corners."
+                    : "No page edges were found, so the whole photo was cleaned up without cropping. If the page does not fill the photo, adjust the corners to its edges."}
+                </p>
+                <div className="notice__actions">
+                  {done.detectedOutline && (
+                    <button
+                      type="button"
+                      className="btn btn--small"
+                      onClick={() => onApplyCorners(done.detectedOutline!)}
+                      disabled={running || editing}
+                    >
+                      Use detected outline
+                    </button>
+                  )}
+                  <button type="button" className="btn btn--small" onClick={adjustCorners} disabled={running || editing}>
+                    Adjust corners
+                  </button>
+                </div>
+              </div>
+            )}
             {bentPage(done) && (
               <p role="alert" className="notice notice--warn">
                 The lines of text bend across the page, so the paper is probably curved or creased.{" "}
@@ -199,7 +223,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
               <p className="muted" role="status">
                 Repaired · {done.width}×{done.height}px ·{" "}
                 {STYLE_OPTIONS.find((o) => o.value === done.style)?.label} ·{" "}
-                {done.source === "manual" ? "manual corners" : `page detected by ${done.source}`}
+                {done.source === "manual" ? "manual corners" : done.source === "whole-image" ? "whole photo" : `page detected by ${done.source}`}
                 {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
                 {done.deskew.applied !== 0 && ` · text levelled by ${Math.abs(done.deskew.applied).toFixed(1)}°`}
                 {done.dewarp.applied && " · curved lines flattened"}

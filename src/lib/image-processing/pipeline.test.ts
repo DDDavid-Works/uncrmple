@@ -1,5 +1,5 @@
 import type { ImageProcessor, Quad, RasterImage } from "../../types/repair";
-import { sameBytes, solid } from "../../tests/synthetic";
+import { sameBytes, solid, textSheet } from "../../tests/synthetic";
 import { downscale } from "./downscale";
 import { DETECTION_MAX_SIDE, repair } from "./pipeline";
 
@@ -57,6 +57,27 @@ describe("repair", () => {
     }
   });
 
+  it("cleans up the whole photo instead of cropping to a weak outline that covers most of it", async () => {
+    const weak = (areaFraction: number) => fakeProcessor({
+      async detectDocument(image) {
+        return { ok: true, value: { corners: quad(image.width, image.height), areaFraction, method: "brightness", edgeSupport: 0.36 } };
+      },
+    });
+    const r = await repair(weak(0.73), solid(400, 300, 1));
+    expect(r).toMatchObject({
+      ok: true,
+      value: { source: "whole-image", corners: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }] },
+    });
+    if (r.ok) {
+      expect(r.value.detectedOutline).toEqual(quad(400, 300));
+      expect(r.value.edgeSupport).toBeUndefined();
+    }
+    // A weak outline on a smaller part of the photo is still used (the app warns about it instead).
+    expect(await repair(weak(0.5), solid(400, 300, 1))).toMatchObject({
+      ok: true, value: { source: "brightness", corners: quad(400, 300), edgeSupport: 0.36 },
+    });
+  });
+
   it("uses manual corners without running detection", async () => {
     const detect = vi.fn();
     const p = fakeProcessor({ detectDocument: detect });
@@ -70,13 +91,39 @@ describe("repair", () => {
     expect(r).toMatchObject({ ok: false, error: { code: "invalid-corners" } });
   });
 
-  it("propagates detection failure instead of returning the original", async () => {
+  const notFound = () => fakeProcessor({
+    async detectDocument() {
+      return { ok: false, error: { code: "no-document-found", message: "none" } };
+    },
+  });
+
+  it("cleans up the whole photo when no page is found but it looks like paper and print", async () => {
+    const r = await repair(notFound(), textSheet(400, 300));
+    expect(r).toMatchObject({
+      ok: true,
+      value: { source: "whole-image", corners: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }] },
+    });
+    if (r.ok) expect(r.value.detectedOutline).toBeUndefined();
+  });
+
+  it("fails rather than cleaning up a photo with no page that does not look like a document", async () => {
+    // A dark, plain image: no paper, no print.
+    expect(await repair(notFound(), solid(400, 300, 1))).toMatchObject({
+      ok: false, error: { code: "no-document-found", message: expect.stringMatching(/does not look like a photo of a paper page/) },
+    });
+    // Vivid colour, such as a photo of a scene.
+    const vivid = solid(400, 300, 0);
+    for (let i = 0; i < vivid.data.length; i += 4) vivid.data.set([230, 40, 60], i);
+    expect(await repair(notFound(), vivid)).toMatchObject({ ok: false, error: { code: "no-document-found" } });
+  });
+
+  it("propagates engine failures during detection instead of returning the original", async () => {
     const p = fakeProcessor({
       async detectDocument() {
-        return { ok: false, error: { code: "no-document-found", message: "none" } };
+        return { ok: false, error: { code: "processing-failed", message: "boom" } };
       },
     });
-    expect(await repair(p, solid(400, 300, 1))).toMatchObject({ ok: false, error: { code: "no-document-found" } });
+    expect(await repair(p, textSheet(400, 300))).toMatchObject({ ok: false, error: { code: "processing-failed" } });
   });
 
   it("propagates warp failure", async () => {
