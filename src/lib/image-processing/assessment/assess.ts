@@ -6,15 +6,13 @@ import { measureTilt } from "../tilt";
 import { downscale } from "../downscale";
 import { scaleQuad } from "../geometry";
 import { DETECTION_MAX_SIDE, validateRaster } from "../pipeline";
-import { ANALYSIS_MAX_SIDE, blockSize, classifyLikeness, FRAME_INSET, measureContent, withLikeness } from "./likeness";
+import { ANALYSIS_MAX_SIDE, blockSize, classifyLikeness, FRAME_INSET, measureContent, PAGE_INSET, withLikeness } from "./likeness";
 import { measureCompleteness, measureGeometry, measureResolution } from "./geometry-findings";
 import type { TextSize } from "./geometry-findings";
 import { measureLighting, measureReadability, measureSharpness } from "./photometric";
 import { blockStats, insetMask, quadMask, shrinkQuad, toGray } from "./pixels";
 import { summarise } from "./verdict";
 
-/** Share of the page pulled in from each edge so the page border does not count as content. */
-const PAGE_INSET = 0.04;
 
 /**
  * Estimate how repairable a photo is, before repairing it. Page detection goes through the

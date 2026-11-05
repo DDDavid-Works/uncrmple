@@ -45,7 +45,7 @@ describe("downscale", () => {
 describe("repair", () => {
   it("detects on a downscaled copy and maps corners back to full resolution", async () => {
     const p = fakeProcessor();
-    const full = solid(3200, 2400, 128);
+    const full = textSheet(3200, 2400);
     const r = await repair(p, full);
     expect(r.ok).toBe(true);
     expect(Math.max(p.seen[0]!.width, p.seen[0]!.height)).toBe(DETECTION_MAX_SIDE);
@@ -63,7 +63,7 @@ describe("repair", () => {
         return { ok: true, value: { corners: quad(image.width, image.height), areaFraction, method: "brightness", edgeSupport: 0.36 } };
       },
     });
-    const r = await repair(weak(0.73), solid(400, 300, 1));
+    const r = await repair(weak(0.73), textSheet(400, 300));
     expect(r).toMatchObject({
       ok: true,
       value: { source: "whole-image", corners: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }] },
@@ -73,7 +73,7 @@ describe("repair", () => {
       expect(r.value.edgeSupport).toBeUndefined();
     }
     // A weak outline on a smaller part of the photo is still used (the app warns about it instead).
-    expect(await repair(weak(0.5), solid(400, 300, 1))).toMatchObject({
+    expect(await repair(weak(0.5), textSheet(400, 300))).toMatchObject({
       ok: true, value: { source: "brightness", corners: quad(400, 300), edgeSupport: 0.36 },
     });
   });
@@ -117,6 +117,20 @@ describe("repair", () => {
     expect(await repair(notFound(), vivid)).toMatchObject({ ok: false, error: { code: "no-document-found" } });
   });
 
+  it("does not repair a photo that is not a document, even when an outline was found in it", async () => {
+    // Vivid colour inside the found outline: a scene or a face, not paper and print.
+    const vivid = solid(400, 300, 0);
+    for (let i = 0; i < vivid.data.length; i += 4) vivid.data.set([230, 120, 90], i);
+    const correct = vi.fn();
+    const p = fakeProcessor({ correctPerspective: correct });
+    expect(await repair(p, vivid)).toMatchObject({
+      ok: false, error: { code: "no-document-found", message: expect.stringMatching(/does not look like a photo of a paper page/) },
+    });
+    expect(correct).not.toHaveBeenCalled();
+    // Corners set by hand are honoured.
+    expect(await repair(fakeProcessor(), vivid, { corners: quad(400, 300) })).toMatchObject({ ok: true, value: { source: "manual" } });
+  });
+
   it("propagates engine failures during detection instead of returning the original", async () => {
     const p = fakeProcessor({
       async detectDocument() {
@@ -132,7 +146,7 @@ describe("repair", () => {
         return { ok: false, error: { code: "processing-failed", message: "boom" } };
       },
     });
-    expect(await repair(p, solid(400, 300, 1))).toMatchObject({ ok: false, error: { code: "processing-failed" } });
+    expect(await repair(p, textSheet(400, 300))).toMatchObject({ ok: false, error: { code: "processing-failed" } });
   });
 
   it("rejects malformed rasters and never mutates the source", async () => {
@@ -150,7 +164,7 @@ describe("repair rotation", () => {
   it("turns both the cleaned and the straightened page, after all processing", async () => {
     const warped = solid(30, 10, 90);
     const p = fakeProcessor({ correctPerspective: async () => ({ ok: true, value: warped }) });
-    const r = await repair(p, solid(400, 300, 1), { rotate: 90 });
+    const r = await repair(p, textSheet(400, 300), { rotate: 90 });
     if (!r.ok) throw new Error(r.error.message);
     expect([r.value.image.width, r.value.image.height]).toEqual([10, 30]);
     expect([r.value.straightened.width, r.value.straightened.height]).toEqual([10, 30]);
@@ -170,11 +184,11 @@ describe("repair rotation", () => {
 describe("repair output style", () => {
   it("defaults to colour and passes the chosen style to the engine", async () => {
     const enhance = vi.fn(async (image: RasterImage) => ({ ok: true as const, value: image }));
-    const def = await repair(fakeProcessor({ enhance }), solid(400, 300, 1));
+    const def = await repair(fakeProcessor({ enhance }), textSheet(400, 300));
     expect(def).toMatchObject({ ok: true, value: { style: "color" } });
     expect(enhance).toHaveBeenLastCalledWith(expect.anything(), { style: "color" });
 
-    const bw = await repair(fakeProcessor({ enhance }), solid(400, 300, 1), { enhance: { style: "blackwhite" } });
+    const bw = await repair(fakeProcessor({ enhance }), textSheet(400, 300), { enhance: { style: "blackwhite" } });
     expect(bw).toMatchObject({ ok: true, value: { style: "blackwhite" } });
     expect(enhance).toHaveBeenLastCalledWith(expect.anything(), { style: "blackwhite" });
   });
@@ -186,7 +200,7 @@ describe("repair output style", () => {
       correctPerspective: async () => ({ ok: true, value: warped }),
       enhance: async () => ({ ok: true, value: cleaned }),
     });
-    const r = await repair(p, solid(400, 300, 1));
+    const r = await repair(p, textSheet(400, 300));
     expect(r.ok && r.value.straightened).toBe(warped);
     expect(r.ok && r.value.image).toBe(cleaned);
   });
@@ -206,6 +220,6 @@ describe("repair output style", () => {
         return { ok: false, error: { code: "processing-failed", message: "boom" } };
       },
     });
-    expect(await repair(p, solid(400, 300, 1))).toMatchObject({ ok: false, error: { code: "processing-failed" } });
+    expect(await repair(p, textSheet(400, 300))).toMatchObject({ ok: false, error: { code: "processing-failed" } });
   });
 });

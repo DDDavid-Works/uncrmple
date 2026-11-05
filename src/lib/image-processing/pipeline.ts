@@ -1,7 +1,7 @@
 import type {
   ImageProcessor, Quad, RasterImage, RepairError, RepairOptions, RepairResult, Result, ShiftMap,
 } from "../../types/repair";
-import { frameLikeness } from "./assessment/likeness";
+import { photoLikeness } from "./assessment/likeness";
 import { DESKEW, measurePageTilt, planDeskew } from "./deskew";
 import { planDewarp } from "./dewarp/plan";
 import { downscale } from "./downscale";
@@ -18,11 +18,22 @@ export const DETECTION_MAX_SIDE = 800;
  * it distorts the page; cleaning up the whole photo keeps it intact, so that is the default and the
  * outline is offered instead (see RepairResult.detectedOutline). A photo where no outline is found
  * at all is cleaned up whole too, if it still looks like paper and print (a page filling the frame,
- * a scan); a scene or a plain image is left alone and the error stands (see frameLikeness).
+ * a scan).
  */
 export const WHOLE_IMAGE = { maxEdgeSupport: 0.4, minAreaFraction: 0.7 } as const;
 
 const fail = (error: RepairError): Result<never> => ({ ok: false, error });
+
+/**
+ * A scene, a face, vivid colour or a plain image is not repaired, whatever outline was found in it:
+ * a document repair would only make it look worse (see photoLikeness). Corners set by hand, and
+ * whole-image cleanup chosen by the user, are always honoured.
+ */
+const NOT_A_DOCUMENT: RepairError = {
+  code: "no-document-found",
+  message:
+    "This does not look like a photo of a paper page, so it was not repaired. To repair it anyway, mark the corners yourself or clean up the whole image.",
+};
 
 export function validateRaster(image: RasterImage): Result<RasterImage> {
   const { width, height, data } = image;
@@ -85,13 +96,7 @@ export async function repair(
     const detected = await processor.detectDocument(small.image);
     if (!detected.ok) {
       if (detected.error.code !== "no-document-found") return detected;
-      if (frameLikeness(image) === "not-document") {
-        return fail({
-          code: "no-document-found",
-          message:
-            "No page was found, and this does not look like a photo of a paper page. To repair it anyway, mark the corners yourself or clean up the whole image.",
-        });
-      }
+      if (photoLikeness(image, null) === "not-document") return fail(NOT_A_DOCUMENT);
       corners = fullFrameQuad(image.width, image.height);
       source = "whole-image";
     } else {
@@ -101,6 +106,7 @@ export async function repair(
         image.height / small.image.height,
       );
       const { method, areaFraction: area, edgeSupport: support } = detected.value;
+      if (photoLikeness(image, found, support) === "not-document") return fail(NOT_A_DOCUMENT);
       if (support < WHOLE_IMAGE.maxEdgeSupport && area >= WHOLE_IMAGE.minAreaFraction) {
         corners = fullFrameQuad(image.width, image.height);
         source = "whole-image";

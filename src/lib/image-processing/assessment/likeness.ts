@@ -1,11 +1,13 @@
 import type { Assessment, PageLikeness } from "../../../types/assessment";
 import type { Quad, RasterImage } from "../../../types/repair";
 import { downscale } from "../downscale";
-import { polygonArea } from "../geometry";
-import { histPercentile, insetMask, toGray, type Gray } from "./pixels";
+import { polygonArea, scaleQuad } from "../geometry";
+import { histPercentile, insetMask, quadMask, shrinkQuad, toGray, type Gray } from "./pixels";
 
 /** Longest side of the copy used for pixel measurements (sharpness needs more detail than detection). */
 export const ANALYSIS_MAX_SIDE = 1600;
+/** Share of the page pulled in from each edge so the page border does not count as content. */
+export const PAGE_INSET = 0.04;
 /** Share of the photo left out at each edge when there is no page outline to measure inside. */
 export const FRAME_INSET = 0.02;
 /** Blocks across the longer side of the copy, for the per-block paper level. */
@@ -155,16 +157,20 @@ export function classifyLikeness({ quad, edgeSupport, width, height, content }: 
 }
 
 /**
- * Likeness of a photo in which no page outline was found, judged on the whole frame: "uncertain"
- * when it still looks like paper and print (a page filling the frame, a scan), "not-document" for
- * a scene, a plain image or vivid colour. The same measures and thresholds as the photo check.
+ * Whether a photo looks like a paper page, measured inside the page outline (full-photo pixels) or,
+ * without one, over the whole frame: the photo check's measures and thresholds, for deciding
+ * whether to repair at all. "not-document" for a scene, a face, vivid colour or a plain image.
  */
-export function frameLikeness(image: RasterImage): PageLikeness {
+export function photoLikeness(image: RasterImage, quad: Quad | null, edgeSupport?: number): PageLikeness {
   const analysis = downscale(image, ANALYSIS_MAX_SIDE).image;
   const gray = toGray(analysis);
-  const mask = insetMask(analysis.width, analysis.height, FRAME_INSET);
+  const scaled = quad && scaleQuad(quad, analysis.width / image.width, analysis.height / image.height);
+  const mask = scaled
+    ? quadMask(analysis.width, analysis.height, shrinkQuad(scaled, PAGE_INSET))
+    : insetMask(analysis.width, analysis.height, FRAME_INSET);
   return classifyLikeness({
-    quad: null,
+    quad,
+    edgeSupport,
     width: image.width,
     height: image.height,
     content: measureContent(analysis, gray, mask, blockSize(analysis)),
