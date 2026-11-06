@@ -409,7 +409,7 @@ Decided 2026-11-01 as the planned direction. Nothing here is implemented; until 
 
 \### Principles
 
-\- Processing runs on the user's device, so the cost of serving a page is close to zero and the browser cannot securely count pages. Charge for access over time or a one-time unlock, not per page.
+\- Processing runs on the user's device, so the cost of serving a page is close to zero and the browser cannot securely count pages. Charge for access over time (a pass or a subscription), not per page.
 \- Any limit enforced in the browser can be bypassed by a determined user. Accept this for the first paid version instead of adding accounts or a backend to enforce it.
 \- No ads, third-party trackers or data-based revenue. They contradict the privacy requirements.
 \- Never watermark repaired documents.
@@ -420,30 +420,45 @@ Decided 2026-11-01 as the planned direction. Nothing here is implemented; until 
 The line is batch size: one page is casual use, a pile of pages is real work.
 
 \- Free: unlimited single-page repair and image download at full quality; batches (Repair all, ZIP, multi-page PDF) up to about 5 pages.
-\- Pro (one-time unlock) and Pass (24-hour or 7-day): batches up to the app's file limit, currently 20 (`MAX_FILES`).
+\- Paid plans: batches up to the app's file limit, currently 20 (`MAX_FILES`), and all features.
 \- Show the batch limit at upload, before any work starts. Never let a user repair a batch and then block its download.
 \- Set the free limit before public launch; taking away what free users already have would feel like a bait-and-switch.
 
+\### Plans
+
+\- Free: casual use, as above.
+\- Pass (24-hour or 7-day): one payment, no renewal, for bursts such as tax season or a visa application.
+\- Monthly and Annual subscriptions: the main paid plan, for people who repair documents every month (bookkeepers, admin staff, small offices). Annual costs about ten months of Monthly.
+\- Price Monthly at about two Passes, so regular users prefer the subscription.
+\- A one-time lifetime unlock undercuts the subscription. Offer it, if at all, only as a limited founding-member deal for early waitlist users.
+
 \### Mechanism
 
-\- Sell Pro and Pass through a merchant-of-record provider that handles sales tax (for example Lemon Squeezy or Paddle).
-\- Unlock with a license key checked once against the provider and remembered on the device. No accounts and no database; no document data is sent anywhere.
+\- Sell through a merchant-of-record provider that handles sales tax, recurring billing, failed-payment retries and a customer portal for cancelling or changing the card. Lemon Squeezy or Polar fit first: both pay out to the Philippines and include license keys. Paddle is an alternative once Teams or volume grows.
+\- Unlock with a license key. A Pass key is checked once and expires on its own. A subscription key stays valid while the subscription is active: the app re-checks it every few days and allows about 7 days of grace offline, so a dropped connection never locks out a paying user.
+\- No accounts and no database. The only data sent is the license key; no document data is sent anywhere.
+\- When a subscription ends, keep access until the end of the paid period, then fall back to the free tier. Never lose or block work already done.
+\- Before launch, update the terms of use (auto-renewal, cancellation, refunds) and the privacy policy (license-key checks).
 \- Propose the integration, its network requests and privacy disclosures before implementing it.
+\- Price in USD. Philippine wallets (GCash, Maya through PayMongo or Xendit) handle renewals poorly, so local buyers may prefer the Pass; add them later if local demand appears.
+\- Register the business with the BIR and confirm the tax treatment of merchant-of-record payouts with a Philippine CPA before the first sale.
 
 \### Later options
 
-\- Teams: a license with a few seats for business users (accountants, HR, legal), sold on documents never leaving the device.
-\- Subscriptions or accounts: only when a feature gives ongoing value that needs them, such as cross-device access.
+\- Teams: seats on the same subscription for business users (accountants, HR, legal), sold on documents never leaving the device.
+\- Accounts: only when a feature gives ongoing value that needs them, such as cross-device access.
 \- Cloud credits: only for a server-side feature such as advanced restoration, opt-in, with defined retention limits.
 \- Do not promise unlimited or very high volume. The 20-page limit is set by browser memory; going further needs a desktop build or server processing. Confirm 20 pages works on a mid-range phone before selling it.
 
 \### Validation before launch
 
-\- Add optional waitlist questions: "How many pages do you usually fix at once?" (1 / 2-10 / 10-50 / 50+) and "What would you prefer?" (one-time unlock / short pass / monthly).
-\- Use the answers to segment casual, burst and business users and to set the free limit and prices.
+\- Add optional waitlist questions: "How many pages do you usually fix at once?" (1 / 2-5 / 6-20 / more than 20) and "What would you prefer?" (one-time payment / short pass / monthly or annual subscription).
+\- Use the answers to segment casual, burst and business users and to set the free limit and prices. If most people choose one-time payment, revisit the subscription before building it.
 
 \### Open decisions
 
 \- The free batch limit (starting proposal: 5 pages).
-\- Whether card-crop mode is free or Pro.
+\- Whether card-crop mode is free or paid.
+\- Whether to offer a founding-member lifetime deal.
+\- Lemon Squeezy or Polar.
 \- Prices, after the waitlist answers.
