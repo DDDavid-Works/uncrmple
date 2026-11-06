@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SourceDocument } from "./types/document";
-import { PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
+import { EYEBROW, PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
 import { AppFooter } from "./components/AppFooter";
 import { Logo } from "./components/Logo";
 import { ThemeSwitch } from "./components/ThemeSwitch";
@@ -153,6 +153,7 @@ export function App() {
 
       <div className="titlebar">
         <div>
+          <p className="eyebrow titlebar__eyebrow">{EYEBROW}</p>
           <h2 className="titlebar__title">Your workspace</h2>
           <p className="muted">{TAGLINE}</p>
         </div>

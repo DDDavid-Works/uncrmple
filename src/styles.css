@@ -99,6 +99,7 @@ a { color: var(--link); }
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-6);
   padding: var(--space-6); border-bottom: var(--line);
 }
+.titlebar__eyebrow { margin-bottom: var(--space-1); }
 .titlebar__title { font-size: 1.6rem; letter-spacing: -0.04em; line-height: 1.2; margin-bottom: 2px; }
 
 .modes { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-1); justify-items: end; }
