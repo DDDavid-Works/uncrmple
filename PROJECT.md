@@ -405,28 +405,39 @@ A second mode extracts rectangular cards (ID, membership, access, employee cards
 
 \## 12. Pricing Direction (planned, not built)
 
-Decided 2026-11-01 as the planned direction. Nothing here is implemented; until launch the service stays free, as the terms of use state. Billing remains out of scope for V1 (section 6) until this plan is approved for implementation.
+Decided 2026-11-01 as the planned direction, revised 2026-11-07. Nothing here is implemented; until launch the service stays free, as the terms of use state. Billing remains out of scope for V1 (section 6) until this plan is approved for implementation.
 
 \### Principles
 
 \- Processing runs on the user's device, so the cost of serving a page is close to zero and the browser cannot securely count pages. Charge for access over time (a pass or a subscription), not per page.
 \- Any limit enforced in the browser can be bypassed by a determined user. Accept this for the first paid version instead of adding accounts or a backend to enforce it.
 \- No ads, third-party trackers or data-based revenue. They contradict the privacy requirements.
-\- Never watermark repaired documents.
+\- Never lower output quality for free users: no watermarks and no reduced resolution. A blurry or stamped document breaks trust in the product.
+\- No browser fingerprinting. It contradicts the privacy model.
 \- Keep credits for features that run on a server, should any be added.
+\- The free tier should feel complete for one-off use and get in the way of volume, repeat use and urgency, which is what paying users have. Casual users rarely pay whatever the limits; their free use costs nothing and brings word of mouth.
 
-\### Free and paid line
+\### Free and paid limits
 
-The line is batch size: one page is casual use, a pile of pages is real work.
+| | Free | Paid (Pass, Monthly, Annual) |
+| --- | --- | --- |
+| Pages per day | 10, counted on the device | No daily limit |
+| Pages per batch | 5 | 20 (`MAX_FILES`) |
+| Multi-page PDF | Up to 5 pages | Up to 20 pages |
+| ZIP download | No | Yes |
+| Card-crop mode | No | Yes |
+| Output quality | Full | Full |
 
-\- Free: unlimited single-page repair and image download at full quality; batches (Repair all, ZIP, multi-page PDF) up to about 5 pages.
-\- Paid plans: batches up to the app's file limit, currently 20 (`MAX_FILES`), and all features.
-\- Show the batch limit at upload, before any work starts. Never let a user repair a batch and then block its download.
-\- Set the free limit before public launch; taking away what free users already have would feel like a bait-and-switch.
+\- Start tighter and loosen later: relaxing a limit pleases users, tightening one angers them. Set the free limits before public launch and relax them if conversion is fine but growth stalls.
+\- Keep every limit in one config module so changing it is a one-line edit.
+\- The daily count is kept in browser storage on the device: no server and no IP address. Clearing site data resets it; accept that, since people who do this every day were not going to pay.
+\- Show the remaining count ("3 of 10 left today") and the batch limit at upload, before any work starts. Never let a user repair pages and then block their download.
+\- At the limit, offer the Pass first: a small payment at the moment of need, with no account.
+\- Optional: a reverse trial, where a new device gets the paid limits for its first 3 days and then drops to free.
 
 \### Plans
 
-\- Free: casual use, as above.
+\- Free: one-off use, within the limits above.
 \- Pass (24-hour or 7-day): one payment, no renewal, for bursts such as tax season or a visa application.
 \- Monthly and Annual subscriptions: the main paid plan, for people who repair documents every month (bookkeepers, admin staff, small offices). Annual costs about ten months of Monthly.
 \- Price Monthly at about two Passes, so regular users prefer the subscription.
@@ -435,10 +446,10 @@ The line is batch size: one page is casual use, a pile of pages is real work.
 \### Mechanism
 
 \- Sell through a merchant-of-record provider that handles sales tax, recurring billing, failed-payment retries and a customer portal for cancelling or changing the card. Lemon Squeezy or Polar fit first: both pay out to the Philippines and include license keys. Paddle is an alternative once Teams or volume grows.
-\- Unlock with a license key. A Pass key is checked once and expires on its own. A subscription key stays valid while the subscription is active: the app re-checks it every few days and allows about 7 days of grace offline, so a dropped connection never locks out a paying user.
+\- Unlock the paid limits with a license key. A Pass key is checked once and expires on its own. A subscription key stays valid while the subscription is active: the app re-checks it every few days and allows about 7 days of grace offline, so a dropped connection never locks out a paying user.
 \- No accounts and no database. The only data sent is the license key; no document data is sent anywhere.
 \- When a subscription ends, keep access until the end of the paid period, then fall back to the free tier. Never lose or block work already done.
-\- Before launch, update the terms of use (auto-renewal, cancellation, refunds) and the privacy policy (license-key checks).
+\- Before launch, update the terms of use (auto-renewal, cancellation, refunds) and the privacy policy (license-key checks, and the daily page count kept in browser storage). Document photos are still never uploaded or stored.
 \- Propose the integration, its network requests and privacy disclosures before implementing it.
 \- Price in USD. Philippine wallets (GCash, Maya through PayMongo or Xendit) handle renewals poorly, so local buyers may prefer the Pass; add them later if local demand appears.
 \- Register the business with the BIR and confirm the tax treatment of merchant-of-record payouts with a Philippine CPA before the first sale.
@@ -447,6 +458,7 @@ The line is batch size: one page is casual use, a pile of pages is real work.
 
 \- Teams: seats on the same subscription for business users (accountants, HR, legal), sold on documents never leaving the device.
 \- Accounts: only when a feature gives ongoing value that needs them, such as cross-device access.
+\- IP backstop: only if real abuse of the free tier appears. A small server endpoint counting a hashed IP (salt rotated daily, count deleted after 24 hours, no logs), with a generous limit of 50 or more pages per IP per day, because mobile carriers in the Philippines and offices share one IP among many users. It needs a privacy policy update and a change to the app's network rules, which currently block all requests.
 \- Cloud credits: only for a server-side feature such as advanced restoration, opt-in, with defined retention limits.
 \- Do not promise unlimited or very high volume. The 20-page limit is set by browser memory; going further needs a desktop build or server processing. Confirm 20 pages works on a mid-range phone before selling it.
 
@@ -457,8 +469,7 @@ The line is batch size: one page is casual use, a pile of pages is real work.
 
 \### Open decisions
 
-\- The free batch limit (starting proposal: 5 pages).
-\- Whether card-crop mode is free or paid.
+\- Whether to run the 3-day reverse trial.
 \- Whether to offer a founding-member lifetime deal.
 \- Lemon Squeezy or Polar.
 \- Prices, after the waitlist answers.
