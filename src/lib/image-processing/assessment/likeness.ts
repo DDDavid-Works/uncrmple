@@ -34,6 +34,14 @@ export const LIKENESS = {
   /** Text and rules give a page many strong edges; measured on test photos: pages 0.10-0.26, cards and scenes 0.01-0.08. */
   minEdgeDensity: 0.09,
   /**
+   * Sparse pages (handwriting, a receipt with a few short lines) have fewer edges; measured: a
+   * handwritten note 0.059, a prescription 0.070, a receipt 0.086, all with paper share 0.89-0.94.
+   * Accepted down to this edge density when the paper share is at least sparsePaperShare; cards and
+   * scenes are ruled out by paper share and colour (measured 0.48-0.64 paper share).
+   */
+  minSparseEdgeDensity: 0.05,
+  sparsePaperShare: 0.8,
+  /**
    * Below this there is no print at all: a plain or blank image. Measured over the whole frame of the
    * test photos: document photos 0.052-0.30, other scenes 0.030-0.18, a plain image 0.
    */
@@ -145,7 +153,8 @@ export function classifyLikeness({ quad, edgeSupport, width, height, content }: 
     content.paperLevel >= LIKENESS.minPaperLevel &&
     content.paperShare >= LIKENESS.minPaperShare &&
     content.saturation <= LIKENESS.maxSaturation &&
-    content.edgeDensity >= LIKENESS.minEdgeDensity;
+    (content.edgeDensity >= LIKENESS.minEdgeDensity ||
+      (content.edgeDensity >= LIKENESS.minSparseEdgeDensity && content.paperShare >= LIKENESS.sparsePaperShare));
   // Clearly not a page whatever outline was found: little paper and few edges, vivid colour, or no print at all.
   const clearlyNotPaper =
     (content.paperShare < LIKENESS.maxNonPaperShare && content.edgeDensity < LIKENESS.minEdgeDensity) ||
@@ -194,11 +203,14 @@ export function withLikeness(
         "No document detected. This does not look like a photo of a paper page, so a document repair could make it look worse. You can mark the corners yourself, clean up the whole image without cropping, or leave it as it is.",
     };
   }
+  // A "good" summary would contradict the doubt, so it is replaced; a "limited" or "poor" one names
+  // the problems behind the verdict, so it is kept and the doubt follows it.
   return {
     likeness,
     verdict: base.verdict === "good" ? "limited" : base.verdict,
-    // The base summary is dropped: for a "good" verdict it would contradict this message.
-    summary:
-      "A paper page could not be confirmed in this photo. If it is a flat scan or a screenshot, you can clean up the whole image without cropping; otherwise mark the corners yourself. Check the result against the original.",
+    summary: base.verdict === "good" ? UNCONFIRMED_PAGE : `${base.summary} ${UNCONFIRMED_PAGE}`,
   };
 }
+
+const UNCONFIRMED_PAGE =
+  "A paper page could not be confirmed in this photo. If it is a flat scan or a screenshot, you can clean up the whole image without cropping; otherwise mark the corners yourself. Check the result against the original.";

@@ -2,7 +2,7 @@ import type { Assessment, Finding } from "../../../types/assessment";
 import type { DetectionResult, ImageProcessor, Quad, RasterImage, Result } from "../../../types/repair";
 import { boxBlur, sameBytes, shade, solid, textSheet } from "../../../tests/synthetic";
 import { assessPhoto } from "./assess";
-import { classifyLikeness, measureContent } from "./likeness";
+import { classifyLikeness, measureContent, withLikeness } from "./likeness";
 import { measureCompleteness, measureGeometry, measureResolution } from "./geometry-findings";
 import { measureLighting, measureReadability, measureSharpness } from "./photometric";
 import { blockStats, quadMask, toGray } from "./pixels";
@@ -260,6 +260,26 @@ describe("page likeness", () => {
   it("only doubts, and does not reject, a sparse page with plenty of paper", () => {
     // A page with a few lines of text has few edges but is almost all paper.
     expect(classify({ ...PAPER, edgeDensity: 0.04 })).toBe("uncertain");
+  });
+
+  it("accepts a sparse page (handwriting, a receipt) inside a good outline when it is clearly paper", () => {
+    // Measured on a receipt photo: outline found, paper 0.94, edges 0.086.
+    expect(classify({ paperShare: 0.94, saturation: 0.04, paperLevel: 222, edgeDensity: 0.086 })).toBe("document");
+    // Handwritten note: paper 0.89, edges 0.059.
+    expect(classify({ paperShare: 0.89, saturation: 0.04, paperLevel: 203, edgeDensity: 0.059 })).toBe("document");
+    // Sparse edges need clearly paper-dominated content, and an outline.
+    expect(classify({ ...PAPER, paperShare: 0.75, edgeDensity: 0.07 })).toBe("uncertain");
+    expect(classify({ paperShare: 0.94, saturation: 0.04, paperLevel: 222, edgeDensity: 0.086 }, null)).toBe("uncertain");
+  });
+
+  it("keeps the reasons for a limited or poor verdict when the page is not confirmed", () => {
+    const poor = withLikeness({ verdict: "poor", summary: "Poor repair candidate: problems with text contrast." }, "uncertain");
+    expect(poor.verdict).toBe("poor");
+    expect(poor.summary).toMatch(/^Poor repair candidate: problems with text contrast\./);
+    expect(poor.summary).toMatch(/could not be confirmed/);
+    const good = withLikeness({ verdict: "good", summary: "Good repair candidate." }, "uncertain");
+    expect(good.verdict).toBe("limited");
+    expect(good.summary).not.toMatch(/Good repair candidate/);
   });
 
   it("does not reject a flat, paper-like image without an outline (scan or screenshot)", () => {
