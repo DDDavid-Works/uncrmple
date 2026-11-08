@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 
 const LINES = [
   "The draft looked loud, but the message was quiet.",
@@ -33,7 +33,7 @@ function Crumple() {
   );
 }
 
-/** Illustrative sample page (not a real repair result). */
+/** Illustrative note page (not a real repair result). */
 function SamplePage({ crumpled = false }: { crumpled?: boolean }) {
   return (
     <div className="sample-page">
@@ -59,6 +59,51 @@ function SamplePage({ crumpled = false }: { crumpled?: boolean }) {
   );
 }
 
+/** A made-up shop and basket: no real business or personal details. */
+const RECEIPT_ITEMS: ReadonlyArray<readonly [item: string, price: string]> = [
+  ["OAT MILK 1L", "3.20"],
+  ["SOURDOUGH LOAF", "4.50"],
+  ["EGGS X12", "5.10"],
+  ["APPLES 1KG", "2.80"],
+  ["COFFEE BEANS", "9.90"],
+];
+
+/** Illustrative till receipt (not a real repair result). */
+function SampleReceipt({ crumpled = false }: { crumpled?: boolean }) {
+  return (
+    <div className="sample-page sample-receipt">
+      {crumpled && <Crumple />}
+      <p className="receipt-shop">CORNER MARKET</p>
+      <p className="receipt-center">12 MAPLE ROAD</p>
+      <p className="receipt-center">08/11/2026 14:32</p>
+      <hr className="receipt-rule" />
+      {RECEIPT_ITEMS.map(([item, price]) => (
+        <p key={item} className="receipt-row">
+          <span>{item}</span>
+          <span>{price}</span>
+        </p>
+      ))}
+      <hr className="receipt-rule" />
+      <p className="receipt-row receipt-total">
+        <span>TOTAL</span>
+        <span>25.50</span>
+      </p>
+      <p className="receipt-row">
+        <span>CARD</span>
+        <span>25.50</span>
+      </p>
+      <hr className="receipt-rule" />
+      <p className="receipt-center">THANK YOU</p>
+    </div>
+  );
+}
+
+/** The demo tabs, each an illustrated document shown crumpled ("before") and repaired ("after"). */
+const SAMPLES = [
+  { id: "note", label: "Note", Page: SamplePage },
+  { id: "receipt", label: "Receipt", Page: SampleReceipt },
+] as const;
+
 const REPAIR_MS = 900;
 
 function prefersReducedMotion(): boolean {
@@ -69,14 +114,18 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
 
-/**
- * Before/after comparison of an illustrated page. The Repair button plays the repair like the app does;
- * the divider can also be dragged (or moved with the keyboard) to compare any part of the page.
- */
 /** Where the divider opens and returns to: mostly the original, with a sliver of the repair showing. */
 const START_SPLIT = 75;
 
+/**
+ * Before/after comparison of an illustrated document, with a tab per sample. The Repair button plays the
+ * repair like the app does; the divider can also be dragged (or moved with the keyboard) to compare any part.
+ */
 export function BeforeAfter() {
+  const baseId = useId();
+  const [sampleIndex, setSampleIndex] = useState(0);
+  const sample = SAMPLES[sampleIndex]!;
+  const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   // Percentage of the stage still showing the "before" photo: 100 is untouched, 0 fully repaired.
   const [split, setSplit] = useState(START_SPLIT);
   // The "try it" callout goes away once the visitor has pressed Repair or moved the divider.
@@ -106,20 +155,69 @@ export function BeforeAfter() {
     frame.current = requestAnimationFrame(step);
   }
 
+  /** Opens another sample, back at the starting split so it can be repaired again. */
+  function selectSample(index: number) {
+    stopAnimation();
+    setSampleIndex(index);
+    setSplit(START_SPLIT);
+    tabs.current[index]?.focus();
+  }
+
+  const tabId = (id: string) => `${baseId}-tab-${id}`;
+  const panelId = `${baseId}-panel`;
+  const { Page } = sample;
+
   return (
     <figure className="compare">
-      <div className="compare-bar" aria-hidden="true">
-        <span>THE SAME DOCUMENT. A FRESH START.</span>
-        <span>01 / 01</span>
+      <div className="compare-bar">
+        <div
+          className="compare-tabs"
+          role="tablist"
+          aria-label="Sample document"
+          onKeyDown={(e) => {
+            const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+            if (step === 0) return;
+            e.preventDefault();
+            selectSample((sampleIndex + step + SAMPLES.length) % SAMPLES.length);
+          }}
+        >
+          {SAMPLES.map((s, i) => (
+            <button
+              key={s.id}
+              ref={(el) => {
+                tabs.current[i] = el;
+              }}
+              id={tabId(s.id)}
+              type="button"
+              role="tab"
+              className="compare-tab"
+              aria-selected={i === sampleIndex}
+              aria-controls={panelId}
+              tabIndex={i === sampleIndex ? 0 : -1}
+              onClick={() => selectSample(i)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <span aria-hidden="true">
+          {String(sampleIndex + 1).padStart(2, "0")} / {String(SAMPLES.length).padStart(2, "0")}
+        </span>
       </div>
-      <div className="compare-stage" style={{ "--split": `${split}%` } as CSSProperties}>
+      <div
+        id={panelId}
+        role="tabpanel"
+        aria-labelledby={tabId(sample.id)}
+        className={`compare-stage compare-${sample.id}`}
+        style={{ "--split": `${split}%` } as CSSProperties}
+      >
         {/* Each tag lives in its layer, so it is clipped away with that layer. */}
         <div className="compare-layer compare-before" aria-hidden="true">
-          <SamplePage crumpled />
+          <Page crumpled />
           <span className="tag tag-before">BEFORE</span>
         </div>
         <div className="compare-layer compare-after" aria-hidden="true">
-          <SamplePage />
+          <Page />
           <span className="tag tag-after">AFTER</span>
         </div>
         <span className="compare-handle" aria-hidden="true">
@@ -160,7 +258,8 @@ export function BeforeAfter() {
         </button>
       </div>
       <figcaption className="visually-hidden">
-        Illustration: a tilted, shadowed document photo beside the same document straightened and cleaned.
+        Illustration: a tilted, shadowed photo of a {sample.label.toLowerCase()} beside the same {sample.label.toLowerCase()}{" "}
+        straightened and cleaned.
       </figcaption>
     </figure>
   );
