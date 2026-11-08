@@ -1,7 +1,7 @@
 import type { Quad, RasterImage } from "../../types/repair";
 import type { Gray } from "./boundary";
 import { mergeSegments } from "./card-lines";
-import { extendSides } from "./extend";
+import { extendSides, growToPaperColour } from "./extend";
 
 const W = 400, H = 400;
 /** Page paper (230) spans x 100..300, y 50..350. */
@@ -102,6 +102,16 @@ describe("extendSides", () => {
     expect(extendSides(STOPPED, lines, g, coloured(g, pink, [235, 225, 120]))).toBe(STOPPED);
   });
 
+  it("given a colour image, refuses a strip that is mostly the page but partly white table", () => {
+    // The page's top-right corner is cut away: there the strip above the band is white table, as
+    // bright as the pink paper in grey. On average the strip is still close to pink.
+    const g = scene(60, true);
+    const pink: [number, number, number] = [245, 215, 230];
+    const image = coloured(g, pink, pink);
+    for (let y = PAGE_TOP; y < BAND_TOP; y++) for (let x = 250; x < 300; x++) image.data.set([255, 255, 255], (y * W + x) * 4);
+    expect(extendSides(STOPPED, [horizontal(PAGE_TOP), horizontal(BAND_TOP)], g, image)).toBe(STOPPED);
+  });
+
   it("ignores lines that are not parallel or too far out", () => {
     const g = scene(60, true);
     const steep = mergeSegments([{ x1: 100, y1: 90, x2: 300, y2: 40 }])[0]!; // ~14 degrees off
@@ -109,5 +119,50 @@ describe("extendSides", () => {
     // 160 px out from a 40 px wide outline: more than the outline's own width.
     const narrow = column(140);
     expect(extendSides(narrow, [vertical(300)], g)).toBe(narrow);
+  });
+});
+
+describe("growToPaperColour", () => {
+  type Rgb = [number, number, number];
+  const PINK: Rgb = [240, 200, 220];
+  const TABLE: Rgb = [235, 235, 230];
+  const INK: Rgb = [40, 40, 40];
+  /** Top of the page at column x: a torn edge, ragged by up to 3 px around PAGE_TOP. */
+  const tornTop = (x: number) => PAGE_TOP + [0, 2, 3, 1, -1, -3, -2, 0][x % 8]!;
+
+  /** A page of `paper` with a torn top on `table`, header print above the band and body print below. */
+  function photo(paper: Rgb, table: Rgb): { g: Gray; image: RasterImage } {
+    const data = new Uint8ClampedArray(W * H * 4);
+    const grey = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const onPage = x >= 100 && x < 300 && y >= tornTop(x) && y < 350;
+        const print = onPage && x >= 120 && x < 280 && x % 6 < 4 && ((y >= 70 && y < 76) || (y >= 140 && y < 330 && y % 20 < 2));
+        const band = onPage && y >= BAND_TOP && y < BAND_TOP + 2;
+        const c = print || band ? INK : onPage ? paper : table;
+        data.set([...c, 255], (y * W + x) * 4);
+        grey[y * W + x] = Math.round(0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+      }
+    }
+    return { g: { data: grey, width: W, height: H }, image: { width: W, height: H, data } };
+  }
+
+  it("moves a side stopped at a printed line out to a torn edge of coloured paper", () => {
+    const { g, image } = photo(PINK, TABLE);
+    const out = growToPaperColour(STOPPED, g, image);
+    expect(Math.abs(out[0].y - PAGE_TOP)).toBeLessThanOrEqual(4);
+    expect(Math.abs(out[1].y - PAGE_TOP)).toBeLessThanOrEqual(4);
+    expect(out[2]).toEqual(STOPPED[2]);
+  });
+
+  it("leaves a side alone when the paper has the colour of what lies beside it", () => {
+    const { g, image } = photo(TABLE, TABLE);
+    expect(growToPaperColour(STOPPED, g, image)).toBe(STOPPED);
+  });
+
+  it("leaves a side already on the page edge alone", () => {
+    const { g, image } = photo(PINK, TABLE);
+    const onEdge: Quad = [{ x: 100, y: PAGE_TOP + 3 }, { x: 300, y: PAGE_TOP + 3 }, STOPPED[2], STOPPED[3]];
+    expect(growToPaperColour(onEdge, g, image)).toBe(onEdge);
   });
 });

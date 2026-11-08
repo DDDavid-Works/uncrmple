@@ -2,7 +2,8 @@ import type { DetectionMethod, DetectionResult, Point, Quad, RasterImage, Result
 import { boundaryContrast, BOUNDARY_STEP, lineStep } from "../boundary";
 import type { Gray } from "../boundary";
 import { mergeSegments, quadsFromLines } from "../card-lines";
-import { extendSides } from "../extend";
+import { extendSides, growToPaperColour } from "../extend";
+import { pivotSides } from "../pivot";
 import { snapFrameSides } from "../frame-sides";
 import type { EdgeLine, Segment } from "../card-lines";
 import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
@@ -176,9 +177,14 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
       // A side left on the photo's frame may belong on a faint page edge just inside it.
       const toFrameEdge = (q: Quad) => snapFrameSides(q, straight, sensitive.data, image.width, image.height);
       // A line-built page can stop at a band or fold printed on the page; move such sides out to the edge.
-      // The coarse lines also catch a gently curving edge, but more of what lies around a page, so
-      // moves onto them must also add paper of the page's colour.
-      const extended = best.method === "lines" ? extendSides(extendSides(ordered, boundaries, grey), extendTargets(), grey, image) : ordered;
+      // The coarse lines also catch a gently curving edge, but more of what lies around a page. Every
+      // move must add paper of the page's colour: a line along a box or packet beside the page can
+      // enclose a strip of bright table that passes in grey.
+      // A torn or ragged edge has no straight line to move to; there the side follows the paper's colour.
+      const extended =
+        best.method === "lines"
+          ? growToPaperColour(extendSides(extendSides(ordered, boundaries, grey, image), extendTargets(), grey, image), grey, image)
+          : ordered;
       if (extended !== ordered) {
         const corners = toFrameEdge(extended);
         return result(corners, support(corners));
@@ -189,9 +195,13 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
       // Keep the trim only if the new outline still follows real edges about as well as the old one.
       const useTrimmed =
         trimmed !== ordered && trimmedSupport >= best.support - MAX_SUPPORT_LOSS && isPlausiblePage(trimmed);
-      const kept = useTrimmed ? trimmed : ordered;
+      const trimmedOrNot = useTrimmed ? trimmed : ordered;
+      // A traced region can run on over another sheet the page lies on; turn such sides onto the
+      // page's faint edge across it. A line-built outline's sides already lie on straight edges.
+      const kept = best.method === "lines" ? trimmedOrNot : pivotSides(trimmedOrNot, grey);
       const corners = toFrameEdge(kept);
-      return result(corners, corners !== kept ? support(corners) : useTrimmed ? trimmedSupport : best.support);
+      const measured = kept !== trimmedOrNot || corners !== kept;
+      return result(corners, measured ? support(corners) : useTrimmed ? trimmedSupport : best.support);
     };
 
     const notFound: Result<DetectionResult> = {
