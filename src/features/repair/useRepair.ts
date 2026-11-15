@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RepairSource, RepairTrigger } from "../../lib/analytics/events";
+import { track } from "../../lib/analytics/track";
 import { getEngine } from "../../lib/engine/client";
 import { DEFAULT_ENHANCE_OPTIONS } from "../../lib/image-processing/options";
 import type { SourceDocument } from "../../types/document";
@@ -44,6 +46,11 @@ export type BatchState =
   | { status: "finished"; total: number; repaired: number; failed: number; stopped: boolean };
 
 const NO_BATCH: BatchState = { status: "idle" };
+
+/** Coarse outline origin for the usage counts: which detector found it does not matter there. */
+function sourceKind(source: RepairedView["source"]): RepairSource {
+  return source === "manual" || source === "whole-image" ? source : "detected";
+}
 
 /** How one repair job ended; `superseded` when it was replaced by a newer job or the page was removed. */
 type Outcome = "done" | "error" | "superseded";
@@ -122,7 +129,13 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
   }, []);
 
   const execute = useCallback(
-    async (doc: SourceDocument, style: OutputStyle, reuse?: RepairedView, manual?: Quad): Promise<Outcome> => {
+    async (
+      doc: SourceDocument,
+      style: OutputStyle,
+      trigger: RepairTrigger,
+      reuse?: RepairedView,
+      manual?: Quad,
+    ): Promise<Outcome> => {
       const job = (jobs.current.get(doc.id) ?? 0) + 1;
       jobs.current.set(doc.id, job);
       const current = () => jobs.current.get(doc.id) === job && alive.current.has(doc.id);
@@ -149,7 +162,11 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         rotate: rotation,
         straightened: !reuseStraightened,
       });
-      if (!repaired.ok) return fail(repaired.error.message);
+      if (!repaired.ok) {
+        const outcome = fail(repaired.error.message);
+        if (outcome === "error") track({ name: "repair_failed", data: { trigger, code: repaired.error.code } });
+        return outcome;
+      }
 
       if (!current()) return "superseded"; // removed, or superseded by a newer job
       const { png, straightenedPng } = repaired.value;
@@ -180,10 +197,12 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         dewarp: repaired.value.dewarp,
       };
       set({ status: "done", result: view });
+      track({ name: "repair_done", data: { trigger, source: sourceKind(view.source), style } });
 
       // The style or turn changed while the repair was running: apply it with these corners.
       const wanted = stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style;
-      if (wanted !== style || (rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, view);
+      if (wanted !== style) void execute(doc, wanted, "style", view);
+      else if ((rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, "rotate", view);
       return "done";
     },
     [engine],
@@ -199,7 +218,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       // "Repair again" starts from the current repaired state, so adjusted corners are kept.
       const state = statesRef.current[doc.id];
       const current = state?.status === "done" ? state.result : state?.status === "running" ? state.previous : undefined;
-      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, current);
+      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "repair", current);
     },
     [execute],
   );
@@ -209,8 +228,8 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       stylesRef.current = { ...stylesRef.current, [doc.id]: style };
       setStyles(stylesRef.current);
       const state = statesRef.current[doc.id];
-      if (state?.status === "done") void execute(doc, style, state.result);
-      else if (state?.status === "running" && state.previous) void execute(doc, style, state.previous);
+      if (state?.status === "done") void execute(doc, style, "style", state.result);
+      else if (state?.status === "running" && state.previous) void execute(doc, style, "style", state.previous);
       // A first repair still running re-applies the style itself when it finishes.
     },
     [execute],
@@ -223,14 +242,14 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       if (!shown) return; // nothing repaired yet to turn
       rotations.current = { ...rotations.current, [doc.id]: addQuarterTurn(rotations.current[doc.id] ?? 0, by) };
       // A job in flight picks up the new turn when it finishes.
-      if (state?.status === "done") void execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, shown);
+      if (state?.status === "done") void execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "rotate", shown);
     },
     [execute],
   );
 
   const applyCorners = useCallback(
     async (doc: SourceDocument, corners: Quad) => {
-      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, undefined, corners);
+      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "corners", undefined, corners);
     },
     [execute],
   );
@@ -252,7 +271,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         // Removed, or repaired by hand, since the batch started.
         const skip = !alive.current.has(doc.id) || (statesRef.current[doc.id] ?? IDLE).status !== "idle";
         if (!skip) {
-          const outcome = await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style);
+          const outcome = await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "repair");
           if (outcome === "done") repaired++;
           else if (outcome === "error") failed++;
         }

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { countBucket } from "../../lib/analytics/events";
+import { track } from "../../lib/analytics/track";
 import { blobToJpeg } from "../../lib/browser/raster";
 import { downloadBlob } from "../../lib/browser/download";
 import { buildPdf, PAPER_SIZES } from "../../lib/pdf/pdf";
@@ -48,14 +50,17 @@ export function ExportBar({
         const jpeg = await blobToJpeg(blob);
         if (!jpeg.ok) {
           setError(jpeg.error.message);
+          track({ name: "export_failed", data: { format: "pdf" } });
           return;
         }
         encoded.push({ jpeg: jpeg.value.bytes, width: jpeg.value.width, height: jpeg.value.height });
       }
       const pdf = buildPdf(encoded, paper);
       downloadBlob(new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" }), filename);
+      track({ name: "export", data: { format: "pdf", pages: countBucket(pages.length) } });
     } catch {
       setError("The PDF could not be created.");
+      track({ name: "export_failed", data: { format: "pdf" } });
     } finally {
       setMaking(null);
     }
@@ -70,8 +75,10 @@ export function ExportBar({
       const names = numberedNames(pages.map((p) => p.filename));
       const zip = buildZip(data.map((d, i) => ({ name: names[i]!, data: new Uint8Array(d) })));
       downloadBlob(new Blob([zip as Uint8Array<ArrayBuffer>], { type: "application/zip" }), zipFilename);
+      track({ name: "export", data: { format: "zip", pages: countBucket(pages.length) } });
     } catch {
       setError("The ZIP file could not be created.");
+      track({ name: "export_failed", data: { format: "zip" } });
     } finally {
       setMaking(null);
     }

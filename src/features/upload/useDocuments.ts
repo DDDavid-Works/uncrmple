@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { countBucket } from "../../lib/analytics/events";
+import { track } from "../../lib/analytics/track";
 import { probeImage } from "../../lib/files/decode";
 import { MAX_FILES, MAX_TOTAL_PIXELS } from "../../lib/files/limits";
 import { validateImageFile } from "../../lib/files/validate";
@@ -42,6 +44,7 @@ export function useDocuments(): DocumentsApi {
   const addFiles = useCallback(async (files: File[]) => {
     let room = MAX_FILES - live.current.length;
     let pixelRoom = MAX_TOTAL_PIXELS - live.current.reduce((sum, d) => sum + d.width * d.height, 0);
+    let accepted = 0;
     for (const file of files) {
       if (room <= 0) {
         setRejected((r) => [
@@ -91,6 +94,7 @@ export function useDocuments(): DocumentsApi {
             originalUrl: url,
           };
           setDocuments((d) => [...d, doc]);
+          accepted++;
         } catch (e) {
           URL.revokeObjectURL(url);
           room++;
@@ -101,6 +105,9 @@ export function useDocuments(): DocumentsApi {
       } finally {
         setPending((n) => n - 1);
       }
+    }
+    if (!unmounted.current && files.length > 0) {
+      track({ name: "upload", data: { accepted: countBucket(accepted), rejected: countBucket(files.length - accepted) } });
     }
   }, []);
 

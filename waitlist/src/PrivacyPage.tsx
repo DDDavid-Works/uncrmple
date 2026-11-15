@@ -54,8 +54,22 @@ export function PrivacyPage() {
           </li>
         </ul>
         <p>
-          The site and the app set no cookies and use no analytics, advertising or tracking tools. Their fonts, images
-          and image-processing code are served from our own servers.
+          The site and the app set no cookies and use no advertising or tracking tools. Their fonts, images and
+          image-processing code are served from our own servers.
+        </p>
+
+        <h2>Anonymous usage counts in the app</h2>
+        <p>
+          To learn whether the app works for people, it counts a short, fixed list of actions, for example "a PDF of 2
+          to 5 pages was made", "a page was repaired automatically" or "the corners were set by hand". Counts say only
+          which action happened, using fixed words and ranges. They never include your photos, any part of them, file
+          names, sizes or any text from your documents.
+        </p>
+        <p>
+          The app sends these counts to our own server, which passes them to{" "}
+          <External href="https://umami.is/privacy">Umami</External>, a privacy-focused analytics service. No
+          cookies are used and nothing is stored on your device. Umami uses your IP address and browser type, without
+          storing them, to tell visits apart and to show the country a visit came from.
         </p>
 
         <h2>Why we use it</h2>
@@ -67,6 +81,10 @@ export function PrivacyPage() {
           <li>
             Technical data is used to deliver the site and the form and to keep them secure, for example against
             spam. This is in our legitimate interest in running the service.
+          </li>
+          <li>
+            Anonymous usage counts tell us which parts of the app are used and where repairs fail, so we can improve
+            them. This is in our legitimate interest in improving the service.
           </li>
         </ul>
         <p>We don't sell your information, share it for advertising or use it to build profiles.</p>
@@ -82,6 +100,10 @@ export function PrivacyPage() {
             serves their files but never receives your document photos.
           </li>
           <li>Our email provider stores the inbox where signups arrive and sends our launch emails.</li>
+          <li>
+            <External href="https://umami.is/privacy">Umami</External> receives the app's anonymous usage counts and
+            shows us totals. It never receives your document photos.
+          </li>
         </ul>
         <p>
           These providers may store data outside {OPERATOR_COUNTRY} and outside your own country, including in the

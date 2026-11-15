@@ -7,6 +7,7 @@ import type { AssessmentState } from "../assess/useAssessment";
 import { BusyNotice } from "../../components/BusyNotice";
 import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
+import { track } from "../../lib/analytics/track";
 import { baseName } from "../../lib/browser/download";
 import { fullFrameQuad } from "../../lib/image-processing/geometry";
 import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges, wholeImage } from "../repair/review";
@@ -320,7 +321,8 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
 
         <InspectorSection index={3} title="Export">
           {repair.status === "done" && (
-            <a className="btn btn--primary btn--block" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}>
+            <a className="btn btn--primary btn--block" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}
+              onClick={() => track({ name: "image_download", data: { mode: "page" } })}>
               Download image
             </a>
           )}

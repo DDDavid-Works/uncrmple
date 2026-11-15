@@ -43,6 +43,6 @@ export const TERMS_PATH = "/terms/";
 /** Posts live under this path, one folder each: /blog/<slug>/. */
 export const BLOG_PATH = "/blog/";
 /** Bump whenever the privacy policy text changes. */
-export const PRIVACY_UPDATED = "30 October 2026";
+export const PRIVACY_UPDATED = "15 November 2026";
 /** Bump whenever the terms of use text change. */
 export const TERMS_UPDATED = "30 October 2026";

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { track } from "../../lib/analytics/track";
 import { getEngine } from "../../lib/engine/client";
 import { hasCardEnhancement, NO_CARD_ENHANCEMENT } from "../../lib/image-processing/card-options";
 import { validateQuad } from "../../lib/image-processing/geometry";
@@ -196,7 +197,10 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       const rotation = rotations.current.get(doc.id) ?? 0;
       const marginAsked = marginsRef.current[doc.id] ?? 0;
       const cropped = await engine.cropCard(doc.file, corners, rotation, marginAsked);
-      if (!cropped.ok) return job.set({ status: "error", message: cropped.error.message });
+      if (!cropped.ok) {
+        if (job.current()) track({ name: "card_failed", data: { code: cropped.error.code } });
+        return job.set({ status: "error", message: cropped.error.message });
+      }
       if (!job.current()) return;
 
       release(doc.id);
@@ -219,6 +223,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       job.set({ status: "working", step: "detecting" });
       const found = await engine.detectCard(doc.file);
       if (!found.ok) {
+        if (job.current()) track({ name: "card_detect", data: { result: found.error.code === "no-card-found" ? "none" : "error" } });
         if (found.error.code === "no-card-found") {
           return job.set({
             status: "review",
@@ -232,6 +237,8 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       }
       if (!job.current()) return;
       const check = validateQuad(found.value.corners, doc.width, doc.height);
+      const ready = found.value.level === "ready";
+      track({ name: "card_detect", data: { result: !check.ok ? "none" : ready ? "ready" : "review" } });
       if (!check.ok) {
         return job.set({
           status: "review",
@@ -242,14 +249,17 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
         });
       }
       // Only a confident detection is applied without the user looking at the corners first.
-      if (found.value.level === "ready") return cropWith(doc, found.value.corners, found.value, job);
+      if (ready) return cropWith(doc, found.value.corners, found.value, job);
       job.set({ status: "review", corners: found.value.corners, detection: found.value, previous });
     },
     [begin, cropWith, engine],
   );
 
   const crop = useCallback(
-    (doc: SourceDocument, corners: Quad, detection: CardDetection | null) => cropWith(doc, corners, detection, begin(doc.id)),
+    (doc: SourceDocument, corners: Quad, detection: CardDetection | null) => {
+      track({ name: "card_crop", data: { corners: detection ? "suggested" : "adjusted" } });
+      return cropWith(doc, corners, detection, begin(doc.id));
+    },
     [begin, cropWith],
   );
 
@@ -309,6 +319,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       release(id);
       rotations.current.delete(id);
       setStates((all) => ({ ...all, [id]: IDLE }));
+      track({ name: "card_reset", data: {} });
     },
     [release],
   );

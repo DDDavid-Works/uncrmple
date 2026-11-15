@@ -55,12 +55,13 @@ The app is served at http://localhost:7200.
 
 ### Configuration
 
-Both are optional and read at build time.
+All are optional and read at build time.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VITE_SITE_URL` | `https://uncrmple.app` | Site that hosts the privacy policy and terms linked from the footer |
 | `VITE_CONTACT_EMAIL` | the project contact address | Contact link in the footer |
+| `VITE_UMAMI_WEBSITE_ID` | none (no usage counts) | Umami Cloud website ID for anonymous usage counts. Counts are sent only when the page is served from the `VITE_SITE_URL` host, so local runs and the temporary Railway address send nothing |
 
 ### Evaluation pages (dev server only)
 
@@ -134,7 +135,8 @@ The posts sit inside `waitlist/` because Railway builds that folder on its own. 
 ## Privacy and security
 
 - Client-side processing only; no analytics on document content.
-- A Content-Security-Policy lets the page and its worker connect only to local `blob:` URLs, so document data cannot be sent to any server. It is sent as a header because a meta tag does not reach the worker. OpenCV.js needs `'unsafe-eval'`; inline and third-party scripts stay blocked.
+- Anonymous usage counts (`src/lib/analytics/`): a fixed list of events such as "a PDF of 2–5 pages was exported" or "corners were set by hand", with every property a fixed word or a range. No file names, image data, sizes or text. The page posts them to `/e` on this site, which Caddy forwards to Umami Cloud without cookies; no third-party script is loaded. Adding an event means adding it to `events.ts` and to the privacy policy.
+- A Content-Security-Policy, sent as a header because a meta tag does not reach the worker, lets the page connect only to local `blob:` URLs and to this site (for `/e`). The image-processing worker gets a stricter policy with `blob:` only, so the code that holds the pixels cannot reach any server. OpenCV.js needs `'unsafe-eval'`; inline and third-party scripts stay blocked.
 - File types are checked from file contents, not just extensions.
 - `test-photos/` is git-ignored. Do not commit private documents or personal information.
 

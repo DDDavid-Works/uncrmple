@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { BusyNotice } from "../../components/BusyNotice";
 import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
+import { track } from "../../lib/analytics/track";
 import { baseName } from "../../lib/browser/download";
 import type { SourceDocument } from "../../types/document";
 import { CARD_MARGINS, type CardDetection, type CardEnhanceOptions, type CardMargin, type CardQualityIssue, type CardWarning, type Quad } from "../../types/repair";
@@ -336,7 +337,8 @@ export function CardPanel({ doc, state, enhance, onEnhance, margin, onMargin, on
 
         <InspectorSection index={3} title="Export">
           {done && (
-            <a className="btn btn--primary btn--block" href={done.url} download={`${baseName(doc.name)}-card.png`}>
+            <a className="btn btn--primary btn--block" href={done.url} download={`${baseName(doc.name)}-card.png`}
+              onClick={() => track({ name: "image_download", data: { mode: "card" } })}>
               Download image
             </a>
           )}

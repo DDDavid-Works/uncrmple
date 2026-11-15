@@ -28,8 +28,33 @@
 	@unofficial not host uncrmple.app
 	header @unofficial X-Robots-Tag "noindex"
 
+	# Anonymous usage counts (src/lib/analytics): the page posts them here and they are forwarded to
+	# Umami Cloud, so the browser only ever talks to this site. Small POSTs only; cookies are not passed on.
+	# The client IP goes on in X-Forwarded-For, as it would if the browser sent the hit itself: Umami uses it
+	# for the country and to tell visits apart, and does not store it.
+	@analytics {
+		method POST
+		path /e
+	}
+	handle @analytics {
+		request_body {
+			max_size 4KB
+		}
+		request_header -Cookie
+		rewrite * /api/send
+		reverse_proxy https://cloud.umami.is {
+			header_up Host cloud.umami.is
+		}
+	}
+
+	# The page may reach this site (for /e); the image-processing worker may reach no server at all.
+	# Matchers are exclusive so the order of the two header directives cannot matter.
+	@worker path /assets/engine.worker-*.js
+	@page not path /assets/engine.worker-*.js
+	header @page Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src blob: 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	header @worker Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
 	header {
-		Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
