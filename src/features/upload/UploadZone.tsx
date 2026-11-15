@@ -4,6 +4,7 @@ import { MAX_FILE_BYTES, MAX_FILES } from "../../lib/files/limits";
 
 interface Props {
   compact: boolean;
+  /** Photos still being read; a loader shows while any are. */
   busy: boolean;
   onFiles: (files: File[]) => void;
 }
@@ -16,6 +17,21 @@ function PrivacyBadge() {
       </svg>
       Images stay in your browser. Nothing is uploaded, and reloading the page clears them.
     </p>
+  );
+}
+
+/**
+ * Shown while added photos are read: the same spinner notice as a repair in progress. Reading does
+ * not use the image engine, so unlike BusyNotice it never mentions loading it.
+ */
+function ReadingNotice() {
+  return (
+    <div role="status" className="notice busy upload__busy">
+      <span className="busy__spinner" aria-hidden="true" />
+      <div className="busy__body">
+        <p>Reading your photos…</p>
+      </div>
+    </div>
   );
 }
 
@@ -67,7 +83,9 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {!compact && (
+      {/* The first photos are being read: the loader takes the invitation's place. */}
+      {!compact && busy && <ReadingNotice />}
+      {!compact && !busy && (
         <>
           <svg className="upload__icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 6h17l9 9v27H12z" />
@@ -84,9 +102,11 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           </p>
         </>
       )}
-      <button type="button" className={compact ? "btn btn--block" : "btn btn--primary"} onClick={() => input.current?.click()}>
-        {compact ? "Add photos" : touch ? "Choose or take photo" : "Choose photos"}
-      </button>
+      {(compact || !busy) && (
+        <button type="button" className={compact ? "btn btn--block" : "btn btn--primary"} onClick={() => input.current?.click()}>
+          {compact ? "Add photos" : touch ? "Choose or take photo" : "Choose photos"}
+        </button>
+      )}
       <input
         ref={input}
         type="file"
@@ -101,19 +121,15 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           if (files.length) onFiles(files);
         }}
       />
-      {compact && !touch && <span className="upload__drop-hint">or drop or paste images here</span>}
-      {!compact && (
+      {compact && !touch && !busy && <span className="upload__drop-hint">or drop or paste images here</span>}
+      {!compact && !busy && (
         <p className="upload__limits">
           JPG, PNG, WebP · Up to {MAX_FILE_BYTES / 1024 / 1024} MB each · {MAX_FILES} photos at a time
         </p>
       )}
-      {busy && (
-        <p role="status" className="upload__status">
-          Reading images…
-        </p>
-      )}
-      {!compact && <PrivacyBadge />}
-      {!compact && (
+      {compact && busy && <ReadingNotice />}
+      {!compact && !busy && <PrivacyBadge />}
+      {!compact && !busy && (
         <p className="upload__note">
           Only add documents you're allowed to use. Downloads are saved without a password, so keep copies of IDs
           and medical or financial records somewhere safe.

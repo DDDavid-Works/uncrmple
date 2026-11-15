@@ -4,6 +4,7 @@ import { App } from "../App";
 import { solid } from "./synthetic";
 import { jpegHeader } from "./fixtures";
 import { assessPhoto } from "../lib/image-processing/assessment/assess";
+import { fileToRaster } from "../lib/browser/raster";
 import type { CardDetection, CardImageProcessor, Quad } from "../types/repair";
 
 const processor: CardImageProcessor = {
@@ -40,6 +41,7 @@ let urls = 0;
 beforeEach(() => {
   vi.mocked(assessPhoto).mockReset();
   vi.mocked(processor.detectCard).mockReset();
+  vi.mocked(fileToRaster).mockResolvedValue({ ok: true, value: solid(400, 300, 200) });
   vi.mocked(processor.enhanceCard).mockReset().mockResolvedValue({ ok: true, value: solid(318, 200, 180) });
   vi.mocked(processor.correctPerspective).mockReset().mockResolvedValue({ ok: true, value: solid(318, 200, 255) });
   urls = 0;
@@ -374,3 +376,59 @@ describe("optional card enhancement", () => {
     });
   });
 });
+
+describe("opening ID & Card Crop for an ID dropped into Document Repair", () => {
+  const upload = async (user: ReturnType<typeof userEvent.setup>, ...names: string[]) => {
+    await user.upload(
+      screen.getAllByLabelText("Choose document photos")[0]!,
+      names.map((n) => new File([jpegHeader(400, 300)], n, { type: "image/jpeg" })),
+    );
+  };
+
+  it("switches for a single clear ID card in an empty workspace, and can switch back", async () => {
+    // A card large enough in the photo to raise no low-resolution warning.
+    vi.mocked(fileToRaster).mockResolvedValue({ ok: true, value: solid(1200, 900, 200) });
+    const big: Quad = [{ x: 100, y: 100 }, { x: 1053, y: 100 }, { x: 1053, y: 700 }, { x: 100, y: 700 }];
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection({ confidence: 0.99, corners: big }) });
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByRole("radio", { name: "Document Repair" })).toBeChecked();
+    await upload(user, "id.jpg");
+    expect(await screen.findByText(/This looks like an ID or card/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ID & Card Crop" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Find card" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Switch back to Document Repair" }));
+    expect(screen.getByRole("radio", { name: "Document Repair" })).toBeChecked();
+    expect(screen.queryByText(/This looks like an ID or card/)).toBeNull();
+  });
+
+  it("stays in Document Repair for a page, for several photos, or when photos are already there", async () => {
+    // Not card proportions.
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection({ confidence: 0.99, aspectRatio: 1.41 }) });
+    const user = userEvent.setup();
+    render(<App />);
+    await upload(user, "page.jpg");
+    await screen.findByRole("heading", { name: "page.jpg" });
+    await vi.waitFor(() => expect(processor.detectCard).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("radio", { name: "Document Repair" })).toBeChecked();
+
+    // A clear card, but the workspace is no longer empty: not even checked.
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection({ confidence: 0.99 }) });
+    await upload(user, "id.jpg");
+    await screen.findByText(/2\. id\.jpg/);
+    expect(processor.detectCard).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("radio", { name: "Document Repair" })).toBeChecked();
+  });
+
+  it("does not check several photos added at once", async () => {
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection({ confidence: 0.99 }) });
+    const user = userEvent.setup();
+    render(<App />);
+    await upload(user, "one.jpg", "two.jpg");
+    await screen.findByText(/2\. two\.jpg/);
+    expect(processor.detectCard).not.toHaveBeenCalled();
+    expect(screen.getByRole("radio", { name: "Document Repair" })).toBeChecked();
+  });
+});
+

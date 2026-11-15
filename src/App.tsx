@@ -21,6 +21,8 @@ import { useDocuments } from "./features/upload/useDocuments";
 import { MAX_FILES } from "./lib/files/limits";
 import { baseName } from "./lib/browser/download";
 import { PHONE_QUERY, useMediaQuery } from "./lib/browser/useMediaQuery";
+import { getEngine } from "./lib/engine/client";
+import { looksLikeIdCard } from "./lib/image-processing/card-sniff";
 
 const NO_DOCUMENTS: SourceDocument[] = [];
 
@@ -46,6 +48,47 @@ export function App() {
   // The right-hand panel on wide screens: hidden until the user opens it from its tab, so the photo
   // gets the room; adding photos leaves it as it is.
   const [panelOpen, setPanelOpen] = useState(false);
+  // Set when a single photo dropped into an empty Document Repair workspace looked like an ID card
+  // and ID & Card Crop was opened for it; a note offers the way back.
+  const [autoCard, setAutoCard] = useState(false);
+  /** A single photo that looked like an ID card, waiting for the photo list to show it. */
+  const [cardHint, setCardHint] = useState<File | null>(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+  const chooseMode = (m: ProcessingMode) => {
+    setAutoCard(false);
+    setCardHint(null);
+    setMode(m);
+  };
+  /**
+   * Add photos. A single photo added to an empty Document Repair workspace is also checked for an
+   * ID card; if it clearly is one, ID & Card Crop opens for it (see the effect below).
+   */
+  const addPhotos = async (files: File[]) => {
+    const single = modeRef.current === "document" && documentsRef.current.length === 0 && files.length === 1;
+    await addFiles(files);
+    if (!single) return;
+    try {
+      const found = await getEngine().detectCard(files[0]!);
+      if (found.ok && looksLikeIdCard(found.value)) setCardHint(files[0]!);
+    } catch {
+      // Only a convenience: the photo stays in Document Repair.
+    }
+  };
+  // Switch only if that photo is still the only one and the user has not changed mode meanwhile.
+  useEffect(() => {
+    if (!cardHint || documents.length === 0) return;
+    if (mode === "document" && documents.length === 1 && documents[0]!.file === cardHint) {
+      setMode("card");
+      setAutoCard(true);
+    }
+    setCardHint(null);
+  }, [cardHint, documents, mode]);
+  useEffect(() => {
+    if (documents.length === 0) setAutoCard(false);
+  }, [documents.length]);
   const workbenchRef = useRef<HTMLElement>(null);
   // A view switched to after scrolling down the other one starts at its top.
   useEffect(() => {
@@ -110,7 +153,7 @@ export function App() {
   // Adding photos and the files that could not be added.
   const addArea = (
     <>
-      {documents.length > 0 && <UploadZone compact busy={pending > 0} onFiles={addFiles} />}
+      {documents.length > 0 && <UploadZone compact busy={pending > 0} onFiles={(f) => void addPhotos(f)} />}
       {rejected.length > 0 && (
         <ul className="errors" aria-label="Files that could not be added">
           {rejected.map((r) => (
@@ -160,7 +203,17 @@ export function App() {
           <h2 className="titlebar__title">Your workspace</h2>
           <p className="muted">{TAGLINE}</p>
         </div>
-        <ModeSelector mode={mode} onChange={setMode} disabled={locked} />
+        <div className="titlebar__modes">
+          <ModeSelector mode={mode} onChange={chooseMode} disabled={locked} />
+          {autoCard && mode === "card" && (
+            <div className="mode-note" role="status">
+              <p>This looks like an ID or card, so ID &amp; Card Crop is open.</p>
+              <button type="button" className="btn btn--small" onClick={() => chooseMode("document")}>
+                Switch back to Document Repair
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <main ref={workbenchRef} className="workbench" data-view={documents.length > 0 ? view : undefined}>
@@ -210,7 +263,7 @@ export function App() {
         {documents.length === 0 ? (
           <div className={mode === "card" ? "stage stage--with-panel" : "stage"}>
             <div className="stage__main">
-              <UploadZone compact={false} busy={pending > 0} onFiles={addFiles} />
+              <UploadZone compact={false} busy={pending > 0} onFiles={(f) => void addPhotos(f)} />
             </div>
             {mode === "card" && <EmptyCardInspector />}
           </div>

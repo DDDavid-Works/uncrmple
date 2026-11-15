@@ -75,7 +75,7 @@ export function useDocuments(): DocumentsApi {
         pixelRoom -= pixels;
         const url = URL.createObjectURL(file);
         try {
-          const { width, height } = await probeImage(url);
+          const { width, height } = await probeImage(file, url);
           if (unmounted.current) {
             URL.revokeObjectURL(url);
             return;

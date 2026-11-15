@@ -81,6 +81,20 @@ describe("upload to preview", () => {
     expect(screen.getByRole("region", { name: "Photo preview" })).toHaveClass("preview--panel-hidden");
   });
 
+  it("shows a loader while a photo is read, in place of the upload invitation", async () => {
+    let finish!: () => void;
+    HTMLImageElement.prototype.decode = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), jpegFile("receipt.jpg"));
+    expect(await screen.findByText("Reading your photos…")).toBeInTheDocument();
+    expect(screen.getByText("Reading your photos…").closest("[role=status]")).toHaveClass("busy");
+    expect(screen.queryByRole("button", { name: "Choose photos" })).toBeNull();
+    finish();
+    expect(await screen.findByRole("heading", { name: "receipt.jpg" })).toBeInTheDocument();
+    expect(screen.queryByText("Reading your photos…")).toBeNull();
+  });
+
   it("rejects non-image content with an image extension and keeps valid files", async () => {
     const user = userEvent.setup();
     render(<App />);
