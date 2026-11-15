@@ -1,5 +1,4 @@
 import { useId, useState, type ReactNode } from "react";
-import type { ProcessingMode } from "../mode/ModeSelector";
 
 interface SectionProps {
   /** Position in the panel, shown as "01 /". */
@@ -46,28 +45,4 @@ export function InspectorSection({ index, title, children }: SectionProps) {
 /** Forget collapsed steps; for tests. */
 export function resetCollapsedSteps() {
   collapsed.clear();
-}
-
-/** The right-hand panel before any photo is added: what each step will do, with no controls yet. */
-export function EmptyInspector({ mode }: { mode: ProcessingMode }) {
-  const card = mode === "card";
-  return (
-    <div className="inspector">
-      <InspectorSection index={1} title={card ? "Find the card" : "Photo check"}>
-        <p className="inspector__empty">
-          {card
-            ? "Add a photo to find the card's four corners."
-            : "Add a photo to see how well it can be repaired: angle, lighting, sharpness, resolution, edges and text contrast."}
-        </p>
-      </InspectorSection>
-      <InspectorSection index={2} title={card ? "Touch-ups" : "Repair settings"}>
-        <p className="inspector__empty">
-          {card ? "Optional touch-ups appear once the card is cropped." : "Choose color, grayscale or black and white, then repair."}
-        </p>
-      </InspectorSection>
-      <InspectorSection index={3} title="Export">
-        <p className="inspector__empty">Download images, a ZIP or one PDF in your photo order.</p>
-      </InspectorSection>
-    </div>
-  );
 }

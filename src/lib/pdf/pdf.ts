@@ -9,7 +9,7 @@ export interface PdfPage {
 }
 
 export const PAPER_SIZES: Record<PaperSize, { label: string }> = {
-  fit: { label: "Same shape as the image" },
+  fit: { label: "Fit to image" },
   a4: { label: "A4" },
   letter: { label: "US Letter" },
 };

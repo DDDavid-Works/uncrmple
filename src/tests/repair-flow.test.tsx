@@ -331,6 +331,21 @@ describe("steps panel", () => {
   });
 });
 
+describe("left-pane repair for a single photo", () => {
+  it("offers Repair photo in the photo list and repairs with it", async () => {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: true,
+      value: { corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }], areaFraction: 0.7, edgeSupport: 0.9, method: "edges" },
+    });
+    vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+    const user = await uploadOne();
+    const bar = screen.getByRole("region", { name: "Repair all photos" });
+    expect(bar).toHaveTextContent("1 photo not repaired yet.");
+    await user.click(within(bar).getByRole("button", { name: "Repair photo" }));
+    expect(await screen.findByAltText("Repaired document: page.jpg")).toBeInTheDocument();
+  });
+});
+
 describe("photo assessment", () => {
   it("shows the verdict and per-dimension findings right after upload, before any repair", async () => {
     const user = await uploadOne();
@@ -339,7 +354,7 @@ describe("photo assessment", () => {
     expect(panel).toHaveTextContent(/Repair is possible, with limitations \(sharpness\)/);
     expect(screen.getByText(/Sharpness/)).toBeVisible();
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
-    // The rows are always shown; their explanations open on request.
+    // Rows that need attention are shown; their explanations open on request.
     expect(screen.getByText("The photo is slightly soft.")).not.toBeVisible();
     await user.click(screen.getByRole("button", { name: "View more details" }));
     expect(screen.getByText("The photo is slightly soft.")).toBeVisible();
@@ -357,8 +372,40 @@ describe("photo assessment", () => {
     await uploadOne();
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Good repair candidate");
-    expect(screen.getByText("Good repair candidate: no problems found.")).toBeVisible();
+    expect(within(panel).getByText("Good repair candidate: no problems found.")).toBeVisible();
     expect(within(panel).getAllByRole("listitem")).toHaveLength(LIMITED.findings.length);
+  });
+
+  it("lists only the findings that need attention until more details are asked for", async () => {
+    vi.mocked(assessPhoto).mockResolvedValue({
+      ok: true,
+      value: {
+        ...LIMITED,
+        findings: [
+          ...LIMITED.findings,
+          { dimension: "resolution", level: "good", confidence: 0.9, detail: "Plenty of pixels." },
+        ],
+      },
+    });
+    const user = await uploadOne();
+    const panel = await screen.findByRole("region", { name: "Photo assessment" });
+    expect(within(panel).queryByText("Resolution")).toBeNull();
+    expect(within(panel).getByText("Sharpness")).toBeVisible();
+    expect(within(panel).queryByText(/not a guarantee/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "View more details" }));
+    expect(within(panel).getByText("Resolution").closest("li")).toHaveTextContent("Good");
+    expect(within(panel).getByText(/not a guarantee/)).toBeVisible();
+  });
+
+  it("shows no rows when every finding is good", async () => {
+    vi.mocked(assessPhoto).mockResolvedValue({
+      ok: true,
+      value: { ...LIMITED, verdict: "good", findings: [{ dimension: "resolution", level: "good", confidence: 0.9, detail: "Plenty of pixels." }] },
+    });
+    await uploadOne();
+    const panel = await screen.findByRole("region", { name: "Photo assessment" });
+    expect(within(panel).queryByRole("listitem")).toBeNull();
+    expect(within(panel).getByRole("button", { name: "View more details" })).toBeInTheDocument();
   });
 
   it("says the image engine is loading while the first analysis runs", async () => {
@@ -394,7 +441,7 @@ describe("photo assessment", () => {
     expect(processor.correctPerspective).not.toHaveBeenCalled();
     expect(screen.getByAltText("Original photo: page.jpg")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Clean up whole image" }));
+    await user.click(within(panel).getByRole("button", { name: "Clean up whole image" }));
     await screen.findByAltText("Repaired document: page.jpg");
     expect(processor.detectDocument).not.toHaveBeenCalled();
     expect(processor.correctPerspective).toHaveBeenCalledWith(expect.anything(), [
@@ -409,8 +456,26 @@ describe("photo assessment", () => {
       value: { ...LIMITED, likeness: "uncertain", summary: "A paper page could not be confirmed in this photo." },
     });
     const user = await uploadOne();
-    await user.click(await screen.findByRole("button", { name: "Mark corners" }));
+    const panel = await screen.findByRole("region", { name: "Photo assessment" });
+    await user.click(within(panel).getByRole("button", { name: "Mark corners" }));
     expect(screen.getAllByRole("slider")).toHaveLength(4);
+  });
+
+  it("shows the verdict under the photo while the details panel is hidden, with its options", async () => {
+    vi.mocked(assessPhoto).mockResolvedValue({
+      ok: true,
+      value: { ...LIMITED, likeness: "uncertain", summary: "A paper page could not be confirmed in this photo." },
+    });
+    const user = await uploadOne();
+    await screen.findByRole("region", { name: "Photo assessment" });
+    const viewer = screen.getByRole("region", { name: "Photo preview" }).querySelector(".viewer")!;
+    // Hidden by default: the verdict and its options are in the main pane too.
+    expect(within(viewer as HTMLElement).getByText("A paper page could not be confirmed in this photo.")).toBeInTheDocument();
+    await user.click(within(viewer as HTMLElement).getByRole("button", { name: "Mark corners" }));
+    expect(screen.getAllByRole("slider")).toHaveLength(4);
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+    expect(within(viewer as HTMLElement).queryByText("A paper page could not be confirmed in this photo.")).toBeNull();
   });
 
   it("explains an assessment failure and still allows a repair", async () => {
@@ -711,11 +776,13 @@ describe("export", () => {
     expect(link).toHaveAttribute("href", "blob:t/2");
   });
 
-  it("creates a PDF of the repaired pages", async () => {
+  it("offers the image and a PDF for a single photo, without a ZIP", async () => {
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
-    await user.click(await screen.findByRole("button", { name: "Download PDF (1 page)" }));
-    expect(screen.getByText("1 of 1 repaired")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Download PDF" }));
+    expect(screen.getByRole("combobox", { name: "PDF paper size" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Download ZIP/ })).toBeNull();
+    expect(screen.queryByText("1 of 1 repaired")).toBeNull();
     await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
     const [blob, name] = vi.mocked(downloadBlob).mock.calls[0]!;
     expect(name).toBe("repaired-document.pdf");
@@ -723,16 +790,23 @@ describe("export", () => {
   });
 
   it("downloads every repaired image in one ZIP, named in page order", async () => {
-    const user = await uploadOne();
-    await user.click(screen.getByRole("button", { name: "Repair" }));
-    await user.click(await screen.findByRole("button", { name: "Download ZIP (1 image)" }));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      new File([jpegHeader(400, 300)], "page.jpg", { type: "image/jpeg" }),
+      new File([jpegHeader(400, 300)], "other.jpg", { type: "image/jpeg" }),
+    ]);
+    await user.click(await screen.findByRole("button", { name: "Repair" }));
+    const repaired = (await screen.findByRole("link", { name: "Download image" })).getAttribute("href");
+    expect(screen.getByText("1 of 2 repaired")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Download ZIP (1 image)" }));
     await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
     const [blob, name] = vi.mocked(downloadBlob).mock.calls[0]!;
     expect(name).toBe("repaired-images.zip");
     expect((blob as Blob).type).toBe("application/zip");
     const bytes = new Uint8Array(await (blob as Blob).arrayBuffer());
-    expect(new TextDecoder().decode(bytes)).toContain("01-page-repaired.png");
-    expect(fetch).toHaveBeenCalledWith("blob:t/2");
+    expect(new TextDecoder().decode(bytes)).toMatch(/01-(page|other)-repaired\.png/);
+    expect(fetch).toHaveBeenCalledWith(repaired);
   });
 });
 

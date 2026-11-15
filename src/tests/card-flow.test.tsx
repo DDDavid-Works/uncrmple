@@ -196,7 +196,7 @@ describe("ID & Card Crop mode", () => {
     expect(screen.queryByRole("region", { name: "Export" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Find card" }));
     await screen.findByAltText("Cropped card: id.jpg");
-    expect(screen.getByRole("button", { name: /Download PDF \(1 page\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeInTheDocument();
   });
 });
 

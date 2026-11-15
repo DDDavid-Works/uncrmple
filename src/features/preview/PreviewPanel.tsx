@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { RepairState } from "../repair/useRepair";
 import type { SourceDocument } from "../../types/document";
 import type { OutputStyle, Quad, QuarterTurn } from "../../types/repair";
-import { AssessmentPanel } from "../assess/AssessmentPanel";
+import { AssessmentPanel, VerdictCard } from "../assess/AssessmentPanel";
 import type { AssessmentState } from "../assess/useAssessment";
 import { BusyNotice } from "../../components/BusyNotice";
 import { CompareSlider } from "../../components/CompareSlider";
@@ -13,6 +13,7 @@ import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges, wholeImage } fro
 import { CornerEditor, defaultCorners } from "./CornerEditor";
 import { InspectorSection } from "./Inspector";
 import { ViewerStage, type PageNav } from "./ViewerStage";
+import { PanelToggle, PANEL_ID } from "./PanelToggle";
 
 const STYLE_OPTIONS: { value: OutputStyle; label: string }[] = [
   { value: "color", label: "Color" },
@@ -35,6 +36,9 @@ interface Props {
   exportAll: ReactNode;
   /** Previous/next page arrows; null with a single page. */
   nav: PageNav | null;
+  /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
+  panelOpen: boolean;
+  onTogglePanel: () => void;
 }
 
 /** How a turned page reads in the status line. */
@@ -46,7 +50,7 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, panelOpen, onTogglePanel }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // While a new style is being applied, keep showing the last result.
@@ -63,7 +67,8 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
   const adjustCorners = () => setEditing(true);
 
   return (
-    <section className="preview" aria-label="Photo preview">
+    <section className={panelOpen ? "preview" : "preview preview--panel-hidden"} aria-label="Photo preview">
+      <PanelToggle open={panelOpen} onToggle={onTogglePanel} />
       <div className="viewer">
         <div className="viewer__bar">
           {done ? (
@@ -89,6 +94,19 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             <h2 className="viewer__name">{doc.name}</h2>
           </div>
         </div>
+
+        {/* With the panel hidden, the verdict stays in sight under the photo's name (wide screens only;
+            narrower ones always show the panel under the photo). */}
+        {!panelOpen && assessment.status === "done" && (
+          <div className="viewer__verdict">
+            <VerdictCard
+              assessment={assessment.assessment}
+              onAdjustCorners={adjustCorners}
+              onCleanWholeImage={cleanWholeImage}
+              disabled={running || editing}
+            />
+          </div>
+        )}
 
         {running && <BusyNotice task={repair.previous ? "Applying style…" : "Repairing the page…"} />}
         {repair.status === "error" && (
@@ -215,22 +233,6 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
         </ViewerStage>
 
         <div className="viewer__foot">
-          <div className="viewer__meta">
-            <p className="muted">
-              Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
-            </p>
-            {done && (
-              <p className="muted" role="status">
-                Repaired · {done.width}×{done.height}px ·{" "}
-                {STYLE_OPTIONS.find((o) => o.value === done.style)?.label} ·{" "}
-                {done.source === "manual" ? "manual corners" : done.source === "whole-image" ? "whole photo" : `page detected by ${done.source}`}
-                {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
-                {done.deskew.applied !== 0 && ` · text levelled by ${Math.abs(done.deskew.applied).toFixed(1)}°`}
-                {done.dewarp.applied && " · curved lines flattened"}
-                {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
-              </p>
-            )}
-          </div>
           <div className="viewer__tools">
             <button type="button" className="btn btn--small" onClick={adjustCorners} disabled={running || editing}>
               Adjust corners
@@ -249,11 +251,27 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
               <RemoveButton name={doc.name} onRemove={onRemove} />
             </div>
           </div>
-          <p className="viewer__promise">Your original stays untouched. No text is generated or rewritten.</p>
+          <details className="viewer__meta">
+            <summary>Details</summary>
+            <p className="muted">
+              Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
+            </p>
+            {done && (
+              <p className="muted" role="status">
+                Repaired · {done.width}×{done.height}px ·{" "}
+                {STYLE_OPTIONS.find((o) => o.value === done.style)?.label} ·{" "}
+                {done.source === "manual" ? "manual corners" : done.source === "whole-image" ? "whole photo" : `page detected by ${done.source}`}
+                {done.areaFraction !== undefined && ` (${Math.round(done.areaFraction * 100)}% of the photo)`}
+                {done.deskew.applied !== 0 && ` · text levelled by ${Math.abs(done.deskew.applied).toFixed(1)}°`}
+                {done.dewarp.applied && " · curved lines flattened"}
+                {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
+              </p>
+            )}
+          </details>
         </div>
       </div>
 
-      <div className="inspector">
+      <div className="inspector" id={PANEL_ID}>
         <InspectorSection index={1} title="Photo check">
           {assessment.status === "idle" ? (
             <p className="inspector__empty">The photo has not been checked yet.</p>

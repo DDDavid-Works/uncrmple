@@ -79,6 +79,42 @@ export function ExportBar({
 
   const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 
+  const paperSelect = (label?: string) => (
+    <select
+      value={paper}
+      onChange={(e) => setPaper(e.target.value as PaperSize)}
+      disabled={busy || locked}
+      aria-label={label}
+    >
+      {(Object.keys(PAPER_SIZES) as PaperSize[]).map((p) => (
+        <option key={p} value={p}>
+          {PAPER_SIZES[p].label}
+        </option>
+      ))}
+    </select>
+  );
+  const errorNotice = error && (
+    <p role="alert" className="notice notice--error">
+      {error}
+    </p>
+  );
+
+  // One photo: "Download image" above already covers the image, so only the PDF is offered, with
+  // its paper size beside it. The ZIP, the counts and the order note matter only for several.
+  if (total <= 1) {
+    return (
+      <section className="export export--single" aria-label="Export">
+        <div className="export__pdf">
+          <button type="button" className="btn btn--small" onClick={() => void exportPdf()} disabled={busy || locked || pages.length === 0}>
+            {making === "pdf" ? "Creating PDF…" : "Download PDF"}
+          </button>
+          {paperSelect("PDF paper size")}
+        </div>
+        {errorNotice}
+      </section>
+    );
+  }
+
   return (
     <section className="export" aria-label="Export">
       <p className="export__title">
@@ -86,13 +122,7 @@ export function ExportBar({
       </p>
       <label className="export__field">
         PDF paper size
-        <select value={paper} onChange={(e) => setPaper(e.target.value as PaperSize)} disabled={busy || locked}>
-          {(Object.keys(PAPER_SIZES) as PaperSize[]).map((p) => (
-            <option key={p} value={p}>
-              {PAPER_SIZES[p].label}
-            </option>
-          ))}
-        </select>
+        {paperSelect()}
       </label>
       <div className="export__actions">
         <button type="button" className="btn btn--block" onClick={() => void exportPdf()} disabled={busy || locked}>
@@ -111,11 +141,7 @@ export function ExportBar({
       ) : (
         <p className="muted export__skipped">The PDF follows your photo order.</p>
       )}
-      {error && (
-        <p role="alert" className="notice notice--error">
-          {error}
-        </p>
-      )}
+      {errorNotice}
     </section>
   );
 }

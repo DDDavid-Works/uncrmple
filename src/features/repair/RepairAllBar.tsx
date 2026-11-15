@@ -4,6 +4,8 @@ interface Props {
   batch: BatchState;
   /** Pages not repaired or tried yet, which "Repair all" would process. */
   pending: number;
+  /** All photos in the workspace; with one, the button repairs just that one. */
+  total: number;
   onStart: () => void;
   onStop: () => void;
 }
@@ -38,8 +40,11 @@ export function RepairAllLock({ batch }: { batch: Extract<BatchState, { status: 
   );
 }
 
-/** Repair every remaining page in one go, with progress and a way to stop. */
-export function RepairAllBar({ batch, pending, onStart, onStop }: Props) {
+/**
+ * Repair every remaining page in one go, with progress and a way to stop. Shown for a single photo
+ * too, so a repair is always at hand while the details panel is hidden.
+ */
+export function RepairAllBar({ batch, pending, total, onStart, onStop }: Props) {
   if (batch.status === "running") {
     const { total, finished, stopping } = batch;
     return (
@@ -71,7 +76,7 @@ export function RepairAllBar({ batch, pending, onStart, onStop }: Props) {
         )}
         {pending > 0 && (
           <button type="button" className="btn btn--primary" onClick={onStart}>
-            Repair all ({pending})
+            {total === 1 ? "Repair photo" : `Repair all (${pending})`}
           </button>
         )}
       </div>

@@ -53,6 +53,34 @@ describe("upload to preview", () => {
     expect(screen.queryByRole("button", { name: /download|pdf/i })).toBeNull();
   });
 
+  it("shows no side panel until photos are added", () => {
+    render(<App />);
+    expect(screen.queryByRole("button", { name: /Photo check/ })).toBeNull();
+    expect(document.getElementById("steps-panel")).toBeNull();
+  });
+
+  it("keeps the details panel hidden until it is opened, also when more photos are added", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), jpegFile("receipt.jpg"));
+    const preview = await screen.findByRole("region", { name: "Photo preview" });
+    expect(preview).toHaveClass("preview--panel-hidden");
+    const show = screen.getByRole("button", { name: "Show details" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    expect(show).toHaveAttribute("aria-controls", "steps-panel");
+
+    await user.upload(screen.getAllByLabelText("Choose document photos")[0]!, jpegFile("second.jpg"));
+    await screen.findByText(/second\.jpg/);
+    expect(screen.getByRole("region", { name: "Photo preview" })).toHaveClass("preview--panel-hidden");
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByRole("region", { name: "Photo preview" })).not.toHaveClass("preview--panel-hidden");
+    expect(screen.getByRole("button", { name: "Hide details" })).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(screen.getByRole("button", { name: "Hide details" }));
+    expect(screen.getByRole("region", { name: "Photo preview" })).toHaveClass("preview--panel-hidden");
+  });
+
   it("rejects non-image content with an image extension and keeps valid files", async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -14,7 +14,7 @@ function PrivacyBadge() {
       <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
         <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 6H6V4.5a2 2 0 1 1 4 0V7Z" />
       </svg>
-      Images stay in your browser. Nothing is uploaded.
+      Images stay in your browser. Nothing is uploaded, and reloading the page clears them.
     </p>
   );
 }

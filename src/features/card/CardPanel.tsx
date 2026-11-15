@@ -10,6 +10,7 @@ import { InspectorSection } from "../preview/Inspector";
 import { ViewerStage, type PageNav } from "../preview/ViewerStage";
 import { formatBytes, TURN_TEXT } from "../preview/PreviewPanel";
 import type { CardState, CardView } from "./useCardCrop";
+import { PanelToggle, PANEL_ID } from "../preview/PanelToggle";
 
 const WARNING_TEXT: Record<CardWarning, string> = {
   "edge-unclear":
@@ -52,6 +53,9 @@ interface Props {
   exportAll: ReactNode;
   /** Previous/next page arrows; null with a single photo. */
   nav: PageNav | null;
+  /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
+  panelOpen: boolean;
+  onTogglePanel: () => void;
 }
 
 /** Heuristic, not a calibrated probability: shown with that caveat. */
@@ -69,7 +73,7 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
   );
 }
 
-export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onRotate, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav }: Props) {
+export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onRotate, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav, panelOpen, onTogglePanel }: Props) {
   const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
@@ -88,7 +92,8 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
   const resultAlt = `${enhanced ? "Enhanced" : "Cropped"} card: ${doc.name}`;
 
   return (
-    <section className="preview" aria-label="Card preview">
+    <section className={panelOpen ? "preview" : "preview preview--panel-hidden"} aria-label="Card preview">
+      <PanelToggle open={panelOpen} onToggle={onTogglePanel} />
       <div className="viewer">
         <div className="viewer__bar">
           {done ? (
@@ -184,18 +189,6 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
         </ViewerStage>
 
         <div className="viewer__foot">
-          <div className="viewer__meta">
-            <p className="muted">
-              Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
-            </p>
-            {done && (
-              <p className="muted">
-                {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions{" "}
-                {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
-                {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
-              </p>
-            )}
-          </div>
           <div className="viewer__tools">
             {done && (
               <button type="button" className="btn btn--small" onClick={onAdjust} disabled={working}>
@@ -221,11 +214,23 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
               <RemoveButton name={doc.name} onRemove={onRemove} />
             </div>
           </div>
-          <p className="viewer__promise">Your original stays untouched. Nothing is added or redrawn.</p>
+          <details className="viewer__meta">
+            <summary>Details</summary>
+            <p className="muted">
+              Original · {doc.width}×{doc.height}px · {doc.format.toUpperCase()} · {formatBytes(doc.size)}
+            </p>
+            {done && (
+              <p className="muted">
+                {enhanced ? "Enhanced" : "Cropped"} · {done.width}×{done.height}px · proportions{" "}
+                {(Math.max(done.width, done.height) / Math.min(done.width, done.height)).toFixed(2)}:1
+                {done.rotation !== 0 && ` · turned ${TURN_TEXT[done.rotation]}`}
+              </p>
+            )}
+          </details>
         </div>
       </div>
 
-      <div className="inspector">
+      <div className="inspector" id={PANEL_ID}>
         <InspectorSection index={1} title="Find the card">
           {state.status === "idle" && (
             <p className="inspector__empty">

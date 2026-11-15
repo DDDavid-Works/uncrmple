@@ -173,12 +173,33 @@ a { color: var(--link); }
   padding: var(--space-3) var(--space-4); background: var(--surface); box-shadow: 0 -8px 16px -12px rgb(37 44 40 / 35%);
 }
 .sidebar__dock:empty { display: none; }
-.sidebar__note { margin-top: auto; padding: var(--space-3); border-radius: var(--radius); background: var(--surface-sunk); }
-.sidebar__note-title { font-size: 0.85rem; font-weight: 500; margin-bottom: 2px; }
-.sidebar__note .muted { font-size: 0.8rem; }
 
 /* The working area before any photo: the drop zone beside the empty steps panel. */
-.stage, .preview { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-width: 0; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.preview { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-width: 0; }
+/* The right-hand panel can be hidden on wide screens to give the photo more room. */
+@media (min-width: 1100px) {
+  .preview--panel-hidden { grid-template-columns: minmax(0, 1fr); }
+  .preview--panel-hidden .inspector { display: none; }
+}
+/* The tab on the panel's left edge (or the screen's right edge while the panel is hidden). */
+.preview { position: relative; }
+.panel-tab {
+  position: absolute; z-index: 3; top: var(--space-4); right: 340px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: var(--space-3) 5px; font: inherit; font-size: 0.75rem; font-weight: 500; color: var(--muted);
+  background: var(--surface); border: var(--line); border-right: 0; border-radius: var(--radius) 0 0 var(--radius);
+  box-shadow: -2px 0 6px rgb(37 44 40 / 6%); cursor: pointer;
+}
+/* Overlap the panel's border by a pixel so the tab reads as part of it. */
+.panel-tab { margin-right: -1px; }
+.panel-tab--closed { right: 0; margin-right: 0; }
+.panel-tab:hover { color: var(--text); }
+.panel-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel-tab svg { width: 14px; height: 14px; flex: none; }
+.panel-tab__label { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+/* The verdict under the photo while the panel is hidden: on the viewer's tinted ground, so a card. */
+.viewer__verdict .assessment__verdict-card { background: var(--surface); border: var(--line); }
 .stage__main { padding: var(--space-6); background: var(--sage); display: grid; }
 
 /* ---------- Upload ---------- */
@@ -271,7 +292,7 @@ a { color: var(--link); }
 .viewer__label {
   padding: 6px 14px; border-radius: var(--radius); background: var(--surface); font-size: 0.85rem; font-weight: 500;
 }
-.viewer__where { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+.viewer__where { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
 .viewer__position { font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
 .viewer__name { font-size: 0.85rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; letter-spacing: 0; }
 
@@ -299,12 +320,18 @@ a { color: var(--link); }
   .stage-view__arrow { width: 36px; height: 36px; }
 }
 .viewer__foot { display: grid; gap: var(--space-3); }
-.viewer__meta { display: grid; gap: 2px; }
+.viewer__meta { display: grid; gap: 2px; justify-self: start; }
+.viewer__meta summary {
+  width: fit-content; cursor: pointer; font-size: 0.8rem; color: var(--muted);
+  border-radius: 4px; list-style-position: inside;
+}
+.viewer__meta summary:hover { color: var(--text); }
+.viewer__meta summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.viewer__meta[open] summary { margin-bottom: var(--space-1); }
 .viewer__meta .muted { font-size: 0.8rem; }
 .viewer__tools { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .viewer__rotate { display: flex; gap: var(--space-2); }
 .viewer__tools-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-.viewer__promise { font-size: 0.8rem; color: var(--muted); }
 
 .preview__frame {
   display: grid; place-items: center; min-height: 320px; padding: var(--space-4);
@@ -528,13 +555,22 @@ a { color: var(--link); }
 }
 .export__actions { display: grid; gap: var(--space-2); }
 .export__skipped { font-size: 0.8rem; }
+.export--single { border-top: 0; padding-top: 0; }
+.export__pdf { display: flex; gap: var(--space-2); align-items: stretch; }
+.export__pdf .btn { flex: 0 0 auto; }
+.export__pdf select {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 0.8rem; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0 var(--space-2);
+}
 
 /* ---------- Narrower screens ---------- */
 /* Tablet and small laptop: the steps panel moves under the viewer. */
 @media (max-width: 1099px) {
   .stage, .preview { grid-template-columns: minmax(0, 1fr); }
   .inspector { border-left: 0; border-top: var(--line); }
-  .stage .inspector { display: none; }
+  /* Here the panel sits under the photo: nothing to hide. */
+  .panel-tab { display: none; }
+  .viewer__verdict { display: none; }
 }
 /* Phone: everything stacks; the pages become a strip that scrolls sideways. */
 @media (max-width: 759px) {
@@ -548,7 +584,6 @@ a { color: var(--link); }
   .modes__hint { text-align: left; }
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .sidebar { border-right: 0; border-bottom: var(--line); gap: var(--space-3); }
-  .sidebar__note { display: none; }
   /* One view at a time: the page list, or the selected page. */
   .viewswitch {
     position: sticky; top: 0; z-index: 2; display: flex; padding: 0 var(--space-4);

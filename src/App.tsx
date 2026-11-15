@@ -11,7 +11,6 @@ import type { ProcessingMode } from "./features/mode/ModeSelector";
 import { useAssessment } from "./features/assess/useAssessment";
 import { ExportBar } from "./features/export/ExportBar";
 import { PageList, cardStatus, repairStatus } from "./features/pages/PageList";
-import { EmptyInspector } from "./features/preview/Inspector";
 import { PreviewPanel } from "./features/preview/PreviewPanel";
 import type { PageNav } from "./features/preview/ViewerStage";
 import { RepairAllBar, RepairAllLock } from "./features/repair/RepairAllBar";
@@ -43,6 +42,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Phones show the page list and the selected page one at a time; wider screens show both.
   const [view, setView] = useState<"pages" | "page">("page");
+  // The right-hand panel on wide screens: hidden until the user opens it from its tab, so the photo
+  // gets the room; adding photos leaves it as it is.
+  const [panelOpen, setPanelOpen] = useState(false);
   const workbenchRef = useRef<HTMLElement>(null);
   // A view switched to after scrolling down the other one starts at its top.
   useEffect(() => {
@@ -197,16 +199,11 @@ export function App() {
             </div>
           )}
 
-          {mode === "document" && documents.length > 1 && (
+          {mode === "document" && documents.length > 0 && (
             <div className="sidebar__dock">
-              <RepairAllBar batch={batch} pending={unrepaired} onStart={() => void repairAll(documents)} onStop={stopAll} />
+              <RepairAllBar batch={batch} pending={unrepaired} total={documents.length} onStart={() => void repairAll(documents)} onStop={stopAll} />
             </div>
           )}
-
-          <div className="sidebar__note">
-            <p className="sidebar__note-title">Only on your device</p>
-            <p className="muted">No account. No document uploads. Reloading the page clears this workspace.</p>
-          </div>
         </aside>
 
         {documents.length === 0 ? (
@@ -214,7 +211,6 @@ export function App() {
             <div className="stage__main">
               <UploadZone compact={false} busy={pending > 0} onFiles={addFiles} />
             </div>
-            <EmptyInspector mode={mode} />
           </div>
         ) : (
           <div className="workspace-frame">
@@ -236,6 +232,8 @@ export function App() {
                   onRemove={() => remove(selected.id)}
                   exportAll={exportAll}
                   nav={nav}
+                  panelOpen={panelOpen}
+                  onTogglePanel={() => setPanelOpen((o) => !o)}
                 />
               )}
               {selected && mode === "document" && (
@@ -252,6 +250,8 @@ export function App() {
                   onRemove={() => remove(selected.id)}
                   exportAll={exportAll}
                   nav={nav}
+                  panelOpen={panelOpen}
+                  onTogglePanel={() => setPanelOpen((o) => !o)}
                 />
               )}
             </div>

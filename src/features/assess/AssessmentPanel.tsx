@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { AssessmentDimension, FindingLevel, Verdict } from "../../types/assessment";
+import type { Assessment, AssessmentDimension, FindingLevel, Verdict } from "../../types/assessment";
 import { BusyNotice } from "../../components/BusyNotice";
 import type { AssessmentState } from "./useAssessment";
 import { detailsShown, setDetailsShown } from "./details-state";
@@ -52,28 +52,11 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
     );
   }
   const { assessment } = state;
-  const title = assessment.likeness === "not-document" ? "No document detected" : VERDICT_TITLE[assessment.verdict];
+  // Collapsed, only what needs attention is listed; every finding (with its explanation) on request.
+  const shown = showDetails ? assessment.findings : assessment.findings.filter((f) => f.level !== "good");
   return (
     <section className={`assessment assessment--${assessment.verdict}`} aria-label="Photo assessment">
-      <div className="assessment__verdict-card">
-        <h4 className="assessment__title">
-          <span className="assessment__badge" aria-hidden="true">
-            {VERDICT_ICON[assessment.verdict]}
-          </span>
-          <span className="assessment__verdict">{title}</span>
-        </h4>
-        <p className="assessment__summary">{assessment.summary}</p>
-        {assessment.likeness !== "document" && (
-          <div className="assessment__actions">
-            <button type="button" className="btn btn--small" onClick={onAdjustCorners} disabled={disabled}>
-              Mark corners
-            </button>
-            <button type="button" className="btn btn--small" onClick={onCleanWholeImage} disabled={disabled}>
-              Clean up whole image
-            </button>
-          </div>
-        )}
-      </div>
+      <VerdictCard assessment={assessment} onAdjustCorners={onAdjustCorners} onCleanWholeImage={onCleanWholeImage} disabled={disabled} />
       <button
         type="button"
         className="assessment__more"
@@ -86,8 +69,8 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
       >
         {showDetails ? "Hide details" : "View more details"}
       </button>
-      <ul className="assessment__findings" id={detailsId}>
-        {assessment.findings.map((f) => (
+      <ul className="assessment__findings" id={detailsId} hidden={shown.length === 0}>
+        {shown.map((f) => (
           <li key={f.dimension} className={`finding finding--${f.level}`}>
             <span className="finding__row">
               <span className="finding__name">{DIMENSION_TITLE[f.dimension]}</span>
@@ -103,7 +86,45 @@ export function AssessmentPanel({ state, onAdjustCorners, onCleanWholeImage, dis
           </li>
         ))}
       </ul>
-      <p className="assessment__note">Estimates from the photo's pixels, not a guarantee. Check the result yourself.</p>
+      {showDetails && (
+        <p className="assessment__note">Estimates from the photo's pixels, not a guarantee. Check the result yourself.</p>
+      )}
     </section>
+  );
+}
+
+interface VerdictProps {
+  assessment: Assessment;
+  onAdjustCorners?: () => void;
+  onCleanWholeImage?: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * The verdict and its summary, with manual options when the photo does not look like a document.
+ * Shown in the panel, and under the photo while the panel is hidden.
+ */
+export function VerdictCard({ assessment, onAdjustCorners, onCleanWholeImage, disabled }: VerdictProps) {
+  const title = assessment.likeness === "not-document" ? "No document detected" : VERDICT_TITLE[assessment.verdict];
+  return (
+    <div className={`assessment__verdict-card assessment--${assessment.verdict}`}>
+      <h4 className="assessment__title">
+        <span className="assessment__badge" aria-hidden="true">
+          {VERDICT_ICON[assessment.verdict]}
+        </span>
+        <span className="assessment__verdict">{title}</span>
+      </h4>
+      <p className="assessment__summary">{assessment.summary}</p>
+      {assessment.likeness !== "document" && (
+        <div className="assessment__actions">
+          <button type="button" className="btn btn--small" onClick={onAdjustCorners} disabled={disabled}>
+            Mark corners
+          </button>
+          <button type="button" className="btn btn--small" onClick={onCleanWholeImage} disabled={disabled}>
+            Clean up whole image
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
