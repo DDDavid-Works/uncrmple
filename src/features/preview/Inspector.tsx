@@ -46,3 +46,23 @@ export function InspectorSection({ index, title, children }: SectionProps) {
 export function resetCollapsedSteps() {
   collapsed.clear();
 }
+
+/**
+ * The card mode's right-hand panel before any photo is added: what each step will do, with no
+ * controls yet. Card mode keeps its panel in view throughout, as every card action lives there.
+ */
+export function EmptyCardInspector() {
+  return (
+    <div className="inspector">
+      <InspectorSection index={1} title="Find the card">
+        <p className="inspector__empty">Add a photo to find the card's four corners.</p>
+      </InspectorSection>
+      <InspectorSection index={2} title="Touch-ups">
+        <p className="inspector__empty">Optional touch-ups appear once the card is cropped.</p>
+      </InspectorSection>
+      <InspectorSection index={3} title="Export">
+        <p className="inspector__empty">Download images, a ZIP or one PDF in your photo order.</p>
+      </InspectorSection>
+    </div>
+  );
+}

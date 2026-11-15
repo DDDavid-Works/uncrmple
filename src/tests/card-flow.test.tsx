@@ -190,6 +190,23 @@ describe("ID & Card Crop mode", () => {
     expect(screen.queryByRole("region", { name: "Photo assessment" })).toBeNull();
   });
 
+  it("keeps its steps panel in view, with no tab to hide it", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("radio", { name: /ID & Card Crop/ }));
+    expect(screen.getByText("Add a photo to find the card's four corners.")).toBeInTheDocument();
+    await user.upload(
+      screen.getByLabelText("Choose document photos"),
+      new File([jpegHeader(400, 300)], "id.jpg", { type: "image/jpeg" }),
+    );
+    const preview = await screen.findByRole("region", { name: "Card preview" });
+    expect(preview).not.toHaveClass("preview--panel-hidden");
+    expect(screen.queryByRole("button", { name: /Show details|Hide details/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Find card" })).toBeInTheDocument();
+    // The left pane's repair is for document photos only.
+    expect(screen.queryByRole("button", { name: /Repair photo|Repair all/ })).toBeNull();
+  });
+
   it("offers a PDF of the cropped cards only", async () => {
     vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection() });
     const user = await uploadInCardMode();
@@ -234,6 +251,38 @@ describe("optional card enhancement", () => {
     expect(screen.getByAltText("Cropped card, no enhancement: id.jpg")).toHaveAttribute("src", "blob:t/2");
     await user.click(screen.getByRole("button", { name: "Original" }));
     expect(screen.getByAltText("Original photo: id.jpg")).toHaveAttribute("src", "blob:t/1");
+  });
+
+  it("crops again with some of the photo around the card, keeping the card's corners", async () => {
+    const user = await cropped();
+    expect(screen.getByRole("radio", { name: "None" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "25 px" }));
+    await vi.waitFor(() => expect(processor.correctPerspective).toHaveBeenCalledTimes(2));
+    const wider = vi.mocked(processor.correctPerspective).mock.calls[1]![1];
+    const expected = [[35, 35], [365, 35], [365, 261], [35, 261]];
+    wider.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(expected[i]![0]!, 0);
+      expect(p.y).toBeCloseTo(expected[i]![1]!, 0);
+    });
+    expect(processor.detectCard).toHaveBeenCalledTimes(1); // no new detection
+    expect(processor.enhanceCard).not.toHaveBeenCalled(); // photo, not a border
+    expect(screen.queryByText(/too close to the card/)).toBeNull();
+
+    // The corners being adjusted are still the card's own.
+    await user.click(await screen.findByRole("button", { name: "Adjust corners" }));
+    const sliders = screen.getAllByRole("slider");
+    expect(sliders).toHaveLength(4);
+  });
+
+  it("says so, and crops at the card's edges, when the photo ends too close to the card", async () => {
+    const edge: Quad = [{ x: 3, y: 3 }, { x: 397, y: 3 }, { x: 397, y: 250 }, { x: 3, y: 250 }];
+    vi.mocked(processor.detectCard).mockResolvedValue({ ok: true, value: detection({ corners: edge }) });
+    const user = await uploadInCardMode();
+    await user.click(screen.getByRole("button", { name: "Find card" }));
+    await screen.findByAltText("Cropped card: id.jpg");
+    await user.click(screen.getByRole("radio", { name: "25 px" }));
+    expect(await screen.findByText(/too close to the card for 25 px/)).toBeInTheDocument();
+    expect(vi.mocked(processor.correctPerspective).mock.calls[1]![1]).toEqual(edge);
   });
 
   it("offers a before/after wipe of the plain crop against the touch-ups only when enhanced", async () => {

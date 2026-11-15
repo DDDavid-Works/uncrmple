@@ -1,5 +1,5 @@
 import type { CardDetectionLevel, CardWarning, Point, Quad } from "../../types/repair";
-import { interiorAngles, isConvex, polygonArea } from "./geometry";
+import { applyHomography, homography, interiorAngles, isConvex, outputSize, polygonArea, rectQuad } from "./geometry";
 
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -227,4 +227,27 @@ export function reduceToQuad(polygon: readonly Point[]): Quad | null {
     poly = next;
   }
   return isConvex(poly) ? [poly[0]!, poly[1]!, poly[2]!, poly[3]!] : null;
+}
+
+/**
+ * The card's corners pushed out so the crop keeps `px` output pixels of the photo beyond each edge.
+ * The card is mapped onto its output rectangle, that rectangle is widened by `px` on every side, and
+ * the wider rectangle is mapped back into the photo, so the extra strip follows the same
+ * perspective as the card. Null when the wider crop would reach past the photo (`width`×`height`):
+ * there is no photo there to keep, and nothing is made up to fill it.
+ */
+export function expandCardQuad(quad: Quad, px: number, width: number, height: number): Quad | null {
+  if (px <= 0) return quad;
+  const { width: w, height: h } = outputSize(quad);
+  const toPhoto = homography(rectQuad(w, h), quad);
+  if (!toPhoto) return null;
+  const wider: Quad = [
+    { x: -px, y: -px },
+    { x: w - 1 + px, y: -px },
+    { x: w - 1 + px, y: h - 1 + px },
+    { x: -px, y: h - 1 + px },
+  ];
+  const out = wider.map((p) => applyHomography(toPhoto, p)) as unknown as Quad;
+  const inside = (p: Point) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.y >= 0 && p.x <= width && p.y <= height;
+  return out.every(inside) && isConvex(out) ? out : null;
 }

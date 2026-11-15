@@ -13,6 +13,7 @@ import { ExportBar } from "./features/export/ExportBar";
 import { PageList, cardStatus, repairStatus } from "./features/pages/PageList";
 import { PreviewPanel } from "./features/preview/PreviewPanel";
 import type { PageNav } from "./features/preview/ViewerStage";
+import { EmptyCardInspector } from "./features/preview/Inspector";
 import { RepairAllBar, RepairAllLock } from "./features/repair/RepairAllBar";
 import { useRepair } from "./features/repair/useRepair";
 import { UploadZone } from "./features/upload/UploadZone";
@@ -207,10 +208,11 @@ export function App() {
         </aside>
 
         {documents.length === 0 ? (
-          <div className="stage">
+          <div className={mode === "card" ? "stage stage--with-panel" : "stage"}>
             <div className="stage__main">
               <UploadZone compact={false} busy={pending > 0} onFiles={addFiles} />
             </div>
+            {mode === "card" && <EmptyCardInspector />}
           </div>
         ) : (
           <div className="workspace-frame">
@@ -223,6 +225,8 @@ export function App() {
                   state={cards.stateOf(selected.id)}
                   enhance={cards.enhanceOf(selected.id)}
                   onEnhance={(o) => void cards.setEnhance(selected, o)}
+                  margin={cards.marginOf(selected.id)}
+                  onMargin={(m) => void cards.setMargin(selected, m)}
                   onDetect={() => void cards.detect(selected)}
                   onCrop={(c, d) => void cards.crop(selected, c, d)}
                   onRotate={(by) => void cards.rotate(selected, by)}
@@ -232,8 +236,6 @@ export function App() {
                   onRemove={() => remove(selected.id)}
                   exportAll={exportAll}
                   nav={nav}
-                  panelOpen={panelOpen}
-                  onTogglePanel={() => setPanelOpen((o) => !o)}
                 />
               )}
               {selected && mode === "document" && (

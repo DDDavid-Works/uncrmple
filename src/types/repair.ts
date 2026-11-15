@@ -235,5 +235,12 @@ export interface CardEnhanceOptions {
   grayscale: boolean;
 }
 
+/**
+ * Photo kept beyond each edge of a cropped card, in output pixels, so the card's edge is not flush
+ * with the image's. Real pixels of the photo around the card, warped like the card itself.
+ */
+export const CARD_MARGINS = [0, 25, 50] as const;
+export type CardMargin = (typeof CARD_MARGINS)[number];
+
 /** Problems enhancement cannot reliably fix; reported instead of implied to be corrected. */
 export type CardQualityIssue = "glare" | "blur";

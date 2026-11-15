@@ -4,13 +4,12 @@ import { CompareSlider } from "../../components/CompareSlider";
 import { RemoveButton } from "../../components/RemoveButton";
 import { baseName } from "../../lib/browser/download";
 import type { SourceDocument } from "../../types/document";
-import type { CardDetection, CardEnhanceOptions, CardQualityIssue, CardWarning, Quad } from "../../types/repair";
+import { CARD_MARGINS, type CardDetection, type CardEnhanceOptions, type CardMargin, type CardQualityIssue, type CardWarning, type Quad } from "../../types/repair";
 import { CornerEditor } from "../preview/CornerEditor";
 import { InspectorSection } from "../preview/Inspector";
 import { ViewerStage, type PageNav } from "../preview/ViewerStage";
 import { formatBytes, TURN_TEXT } from "../preview/PreviewPanel";
 import type { CardState, CardView } from "./useCardCrop";
-import { PanelToggle, PANEL_ID } from "../preview/PanelToggle";
 
 const WARNING_TEXT: Record<CardWarning, string> = {
   "edge-unclear":
@@ -41,6 +40,9 @@ interface Props {
   state: CardState;
   enhance: CardEnhanceOptions;
   onEnhance: (options: CardEnhanceOptions) => void;
+  /** Photo to keep around the card, in pixels. */
+  margin: CardMargin;
+  onMargin: (margin: CardMargin) => void;
   onDetect: () => void;
   onCrop: (corners: Quad, detection: CardDetection | null) => void;
   /** Turn the cropped card a further 90° clockwise (90) or anticlockwise (-90). */
@@ -53,9 +55,6 @@ interface Props {
   exportAll: ReactNode;
   /** Previous/next page arrows; null with a single photo. */
   nav: PageNav | null;
-  /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
-  panelOpen: boolean;
-  onTogglePanel: () => void;
 }
 
 /** Heuristic, not a calibrated probability: shown with that caveat. */
@@ -73,7 +72,7 @@ function Warnings({ warnings }: { warnings: CardWarning[] }) {
   );
 }
 
-export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, onRotate, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav, panelOpen, onTogglePanel }: Props) {
+export function CardPanel({ doc, state, enhance, onEnhance, margin, onMargin, onDetect, onCrop, onRotate, onAdjust, onCancelReview, onReset, onRemove, exportAll, nav }: Props) {
   const [view, setView] = useState<"result" | "crop" | "touchups" | "original" | "both">("result");
   const [zoom, setZoom] = useState(false);
   const working = state.status === "working";
@@ -92,8 +91,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
   const resultAlt = `${enhanced ? "Enhanced" : "Cropped"} card: ${doc.name}`;
 
   return (
-    <section className={panelOpen ? "preview" : "preview preview--panel-hidden"} aria-label="Card preview">
-      <PanelToggle open={panelOpen} onToggle={onTogglePanel} />
+    <section className="preview" aria-label="Card preview">
       <div className="viewer">
         <div className="viewer__bar">
           {done ? (
@@ -133,6 +131,12 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
         {done?.enhanceError && (
           <p role="alert" className="notice notice--error">
             Touch-ups could not be applied: {done.enhanceError} The plain crop is shown.
+          </p>
+        )}
+        {done && done.margin < done.marginAsked && (
+          <p role="status" className="notice notice--warn">
+            The photo ends too close to the card for {done.marginAsked} px of space around it, so the card is cropped at its
+            edges.
           </p>
         )}
 
@@ -230,7 +234,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
         </div>
       </div>
 
-      <div className="inspector" id={PANEL_ID}>
+      <div className="inspector">
         <InspectorSection index={1} title="Find the card">
           {state.status === "idle" && (
             <p className="inspector__empty">
@@ -301,6 +305,25 @@ export function CardPanel({ doc, state, enhance, onEnhance, onDetect, onCrop, on
                   {o.label}
                 </label>
               ))}
+              <fieldset className="styles__margin">
+                <legend>Space around the card</legend>
+                <div className="segmented">
+                  {CARD_MARGINS.map((m) => (
+                    <label key={m} className="segmented__option">
+                      <input
+                        type="radio"
+                        name={`margin-${doc.id}`}
+                        value={m}
+                        checked={margin === m}
+                        disabled={working || done.enhancing}
+                        onChange={() => onMargin(m)}
+                      />
+                      {m === 0 ? "None" : `${m} px`}
+                    </label>
+                  ))}
+                </div>
+                <p className="muted styles__hint">Keeps this much of the photo beyond each edge of the card.</p>
+              </fieldset>
               <p className="muted styles__hint">
                 Touch-ups only adjust the pixels already in the photo. They never add or redraw content, and compare against
                 the crop-only view before relying on them.

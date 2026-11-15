@@ -4,7 +4,7 @@ import { hasCardEnhancement, NO_CARD_ENHANCEMENT } from "../../lib/image-process
 import { validateQuad } from "../../lib/image-processing/geometry";
 import { addQuarterTurn } from "../../lib/image-processing/rotate";
 import type { SourceDocument } from "../../types/document";
-import type { CardDetection, CardEnhanceOptions, CardQualityIssue, Quad, QuarterTurn, RasterImage } from "../../types/repair";
+import type { CardDetection, CardEnhanceOptions, CardMargin, CardQualityIssue, Quad, QuarterTurn, RasterImage } from "../../types/repair";
 
 export interface CardView {
   /** Current output: the crop with the selected touch-ups, or the plain crop when none are selected. */
@@ -19,6 +19,10 @@ export interface CardView {
   detection: CardDetection | null;
   /** Clockwise turn applied to the crop. */
   rotation: QuarterTurn;
+  /** Photo kept around the card, in pixels; 0 when the photo ended too close to the card for the margin asked. */
+  margin: CardMargin;
+  /** The margin that was asked for, so a smaller one can be explained. */
+  marginAsked: CardMargin;
   /** Touch-ups applied to `url`. */
   enhance: CardEnhanceOptions;
   /** Problems enhancement cannot fix (measured on the crop). */
@@ -44,6 +48,10 @@ export interface CardCropApi {
   stateOf: (id: string) => CardState;
   /** Touch-ups chosen for a card (all off by default). */
   enhanceOf: (id: string) => CardEnhanceOptions;
+  /** Photo to keep around a card, in pixels (none by default). */
+  marginOf: (id: string) => CardMargin;
+  /** Choose the margin; if the card is already cropped, it is cropped again with the same corners. */
+  setMargin: (doc: SourceDocument, margin: CardMargin) => Promise<void>;
   /** Find the card automatically. A confident detection is cropped at once; others go to review. */
   detect: (doc: SourceDocument) => Promise<void>;
   /** Crop with user-confirmed corners (source-photo pixels). */
@@ -72,6 +80,9 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
   const engine = useMemo(() => getEngine(), []);
   const [states, setStates] = useState<Record<string, CardState>>({});
   const [enhances, setEnhances] = useState<Record<string, CardEnhanceOptions>>({});
+  const [margins, setMargins] = useState<Record<string, CardMargin>>({});
+  const marginsRef = useRef(margins);
+  marginsRef.current = margins;
   const statesRef = useRef(states);
   const enhancesRef = useRef(enhances);
   statesRef.current = states;
@@ -107,6 +118,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
     };
     setStates(keep);
     setEnhances(keep);
+    setMargins(keep);
   }, [documents, release]);
 
   useEffect(() => {
@@ -150,7 +162,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
     async (
       id: string,
       job: Job,
-      base: Pick<CardView, "corners" | "detection" | "rotation" | "quality">,
+      base: Pick<CardView, "corners" | "detection" | "rotation" | "quality" | "margin" | "marginAsked">,
       options: CardEnhanceOptions,
     ) => {
       const crop = crops.current.get(id);
@@ -182,7 +194,8 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
     async (doc: SourceDocument, corners: Quad, detection: CardDetection | null, job: Job) => {
       job.set({ status: "working", step: "cropping" });
       const rotation = rotations.current.get(doc.id) ?? 0;
-      const cropped = await engine.cropCard(doc.file, corners, rotation);
+      const marginAsked = marginsRef.current[doc.id] ?? 0;
+      const cropped = await engine.cropCard(doc.file, corners, rotation, marginAsked);
       if (!cropped.ok) return job.set({ status: "error", message: cropped.error.message });
       if (!job.current()) return;
 
@@ -192,7 +205,7 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       await publish(
         doc.id,
         job,
-        { corners, detection, rotation, quality: cropped.value.quality },
+        { corners, detection, rotation, quality: cropped.value.quality, margin: cropped.value.margin, marginAsked },
         enhancesRef.current[doc.id] ?? NO_CARD_ENHANCEMENT,
       );
     },
@@ -246,10 +259,22 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
       setEnhances(enhancesRef.current);
       const s = statesRef.current[doc.id];
       if (s?.status !== "done") return; // applied when the card is cropped
-      const { corners, detection, rotation, quality } = s.view;
-      await publish(doc.id, begin(doc.id), { corners, detection, rotation, quality }, options);
+      const { corners, detection, rotation, quality, margin, marginAsked } = s.view;
+      await publish(doc.id, begin(doc.id), { corners, detection, rotation, quality, margin, marginAsked }, options);
     },
     [begin, publish],
+  );
+
+  const setMargin = useCallback(
+    async (doc: SourceDocument, margin: CardMargin) => {
+      marginsRef.current = { ...marginsRef.current, [doc.id]: margin };
+      setMargins(marginsRef.current);
+      const s = statesRef.current[doc.id];
+      if (s?.status !== "done") return; // used when the card is cropped
+      // The margin is photo around the card, so the card is cropped again from the photo.
+      await cropWith(doc, s.view.corners, s.view.detection, begin(doc.id));
+    },
+    [begin, cropWith],
   );
 
   const rotate = useCallback(
@@ -290,7 +315,8 @@ export function useCardCrop(documents: SourceDocument[]): CardCropApi {
 
   const stateOf = useCallback((id: string) => states[id] ?? IDLE, [states]);
   const enhanceOf = useCallback((id: string) => enhances[id] ?? NO_CARD_ENHANCEMENT, [enhances]);
-  return { stateOf, enhanceOf, detect, crop, setEnhance, rotate, adjust, cancelReview, reset };
+  const marginOf = useCallback((id: string): CardMargin => margins[id] ?? 0, [margins]);
+  return { stateOf, enhanceOf, marginOf, setMargin, detect, crop, setEnhance, rotate, adjust, cancelReview, reset };
 }
 
 /** Starting corners for manual placement: a card-proportioned (1.586) box centred in the photo. */

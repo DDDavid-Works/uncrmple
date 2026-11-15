@@ -1,10 +1,12 @@
 import type { Assessment } from "../../types/assessment";
-import type {
-  CardDetection, CardEnhanceOptions, CardImageProcessor, CardQualityIssue, OutputStyle, Quad, QuarterTurn,
-  RasterImage, RepairResult, Result,
+import {
+  CARD_MARGINS,
+  type CardDetection, type CardEnhanceOptions, type CardImageProcessor, type CardMargin, type CardQualityIssue,
+  type OutputStyle, type Quad, type QuarterTurn, type RasterImage, type RepairResult, type Result,
 } from "../../types/repair";
 import { fileToRaster, rasterToPng } from "../browser/raster";
 import { assessPhoto } from "../image-processing/assessment/assess";
+import { expandCardQuad } from "../image-processing/card-geometry";
 import { detectCardCorners } from "../image-processing/card-pipeline";
 import { measureCardQuality } from "../image-processing/card-quality";
 import { createOpenCvProcessor } from "../image-processing/opencv/processor";
@@ -34,6 +36,8 @@ export interface CroppedCard {
   crop: RasterImage;
   png: Blob;
   quality: CardQualityIssue[];
+  /** Photo kept around the card, in pixels: as asked, or 0 when the photo ends too close to the card. */
+  margin: CardMargin;
 }
 
 /**
@@ -45,7 +49,7 @@ export interface Engine {
   assess(file: Blob): Promise<Result<Assessment>>;
   detectCard(file: Blob): Promise<Result<CardDetection>>;
   /** Crop the card inside `corners`, then turn it clockwise by `rotate`; touch-ups apply to the turned crop. */
-  cropCard(file: Blob, corners: Quad, rotate: QuarterTurn): Promise<Result<CroppedCard>>;
+  cropCard(file: Blob, corners: Quad, rotate: QuarterTurn, margin?: CardMargin): Promise<Result<CroppedCard>>;
   enhanceCard(crop: RasterImage, options: CardEnhanceOptions): Promise<Result<Blob>>;
 }
 
@@ -81,16 +85,21 @@ export function localEngine(processor: CardImageProcessor = createOpenCvProcesso
       return detectCardCorners(processor, raster.value);
     },
 
-    async cropCard(file, corners, rotate) {
+    async cropCard(file, corners, rotate, margin = 0) {
+      if (!(CARD_MARGINS as readonly number[]).includes(margin)) {
+        return { ok: false, error: { code: "invalid-input", message: "Unknown margin around the card." } };
+      }
       if (!isQuarterTurn(rotate)) return { ok: false, error: { code: "invalid-input", message: "A card can only be rotated by 0, 90, 180 or 270 degrees." } };
       const raster = await fileToRaster(file);
       if (!raster.ok) return raster;
-      const warped = await processor.correctPerspective(raster.value, corners);
+      // Keep some photo around the card when asked and the photo reaches that far; never pad it.
+      const wider = margin > 0 ? expandCardQuad(corners, margin, raster.value.width, raster.value.height) : null;
+      const warped = await processor.correctPerspective(raster.value, wider ?? corners);
       if (!warped.ok) return warped;
       const crop = rotateQuarter(warped.value, rotate);
       const png = await rasterToPng(crop);
       if (!png.ok) return png;
-      return { ok: true, value: { crop, png: png.value, quality: measureCardQuality(crop) } };
+      return { ok: true, value: { crop, png: png.value, quality: measureCardQuality(crop), margin: wider ? margin : 0 } };
     },
 
     async enhanceCard(crop, options) {

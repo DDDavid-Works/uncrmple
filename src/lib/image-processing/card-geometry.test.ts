@@ -1,6 +1,6 @@
 import type { Point, Quad } from "../../types/repair";
 import {
-  estimateAspectRatio, perspectiveRatio, reduceToQuad, refineQuadByLines, scoreCard, shapeScore,
+  estimateAspectRatio, expandCardQuad, perspectiveRatio, reduceToQuad, refineQuadByLines, scoreCard, shapeScore,
 } from "./card-geometry";
 import { orderCorners } from "./geometry";
 
@@ -98,5 +98,39 @@ describe("reduceToQuad", () => {
 
   it("returns null for too few vertices", () => {
     expect(reduceToQuad([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }])).toBeNull();
+  });
+});
+
+describe("expandCardQuad", () => {
+  const card: Quad = [{ x: 100, y: 100 }, { x: 420, y: 100 }, { x: 420, y: 300 }, { x: 100, y: 300 }];
+
+  it("returns the same corners for no margin", () => {
+    expect(expandCardQuad(card, 0, 600, 400)).toBe(card);
+  });
+
+  it("pushes each side of a straight-on card out by the margin", () => {
+    const out = expandCardQuad(card, 10, 600, 400)!;
+    const expected = [[90, 90], [430, 90], [430, 310], [90, 310]];
+    out.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(expected[i]![0]!, 0);
+      expect(p.y).toBeCloseTo(expected[i]![1]!, 0);
+    });
+  });
+
+  it("follows the card's perspective: the far (shorter) side moves out less in the photo", () => {
+    // Top side shorter than the bottom: seen from below.
+    const tilted: Quad = [{ x: 200, y: 100 }, { x: 400, y: 100 }, { x: 460, y: 300 }, { x: 140, y: 300 }];
+    const out = expandCardQuad(tilted, 10, 600, 400)!;
+    const topMove = tilted[0].y - out[0].y;
+    const bottomMove = out[3].y - tilted[3].y;
+    expect(topMove).toBeGreaterThan(0);
+    expect(bottomMove).toBeGreaterThan(topMove);
+    expect(out.every((p) => p.x >= 0 && p.y >= 0 && p.x <= 600 && p.y <= 400)).toBe(true);
+  });
+
+  it("refuses a margin that would reach past the photo", () => {
+    const nearEdge: Quad = [{ x: 4, y: 100 }, { x: 420, y: 100 }, { x: 420, y: 300 }, { x: 4, y: 300 }];
+    expect(expandCardQuad(nearEdge, 10, 600, 400)).toBeNull();
+    expect(expandCardQuad(nearEdge, 3, 600, 400)).not.toBeNull();
   });
 });
