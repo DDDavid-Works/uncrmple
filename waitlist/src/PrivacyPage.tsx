@@ -1,3 +1,5 @@
+// The app serves the same policy from src/legal/PrivacyPolicy.tsx; src/legal/privacy.test.tsx (in the app)
+// fails if the two texts differ, so change both, and both PRIVACY_UPDATED dates, together.
 import { SiteFooter, SiteHeader } from "./components/SiteChrome";
 import { CONTACT_EMAIL, OPERATOR_COUNTRY, OPERATOR_NAME, PRIVACY_UPDATED, PRODUCT_NAME } from "./config";
 

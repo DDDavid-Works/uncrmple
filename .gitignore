@@ -7,3 +7,4 @@ test-photos
 .env
 .env.*
 !.env.example
+dist-server

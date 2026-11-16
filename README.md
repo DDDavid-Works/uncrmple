@@ -137,6 +137,7 @@ The posts sit inside `waitlist/` because Railway builds that folder on its own. 
 - Client-side processing only; no analytics on document content.
 - Anonymous usage counts (`src/lib/analytics/`): a fixed list of events such as "a PDF of 2–5 pages was exported" or "corners were set by hand", with every property a fixed word or a range. No file names, image data, sizes or text. The page posts them to `/e` on this site, which Caddy forwards to Umami Cloud without cookies; no third-party script is loaded. Adding an event means adding it to `events.ts` and to the privacy policy.
 - A Content-Security-Policy, sent as a header because a meta tag does not reach the worker, lets the page connect only to local `blob:` URLs and to this site (for `/e`). The image-processing worker gets a stricter policy with `blob:` only, so the code that holds the pixels cannot reach any server. OpenCV.js needs `'unsafe-eval'`; inline and third-party scripts stay blocked.
+- The app serves its own privacy policy at `/privacy/` (`src/legal/`), pre-rendered to static HTML at build time by `scripts/prerender.mjs`, so the policy stays online when the app takes over uncrmple.app from the waitlist. The waitlist site keeps its own copy until then; a test fails if the two texts or dates differ.
 - File types are checked from file contents, not just extensions.
 - `test-photos/` is git-ignored. Do not commit private documents or personal information.
 
