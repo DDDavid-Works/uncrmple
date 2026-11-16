@@ -236,7 +236,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, margin, onMargin, on
       </div>
 
       <div className="inspector">
-        <InspectorSection index={1} title="Find the card">
+        <InspectorSection title="Find the card">
           {state.status === "idle" && (
             <p className="inspector__empty">
               Choose “Find card” to detect the card automatically, or place its four corners yourself. The original photo is
@@ -291,7 +291,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, margin, onMargin, on
           </div>
         </InspectorSection>
 
-        <InspectorSection index={2} title="Touch-ups">
+        <InspectorSection title="Touch-ups">
           {done ? (
             <fieldset className="styles" aria-label="Optional enhancement">
               <legend>Optional, off by default</legend>
@@ -335,7 +335,7 @@ export function CardPanel({ doc, state, enhance, onEnhance, margin, onMargin, on
           )}
         </InspectorSection>
 
-        <InspectorSection index={3} title="Export">
+        <InspectorSection title="Export">
           {done && (
             <a className="btn btn--primary btn--block" href={done.url} download={`${baseName(doc.name)}-card.png`}
               onClick={() => track({ name: "image_download", data: { mode: "card" } })}>

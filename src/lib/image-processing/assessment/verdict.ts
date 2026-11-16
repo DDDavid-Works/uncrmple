@@ -34,18 +34,18 @@ export function summarise(findings: Finding[]): Pick<Assessment, "verdict" | "su
   if (poorHard.length >= 2 || poorHard.some((f) => f.confidence >= CONFIDENT)) {
     return {
       verdict: "poor",
-      summary: `Poor repair candidate: problems with ${list(poorHard.map((f) => DIMENSION_LABEL[f.dimension]))} cannot be fixed by repair. Retaking the photo, if you can, will give a much better result. You can still try a repair.`,
+      summary: `Problems with ${list(poorHard.map((f) => DIMENSION_LABEL[f.dimension]))} cannot be fixed by repair. Retaking the photo, if you can, will give a much better result. You can still try a repair.`,
     };
   }
   const limits = [...poorHard, ...softHard, ...poorFixable];
   if (limits.length > 0) {
     return {
       verdict: "limited",
-      summary: `Repair is possible, with limitations (${list(limits.map((f) => DIMENSION_LABEL[f.dimension]))}). Readability is not guaranteed; check the repaired text against the original.`,
+      summary: `Limited by ${list(limits.map((f) => DIMENSION_LABEL[f.dimension]))}. Readability is not guaranteed; check the repaired text against the original.`,
     };
   }
   return {
     verdict: "good",
-    summary: "Good repair candidate. This is an estimate; check the result against the original.",
+    summary: "No problems found. This is an estimate; check the result against the original.",
   };
 }

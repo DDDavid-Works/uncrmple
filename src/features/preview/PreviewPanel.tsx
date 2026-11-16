@@ -273,7 +273,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
       </div>
 
       <div className="inspector" id={PANEL_ID}>
-        <InspectorSection index={1} title="Photo check">
+        <InspectorSection title="Photo check">
           {assessment.status === "idle" ? (
             <p className="inspector__empty">The photo has not been checked yet.</p>
           ) : (
@@ -286,7 +286,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           )}
         </InspectorSection>
 
-        <InspectorSection index={2} title="Repair settings">
+        <InspectorSection title="Repair settings">
           <fieldset className="styles">
             <legend>Output style</legend>
             <div className="segmented">
@@ -311,21 +311,22 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           </fieldset>
         </InspectorSection>
 
-        {/* Floats at the bottom of the panel while a long photo check pushes it out of view, then
-            settles here under the settings. */}
-        <div className="inspector__dock">
+        {/* This photo's next step. Floats at the bottom of the panel (on phones, the screen) while it
+            is out of view, then settles here under the settings. Once repaired, the next step is the
+            download, so it takes the primary place and repairing again steps aside. */}
+        <div className={repair.status === "done" ? "inspector__dock inspector__dock--pair" : "inspector__dock"}>
           <button type="button" className={done ? "btn btn--block" : "btn btn--primary btn--block"} onClick={onRepair} disabled={running}>
             {done ? "Repair again" : "Repair"}
           </button>
-        </div>
-
-        <InspectorSection index={3} title="Export">
           {repair.status === "done" && (
             <a className="btn btn--primary btn--block" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}
               onClick={() => track({ name: "image_download", data: { mode: "page" } })}>
               Download image
             </a>
           )}
+        </div>
+
+        <InspectorSection title="Export">
           {exportAll ?? <p className="inspector__empty">Repair this photo to download it as an image or PDF.</p>}
         </InspectorSection>
       </div>

@@ -27,7 +27,7 @@ vi.mock("../lib/browser/raster", () => ({
 let urls = 0;
 const LIMITED: Assessment = {
   verdict: "limited",
-  summary: "Repair is possible, with limitations (sharpness).",
+  summary: "Limited by sharpness.",
   likeness: "document",
   pageDetected: true,
   findings: [
@@ -351,7 +351,7 @@ describe("photo assessment", () => {
     const user = await uploadOne();
     const panel = await screen.findByRole("region", { name: "Photo assessment" });
     expect(panel).toHaveTextContent("Repair possible, with limitations");
-    expect(panel).toHaveTextContent(/Repair is possible, with limitations \(sharpness\)/);
+    expect(panel).toHaveTextContent(/Limited by sharpness/);
     expect(screen.getByText(/Sharpness/)).toBeVisible();
     expect(screen.getByText("Lighting").closest("li")).toHaveTextContent("Not measured");
     // Rows that need attention are shown; their explanations open on request.
@@ -429,7 +429,7 @@ describe("photo assessment", () => {
         likeness: "not-document",
         verdict: "poor",
         pageDetected: false,
-        summary: "No document detected. This does not look like a photo of a paper page.",
+        summary: "This does not look like a photo of a paper page.",
       },
     });
     vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(400, 300, 255) });

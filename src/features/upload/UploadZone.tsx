@@ -15,7 +15,7 @@ function PrivacyBadge() {
       <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
         <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 6H6V4.5a2 2 0 1 1 4 0V7Z" />
       </svg>
-      Images stay in your browser. Nothing is uploaded, and reloading the page clears them.
+      Nothing is uploaded. Reloading the page clears your photos.
     </p>
   );
 }
@@ -92,9 +92,7 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
             <path d="M29 6v9h9" />
             <path d="M25 37V23m-6 6 6-6 6 6" />
           </svg>
-          <h2 className="upload__title">
-            <mark className="mark">Upload</mark> document photos
-          </h2>
+          <h2 className="upload__title">Upload document photos</h2>
           <p className="upload__text">
             {touch
               ? "Choose JPG, PNG, or WebP photos from your device, or take a new one."
@@ -124,7 +122,7 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
       {compact && !touch && !busy && <span className="upload__drop-hint">or drop or paste images here</span>}
       {!compact && !busy && (
         <p className="upload__limits">
-          JPG, PNG, WebP · Up to {MAX_FILE_BYTES / 1024 / 1024} MB each · {MAX_FILES} photos at a time
+          Up to {MAX_FILES} photos at a time, {MAX_FILE_BYTES / 1024 / 1024} MB each
         </p>
       )}
       {compact && busy && <ReadingNotice />}

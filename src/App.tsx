@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SourceDocument } from "./types/document";
-import { EYEBROW, PRODUCT_NAME, TAGLINE, WORDMARK } from "./config";
+import { PRODUCT_NAME, WORDMARK } from "./config";
 import { AppFooter } from "./components/AppFooter";
 import { Logo } from "./components/Logo";
 import { ThemeSwitch } from "./components/ThemeSwitch";
@@ -18,7 +18,6 @@ import { RepairAllBar, RepairAllLock } from "./features/repair/RepairAllBar";
 import { useRepair } from "./features/repair/useRepair";
 import { UploadZone } from "./features/upload/UploadZone";
 import { useDocuments } from "./features/upload/useDocuments";
-import { MAX_FILES } from "./lib/files/limits";
 import { baseName } from "./lib/browser/download";
 import { PHONE_QUERY, useMediaQuery } from "./lib/browser/useMediaQuery";
 import { getEngine } from "./lib/engine/client";
@@ -185,7 +184,9 @@ export function App() {
             <span aria-hidden="true">{WORDMARK}</span>
             <span className="visually-hidden">{PRODUCT_NAME}</span>
           </h1>
-          <p className="brand__context">Document Photo Repair Workspace</p>
+        </div>
+        <div className="topbar__modes">
+          <ModeSelector mode={mode} onChange={chooseMode} disabled={locked} />
         </div>
         <div className="topbar__end">
           <p className="topbar__privacy">
@@ -197,24 +198,14 @@ export function App() {
         </div>
       </header>
 
-      <div className="titlebar">
-        <div>
-          <p className="eyebrow titlebar__eyebrow">{EYEBROW}</p>
-          <h2 className="titlebar__title">Your workspace</h2>
-          <p className="muted">{TAGLINE}</p>
+      {autoCard && mode === "card" && (
+        <div className="mode-note" role="status">
+          <p>This looks like an ID or card, so ID &amp; Card Crop is open.</p>
+          <button type="button" className="btn btn--small" onClick={() => chooseMode("document")}>
+            Switch back to Document Repair
+          </button>
         </div>
-        <div className="titlebar__modes">
-          <ModeSelector mode={mode} onChange={chooseMode} disabled={locked} />
-          {autoCard && mode === "card" && (
-            <div className="mode-note" role="status">
-              <p>This looks like an ID or card, so ID &amp; Card Crop is open.</p>
-              <button type="button" className="btn btn--small" onClick={() => chooseMode("document")}>
-                Switch back to Document Repair
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       <main ref={workbenchRef} className="workbench" data-view={documents.length > 0 ? view : undefined}>
         {phone && (documents.length > 0 || rejected.length > 0) && <div className="workbench__add">{addArea}</div>}
@@ -249,7 +240,7 @@ export function App() {
                 <path d="M14 3v4h4M9 12h6M9 15.5h6" strokeLinecap="round" />
               </svg>
               <p>Your photos will appear here.</p>
-              <p className="muted">Add up to {MAX_FILES} photos. Reorder before export.</p>
+              <p className="muted">Drag them into page order before you export.</p>
             </div>
           )}
 

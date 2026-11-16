@@ -200,7 +200,7 @@ export function withLikeness(
       likeness,
       verdict: "poor",
       summary:
-        "No document detected. This does not look like a photo of a paper page, so a document repair could make it look worse. You can mark the corners yourself, clean up the whole image without cropping, or leave it as it is.",
+        "This does not look like a photo of a paper page, so a document repair could make it look worse. You can mark the corners yourself, clean up the whole image without cropping, or leave it as it is.",
     };
   }
   // A "good" summary would contradict the doubt, so it is replaced; a "limited" or "poor" one names

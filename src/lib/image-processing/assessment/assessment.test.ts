@@ -221,7 +221,7 @@ describe("page likeness", () => {
     const a = await assess(scene(W, H), notFound);
     expect(a.likeness).toBe("not-document");
     expect(a.verdict).toBe("poor");
-    expect(a.summary).toMatch(/No document detected/);
+    expect(a.summary).toMatch(/does not look like a photo of a paper page/);
   });
 
   it("is not fooled by a spurious outline around a plain photo", async () => {
