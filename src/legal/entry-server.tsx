@@ -3,9 +3,10 @@
 import { StrictMode, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { PRODUCT_NAME } from "../config";
-import { PRIVACY_URL } from "../links";
+import { PRIVACY_URL, TERMS_URL } from "../links";
 import { LegalPage } from "./LegalPage";
 import { PrivacyPolicy } from "./PrivacyPolicy";
+import { TermsOfUse } from "./TermsOfUse";
 
 export interface StaticPage {
   /** Built HTML file under dist/, created by the matching entry in vite.config.ts. */
@@ -28,6 +29,18 @@ export const pages: StaticPage[] = [
       render(
         <LegalPage>
           <PrivacyPolicy />
+        </LegalPage>,
+      ),
+  },
+  {
+    file: "terms/index.html",
+    title: `Terms of use | ${PRODUCT_NAME}`,
+    description: `The rules for using ${PRODUCT_NAME}, what a repaired photo is and isn't, and what we are responsible for.`,
+    canonical: TERMS_URL,
+    render: () =>
+      render(
+        <LegalPage>
+          <TermsOfUse />
         </LegalPage>,
       ),
   },

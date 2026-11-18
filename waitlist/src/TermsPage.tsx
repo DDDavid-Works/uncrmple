@@ -1,3 +1,5 @@
+// The app serves the same terms from src/legal/TermsOfUse.tsx; src/legal/legal.test.tsx (in the app)
+// fails if the two texts differ, so change both, and both TERMS_UPDATED dates, together.
 import { SiteFooter, SiteHeader } from "./components/SiteChrome";
 import { CONTACT_EMAIL, OPERATOR_COUNTRY, OPERATOR_NAME, PRIVACY_PATH, PRODUCT_NAME, TERMS_UPDATED } from "./config";
 

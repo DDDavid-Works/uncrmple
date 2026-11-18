@@ -3,7 +3,7 @@ import { OPERATOR_COUNTRY, OPERATOR_NAME, PRIVACY_UPDATED, PRODUCT_NAME } from "
 
 // The privacy policy, served by the app at /privacy/ (scripts/prerender.mjs writes it as static HTML).
 // Until the waitlist site is retired it also keeps its own copy (waitlist/src/PrivacyPage.tsx), which
-// Railway builds on its own; src/legal/privacy.test.tsx fails if the two texts differ. Bump
+// Railway builds on its own; src/legal/legal.test.tsx fails if the two texts differ. Bump
 // PRIVACY_UPDATED in src/config.ts on any change.
 
 function Mail() {

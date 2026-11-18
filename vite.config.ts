@@ -32,7 +32,7 @@ export default defineConfig({
   ],
   build: {
     // The app, plus static pages that scripts/prerender.mjs fills from src/legal/entry-server.tsx.
-    rolldownOptions: { input: { main: "index.html", privacy: "privacy/index.html" } },
+    rolldownOptions: { input: { main: "index.html", privacy: "privacy/index.html", terms: "terms/index.html" } },
   },
   server: { port: 7200, strictPort: true },
   // The dev server is left without them: its hot reload needs inline scripts and its own connections.
