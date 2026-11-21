@@ -91,6 +91,8 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   names or loyalty IDs are blurred in the copy used for testing.
 - **Ground truth:** one hand-typed JSON file per receipt listing its printed lines and amounts, kept
   next to the photos (also not committed).
+  The format is defined and checked in `src/dev/receipt-eval/truth.ts`; see "Writing ground
+  truth" below.
 - **Harness:** `receipt-eval.html`, dev server only, like `card-eval.html`. It runs OCR on (a) the
   raw photo and (b) the photo after the current Document Repair, and scores both.
 - **Metrics:**
@@ -104,6 +106,35 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   per receipt on a mid-range phone.
 - **Output:** a results section in this file with the numbers and a decision: go, go with limits,
   or stop. If it stops, decide together; cloud OCR is not the automatic fallback.
+
+### Writing ground truth
+
+For each photo `test-photos/receipts/IMG_1234.jpg`, copy `src/dev/receipt-eval/truth-template.json`
+(a fictional receipt) to `test-photos/receipts/IMG_1234.truth.json` and replace its values with
+what the receipt prints. Type from the paper receipt if you still have it, otherwise from the photo
+zoomed in, never from an OCR result.
+
+- `photo`: the photo's file name. `shop`: the kind of shop, not its name (supermarket, convenience,
+  restaurant, pharmacy, fuel, other).
+- `conditions`: any of `faded`, `crumpled`, `folded`, `long`, `curled`, `shadow`, `glare`,
+  `angled`, `blurry`, `low-light`; empty list if none.
+- `lines`: every printed line, top to bottom, one entry each. Skip blank lines, rules (`-----`),
+  barcodes and logos.
+  - `kind`: `text` for lines without a price (shop name, address, TIN, date, footer); `item` for a
+    bought item; `summary` for subtotal, VAT, discount, cash, change and other priced lines;
+    `total` for the amount due (exactly one).
+  - `text`: the words as printed, keeping capitals and abbreviations. If an item name wraps onto a
+    second line, join both into one entry.
+  - `amount`: exactly as printed, as text: `"1,234.50"`, `"-20.00"`, `"(10.00)"`, `"P 95.00"`.
+    Required on `item`, `summary` and `total` lines.
+  - `qty` and `unitPrice`: only on item lines that clearly print them, as in `2 x 18.50`.
+  - `ignore`: `"unreadable"` if you cannot read the line either; `"private"` for card numbers,
+    names, phone numbers or loyalty IDs, with the text typed as `"[hidden]"`. Ignored lines are
+    left out of scoring.
+- `notes`: anything unusual (two columns, handwriting, a stamp over the text).
+
+The harness reports every mistake in a file at once (unknown kind, an amount that is not a number,
+two totals and so on), so a typo shows up the first time the file is loaded.
 
 ### Phase 2: receipt mode, repair only
 

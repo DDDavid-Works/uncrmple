@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "photo": "example-receipt.jpg",
+  "shop": "supermarket",
+  "currency": "PHP",
+  "conditions": ["faded", "crumpled"],
+  "lines": [
+    { "kind": "text", "text": "SAMPLE MART" },
+    { "kind": "text", "text": "123 EXAMPLE ST., QUEZON CITY" },
+    { "kind": "text", "text": "VAT REG TIN 000-000-000-00000" },
+    { "kind": "text", "text": "11/21/26 14:05 CASHIER 01" },
+    { "kind": "item", "text": "PANDESAL 10PCS", "amount": "25.00" },
+    { "kind": "item", "text": "SARDINES 155G", "qty": 2, "unitPrice": "18.50", "amount": "37.00" },
+    { "kind": "item", "text": "LAUNDRY DETERGENT POWDER 1KG", "amount": "189.00" },
+    { "kind": "summary", "text": "PROMO DISCOUNT", "amount": "(10.00)" },
+    { "kind": "total", "text": "TOTAL", "amount": "241.00" },
+    { "kind": "summary", "text": "CASH", "amount": "500.00" },
+    { "kind": "summary", "text": "CHANGE", "amount": "259.00" },
+    { "kind": "summary", "text": "VATABLE SALES", "amount": "215.18" },
+    { "kind": "summary", "text": "VAT 12%", "amount": "25.82" },
+    { "kind": "text", "text": "[hidden]", "ignore": "private" },
+    { "kind": "text", "text": "[unreadable]", "ignore": "unreadable" },
+    { "kind": "text", "text": "THANK YOU, COME AGAIN" }
+  ],
+  "notes": "Fictional example. Replace every value with what your receipt prints."
+}
