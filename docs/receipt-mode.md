@@ -96,8 +96,9 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   truth" below.
 - **Harness:** `receipt-eval.html` (`src/dev/receipt-eval.ts`), dev server only, like
   `card-eval.html`. Start the dev server and open `/receipt-eval.html`, pick the settings, press
-  Run. It runs OCR on the raw photo and on the Document Repair output (grayscale, black & white or
-  colour, as ticked), and scores each against the truth file (`src/dev/receipt-eval/score.ts`).
+  Run. It runs OCR on the raw photo, on the Receipt mode output (grayscale with the receipt curve,
+  as the app starts it) and on the Document Repair output (grayscale, black & white or colour), as
+  ticked, and scores each against the truth file (`src/dev/receipt-eval/score.ts`).
   - Settings: English data `best_int` or full; Tesseract page layout 4 (single column), 3
     (automatic) or 6 (single block).
   - Engine, worker and language data are served from `node_modules` on the dev server; the IndexedDB
@@ -114,6 +115,11 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   - Checked on one synthetic receipt rendered from the template (not a photo): every line and
     amount found on raw, grayscale and colour input; black & white misread two amounts. This only
     shows the harness works, not how OCR does on real receipts.
+  - After Receipt mode was added, checked on one drawn faded receipt photo (print 178 on paper
+    shading from 236 to 200, on a dark table, slightly turned): raw photo and Document Repair
+    grayscale read no lines; Receipt mode read 11 of 14 lines, 7 of 9 amounts and the total, missing
+    the faintest lines at the bottom. A drawing, not a photo: it shows the lift can matter for OCR,
+    not how much.
 - **Metrics:**
   1. Line recall: share of printed lines found.
   2. Amount accuracy: share of amounts exactly right (every digit) and in the right row.

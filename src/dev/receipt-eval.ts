@@ -3,7 +3,8 @@
  * the production build.
  *
  * Reads every photo in test-photos/receipts/ and its `<name>.truth.json`, runs Tesseract.js on the
- * raw photo and on the Document Repair output, and scores the text against the truth. Photos are
+ * raw photo, the Receipt mode output and the Document Repair output, and scores the text against
+ * the truth. Photos are
  * read from the local dev server; OCR runs in a Web Worker with its engine and language data served
  * from node_modules on the same server, so nothing is fetched from elsewhere or uploaded. Results
  * are also exposed on window.__receiptEval.
@@ -12,7 +13,7 @@ import { createWorker, OEM, PSM, type Worker } from "tesseract.js";
 import { fileToRaster } from "../lib/browser/raster";
 import { repair } from "../lib/image-processing/pipeline";
 import { createOpenCvProcessor } from "../lib/image-processing/opencv/processor";
-import type { OutputStyle, RasterImage } from "../types/repair";
+import type { EnhanceOptions, OutputStyle, RasterImage } from "../types/repair";
 import { scoreReceipt, summarize, type OcrLine, type ReceiptScore } from "./receipt-eval/score";
 import { parseTruth, type ReceiptTruth } from "./receipt-eval/truth";
 
@@ -23,10 +24,14 @@ const photos = import.meta.glob("/test-photos/receipts/*.{jpg,jpeg,png,webp,JPG,
 }) as Record<string, string>;
 const truthFiles = import.meta.glob("/test-photos/receipts/*.truth.json", { import: "default", eager: true }) as Record<string, unknown>;
 
-/** What is fed to OCR: the photo as taken, or the Document Repair output in one style. */
-type Input = "raw" | OutputStyle;
+/**
+ * What is fed to OCR: the photo as taken, the Document Repair output in one style, or the Receipt
+ * mode output ("receipt": grayscale with the receipt curve, as the app starts it).
+ */
+type Input = "raw" | OutputStyle | "receipt";
 const INPUTS: { value: Input; label: string; checked: boolean }[] = [
   { value: "raw", label: "Raw photo", checked: true },
+  { value: "receipt", label: "Receipt mode (grayscale)", checked: true },
   { value: "grayscale", label: "Repaired, grayscale", checked: true },
   { value: "blackwhite", label: "Repaired, black & white", checked: false },
   { value: "color", label: "Repaired, colour", checked: false },
@@ -301,7 +306,8 @@ async function run() {
         status.textContent = `Receipt ${i + 1} of ${entries.length}: ${name} · ${input}`;
         let image = photo;
         if (input !== "raw") {
-          const repaired = await repair(processor, photo, { enhance: { style: input } });
+          const enhance: EnhanceOptions = input === "receipt" ? { style: "grayscale", profile: "receipt" } : { style: input };
+          const repaired = await repair(processor, photo, { enhance });
           if (!repaired.ok) {
             const r: Run = { photo: name, input, ok: false, error: `repair failed: ${repaired.error.code}: ${repaired.error.message}` };
             runs.push(r);
