@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { isCoarsePointer } from "../../lib/browser/pointer";
 import { MAX_FILE_BYTES, MAX_FILES } from "../../lib/files/limits";
 
@@ -7,6 +7,8 @@ interface Props {
   /** Photos still being read; a loader shows while any are. */
   busy: boolean;
   onFiles: (files: File[]) => void;
+  /** Shown under the main button on the full-size zone, e.g. the first-visit steps. */
+  children?: ReactNode;
 }
 
 function PrivacyBadge() {
@@ -39,7 +41,7 @@ function isTextEntry(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 }
 
-export function UploadZone({ compact, busy, onFiles }: Props) {
+export function UploadZone({ compact, busy, onFiles, children }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   // On phones the picker also offers the camera; say so without forcing capture.
@@ -95,8 +97,8 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
           <h2 className="upload__title">Upload document photos</h2>
           <p className="upload__text">
             {touch
-              ? "Choose JPG, PNG, or WebP photos from your device, or take a new one."
-              : "Drag and drop JPG, PNG, or WebP images here, paste with Ctrl+V, or choose files."}
+              ? "Choose JPG, PNG, or WebP photos, or take a new one."
+              : "Drop, paste (Ctrl+V), or choose JPG, PNG, or WebP photos."}
           </p>
         </>
       )}
@@ -120,13 +122,14 @@ export function UploadZone({ compact, busy, onFiles }: Props) {
         }}
       />
       {compact && !touch && !busy && <span className="upload__drop-hint">or drop or paste images here</span>}
+      {!compact && !busy && children}
+      {compact && busy && <ReadingNotice />}
+      {!compact && !busy && <PrivacyBadge />}
       {!compact && !busy && (
         <p className="upload__limits">
           Up to {MAX_FILES} photos at a time, {MAX_FILE_BYTES / 1024 / 1024} MB each
         </p>
       )}
-      {compact && busy && <ReadingNotice />}
-      {!compact && !busy && <PrivacyBadge />}
       {!compact && !busy && (
         <p className="upload__note">
           Only add documents you're allowed to use. Downloads are saved without a password, so keep copies of IDs

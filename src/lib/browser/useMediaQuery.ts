@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 
 /** Phone layout: keep in step with the `max-width: 759px` rules in styles.css. */
 export const PHONE_QUERY = "(max-width: 759px)";
+/** Wide layout, where the right-hand panel sits beside the photo and can be hidden: keep in step with
+ *  the `min-width: 1100px` rules in styles.css. */
+export const WIDE_QUERY = "(min-width: 1100px)";
 
 const query = (q: string) => (typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia(q) : null);
 

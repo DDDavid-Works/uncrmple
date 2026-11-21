@@ -11,6 +11,8 @@ import { track } from "../../lib/analytics/track";
 import { baseName } from "../../lib/browser/download";
 import { fullFrameQuad } from "../../lib/image-processing/geometry";
 import { bentPage, DEWARP_SKIP_REASONS, lowCoverage, weakEdges, wholeImage } from "../repair/review";
+import { Hint } from "../onboarding/Hint";
+import { useTip } from "../onboarding/tips";
 import { CornerEditor, defaultCorners } from "./CornerEditor";
 import { InspectorSection } from "./Inspector";
 import { ViewerStage, type PageNav } from "./ViewerStage";
@@ -33,10 +35,13 @@ interface Props {
   onRotate: (by: 90 | -90) => void;
   onApplyCorners: (corners: Quad) => void;
   onRemove: () => void;
-  /** Export of every finished page, shown under this page's own download; null until one is done. */
-  exportAll: ReactNode;
+  /** Export of every finished page, shown under this page's own download; null until one is done,
+   *  undefined when it is shown elsewhere (under the page list on wide screens). */
+  exportAll?: ReactNode;
   /** Previous/next page arrows; null with a single page. */
   nav: PageNav | null;
+  /** Wide screens, where the right-hand panel sits beside the photo and can be hidden. */
+  panelHideable: boolean;
   /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
   panelOpen: boolean;
   onTogglePanel: () => void;
@@ -51,9 +56,15 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, panelOpen, onTogglePanel }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, panelHideable, panelOpen, onTogglePanel }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
+  // First repair ever on this device: point out how to see what changed.
+  const [compareTip, dismissCompareTip] = useTip("compare-result");
+  const choose = (v: typeof view) => {
+    setView(v);
+    if (v !== "repaired") dismissCompareTip();
+  };
   // While a new style is being applied, keep showing the last result.
   const done =
     repair.status === "done" ? repair.result : repair.status === "running" ? (repair.previous ?? null) : null;
@@ -65,6 +76,8 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
   const showRepaired = view === "repaired" && done;
   const running = repair.status === "running";
   const cleanWholeImage = () => onApplyCorners(fullFrameQuad(doc.width, doc.height));
+  const downloadName = `${baseName(doc.name)}-repaired.png`;
+  const trackDownload = () => track({ name: "image_download", data: { mode: "page" } });
   const adjustCorners = () => setEditing(true);
 
   return (
@@ -74,16 +87,16 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
         <div className="viewer__bar">
           {done ? (
             <div className="toggle" role="group" aria-label="Choose version">
-              <button type="button" className="btn btn--small" aria-pressed={view === "original"} onClick={() => setView("original")}>
+              <button type="button" className="btn btn--small" aria-pressed={view === "original"} onClick={() => choose("original")}>
                 Original
               </button>
-              <button type="button" className="btn btn--small" aria-pressed={view === "repaired"} onClick={() => setView("repaired")}>
+              <button type="button" className="btn btn--small" aria-pressed={view === "repaired"} onClick={() => choose("repaired")}>
                 Repaired
               </button>
-              <button type="button" className="btn btn--small" aria-pressed={view === "cleanup"} onClick={() => setView("cleanup")}>
+              <button type="button" className="btn btn--small" aria-pressed={view === "cleanup"} onClick={() => choose("cleanup")}>
                 Compare cleanup
               </button>
-              <button type="button" className="btn btn--small" aria-pressed={view === "both"} onClick={() => setView("both")}>
+              <button type="button" className="btn btn--small" aria-pressed={view === "both"} onClick={() => choose("both")}>
                 Side by side
               </button>
             </div>
@@ -93,6 +106,12 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           <div className="viewer__where">
             {nav && <span className="viewer__position">Photo {nav.index + 1} of {nav.total}</span>}
             <h2 className="viewer__name">{doc.name}</h2>
+            {/* With the panel hidden, this page's download stays in reach beside its name. */}
+            {panelHideable && !panelOpen && repair.status === "done" && (
+              <a className="btn btn--primary btn--small viewer__download" href={repair.result.url} download={downloadName} onClick={trackDownload}>
+                Download image
+              </a>
+            )}
           </div>
         </div>
 
@@ -109,6 +128,11 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           </div>
         )}
 
+        {compareTip && done && !running && !editing && (
+          <Hint onDismiss={dismissCompareTip}>
+            Repaired. Choose <strong>Original</strong> or <strong>Side by side</strong> to see what changed.
+          </Hint>
+        )}
         {running && <BusyNotice task={repair.previous ? "Applying style…" : "Repairing the page…"} />}
         {repair.status === "error" && (
           <p role="alert" className="notice notice--error">
@@ -319,16 +343,17 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
             {done ? "Repair again" : "Repair"}
           </button>
           {repair.status === "done" && (
-            <a className="btn btn--primary btn--block" href={repair.result.url} download={`${baseName(doc.name)}-repaired.png`}
-              onClick={() => track({ name: "image_download", data: { mode: "page" } })}>
+            <a className="btn btn--primary btn--block" href={repair.result.url} download={downloadName} onClick={trackDownload}>
               Download image
             </a>
           )}
         </div>
 
-        <InspectorSection title="Export">
-          {exportAll ?? <p className="inspector__empty">Repair this photo to download it as an image or PDF.</p>}
-        </InspectorSection>
+        {exportAll !== undefined && (
+          <InspectorSection title="Export">
+            {exportAll ?? <p className="inspector__empty">Repair this photo to download it as an image or PDF.</p>}
+          </InspectorSection>
+        )}
       </div>
     </section>
   );

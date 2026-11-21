@@ -586,8 +586,10 @@ describe("rotation", () => {
       await screen.findByText(shown);
     }
     await user.click(screen.getByRole("button", { name: "Rotate right (clockwise)" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/320×240px/));
-    expect(screen.getByRole("status")).not.toHaveTextContent(/turned/);
+    // The repaired-page line in Details (the first-repair tip is a status message too).
+    const repairedLine = () => screen.getAllByRole("status").find((s) => s.textContent?.startsWith("Repaired ·"));
+    await waitFor(() => expect(repairedLine()).toHaveTextContent(/320×240px/));
+    expect(repairedLine()).not.toHaveTextContent(/turned/);
   });
 
   it("turns anticlockwise too, so a sideways page is one tap from upright", async () => {
@@ -807,6 +809,44 @@ describe("export", () => {
     const bytes = new Uint8Array(await (blob as Blob).arrayBuffer());
     expect(new TextDecoder().decode(bytes)).toMatch(/01-(page|other)-repaired\.png/);
     expect(fetch).toHaveBeenCalledWith(repaired);
+  });
+
+  it("keeps the export in reach on wide screens while the details panel is hidden", async () => {
+    // Wide layout: only the min-width query matches.
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: q === "(min-width: 1100px)", media: q, addEventListener: () => {}, removeEventListener: () => {},
+    }));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      new File([jpegHeader(400, 300)], "page.jpg", { type: "image/jpeg" }),
+      new File([jpegHeader(400, 300)], "other.jpg", { type: "image/jpeg" }),
+    ]);
+    await user.click(await screen.findByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+
+    // The export of all pages sits under the page list, not in the panel: the PDF in sight, paper
+    // size and the ZIP folded away.
+    const sidebar = screen.getByRole("complementary", { name: "Your photos" });
+    expect(within(sidebar).getByRole("button", { name: "Download PDF (1 page)" })).toBeInTheDocument();
+    expect(within(sidebar).getByText("1 photo not repaired yet is left out.")).toBeInTheDocument();
+    await user.click(within(sidebar).getByText("Paper size and ZIP"));
+    expect(within(sidebar).getByRole("combobox", { name: "PDF paper size" })).toBeVisible();
+    await user.click(within(sidebar).getByRole("button", { name: "Download ZIP (1 image)" }));
+    await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(downloadBlob).mock.calls[0]![1]).toBe("repaired-images.zip");
+    expect(screen.queryByRole("heading", { name: "Export" })).toBeNull();
+
+    // The panel starts hidden: this page's download is beside its name, once.
+    const viewer = screen.getByRole("region", { name: "Photo preview" }).querySelector(".viewer") as HTMLElement;
+    const link = within(viewer).getByRole("link", { name: "Download image" });
+    expect(link).toHaveAttribute("download", "page-repaired.png");
+    expect(screen.getAllByRole("link", { name: "Download image" })).toHaveLength(2); // the panel's own copy is CSS-hidden
+
+    // With the panel open, the panel's download is the only one.
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+    expect(within(viewer).queryByRole("link", { name: "Download image" })).toBeNull();
+    expect(screen.getAllByRole("link", { name: "Download image" })).toHaveLength(1);
   });
 });
 

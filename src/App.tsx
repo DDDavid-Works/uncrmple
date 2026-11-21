@@ -7,6 +7,8 @@ import { ThemeSwitch } from "./components/ThemeSwitch";
 import { CardPanel } from "./features/card/CardPanel";
 import { defaultCardCorners, useCardCrop } from "./features/card/useCardCrop";
 import { ModeSelector } from "./features/mode/ModeSelector";
+import { createSamplePhoto } from "./features/onboarding/sample-photo";
+import { StartSteps } from "./features/onboarding/StartSteps";
 import type { ProcessingMode } from "./features/mode/ModeSelector";
 import { useAssessment } from "./features/assess/useAssessment";
 import { ExportBar } from "./features/export/ExportBar";
@@ -19,7 +21,7 @@ import { useRepair } from "./features/repair/useRepair";
 import { UploadZone } from "./features/upload/UploadZone";
 import { useDocuments } from "./features/upload/useDocuments";
 import { baseName } from "./lib/browser/download";
-import { PHONE_QUERY, useMediaQuery } from "./lib/browser/useMediaQuery";
+import { PHONE_QUERY, useMediaQuery, WIDE_QUERY } from "./lib/browser/useMediaQuery";
 import { getEngine } from "./lib/engine/client";
 import { looksLikeIdCard } from "./lib/image-processing/card-sniff";
 
@@ -88,6 +90,20 @@ export function App() {
   useEffect(() => {
     if (documents.length === 0) setAutoCard(false);
   }, [documents.length]);
+  // The sample photo for first-time visitors without a document of their own.
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const trySample = async () => {
+    setSampleBusy(true);
+    setSampleError(null);
+    try {
+      await addPhotos([await createSamplePhoto()]);
+    } catch {
+      setSampleError("The sample photo could not be created in this browser. You can still add a photo of your own.");
+    } finally {
+      setSampleBusy(false);
+    }
+  };
   const workbenchRef = useRef<HTMLElement>(null);
   // A view switched to after scrolling down the other one starts at its top.
   useEffect(() => {
@@ -100,6 +116,9 @@ export function App() {
   };
   // On phones, adding photos sits above the Pages / Page switch so it is there in either view.
   const phone = useMediaQuery(PHONE_QUERY);
+  // Wide screens: the right-hand panel can be hidden (and starts hidden), so in Document Repair the
+  // export of all pages lives under the page list instead, where it is always in sight.
+  const wide = useMediaQuery(WIDE_QUERY);
 
   // Keep a valid selection: first doc when none is chosen or the chosen one was removed.
   useEffect(() => {
@@ -136,7 +155,8 @@ export function App() {
   const locked = batch.status === "running";
   const doneWord = mode === "card" ? "cropped" : "repaired";
 
-  // Export of every finished page; the selected page's own download sits above it in the panel.
+  // Export of every finished page; the selected page's own download sits above it in the panel
+  // (or, on wide screens in Document Repair, under the page list; see `exportInSidebar`).
   const exportAll =
     exportPages.length > 0 ? (
       <ExportBar
@@ -148,6 +168,7 @@ export function App() {
         locked={locked}
       />
     ) : null;
+  const exportInSidebar = wide && mode === "document";
 
   // Adding photos and the files that could not be added.
   const addArea = (
@@ -247,6 +268,9 @@ export function App() {
           {mode === "document" && documents.length > 0 && (
             <div className="sidebar__dock">
               <RepairAllBar batch={batch} pending={unrepaired} total={documents.length} onStart={() => void repairAll(documents)} onStop={stopAll} />
+              {exportInSidebar && exportPages.length > 0 && (
+                <ExportBar pages={exportPages} total={documents.length} filename="repaired-document.pdf" zipFilename="repaired-images.zip" locked={locked} variant="dock" />
+              )}
             </div>
           )}
         </aside>
@@ -254,7 +278,14 @@ export function App() {
         {documents.length === 0 ? (
           <div className={mode === "card" ? "stage stage--with-panel" : "stage"}>
             <div className="stage__main">
-              <UploadZone compact={false} busy={pending > 0} onFiles={(f) => void addPhotos(f)} />
+              <UploadZone compact={false} busy={pending > 0} onFiles={(f) => void addPhotos(f)}>
+                <StartSteps
+                  mode={mode}
+                  onSample={mode === "document" ? () => void trySample() : undefined}
+                  sampleBusy={sampleBusy}
+                  sampleError={mode === "document" ? sampleError : null}
+                />
+              </UploadZone>
             </div>
             {mode === "card" && <EmptyCardInspector />}
           </div>
@@ -294,8 +325,9 @@ export function App() {
                   onRotate={(by) => rotate(selected, by)}
                   onApplyCorners={(c) => void applyCorners(selected, c)}
                   onRemove={() => remove(selected.id)}
-                  exportAll={exportAll}
+                  exportAll={exportInSidebar ? undefined : exportAll}
                   nav={nav}
+                  panelHideable={wide}
                   panelOpen={panelOpen}
                   onTogglePanel={() => setPanelOpen((o) => !o)}
                 />

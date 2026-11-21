@@ -185,6 +185,9 @@ a { color: var(--link); }
   padding: var(--space-3) var(--space-4); background: var(--surface); box-shadow: 0 -8px 16px -12px rgb(37 44 40 / 35%);
 }
 .sidebar__dock:empty { display: none; }
+/* On wide screens in Document Repair, the export of all pages sits here under Repair all. */
+.sidebar__dock { display: grid; gap: var(--space-3); }
+.viewer__download { white-space: nowrap; }
 
 /* The working area before any photo: the drop zone beside the empty steps panel. */
 .stage { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
@@ -232,6 +235,36 @@ a { color: var(--link); }
 .upload--compact .upload__drop-hint { color: var(--muted); font-size: var(--text-xs); text-align: center; }
 .upload__busy { margin: 0; text-align: left; align-items: center; }
 .upload__busy .busy__spinner { margin-top: 0; }
+
+/* First visit: the workflow at a glance and a sample photo to try it with. */
+.start { display: grid; justify-items: center; gap: var(--space-3); width: 100%; max-width: 40rem; }
+.start__steps {
+  list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center;
+  gap: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--text);
+}
+.start__step { display: inline-flex; align-items: center; gap: var(--space-2); }
+.start__num {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface); border: var(--line); font-size: var(--text-xs); font-weight: 600; color: var(--muted);
+}
+.start__sample { margin: 0; font-size: var(--text-sm); color: var(--muted); }
+.start__error { margin: 0; }
+/* A secondary action in running text: the text colour, so orange stays with the main action. */
+.link-button {
+  font: inherit; padding: 2px 0; border: 0; background: none; color: var(--text); font-weight: 500; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px;
+}
+.link-button:hover:not(:disabled) { text-decoration-color: currentColor; }
+.link-button:disabled { color: var(--muted); cursor: progress; text-decoration: none; }
+
+/* One-time tips (features/onboarding/Hint). */
+.hint {
+  display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); padding: 6px 6px 6px 12px;
+  border-radius: var(--radius); background: var(--sage); color: var(--text); font-size: var(--text-sm);
+}
+.hint__icon { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.hint__text { margin: 0; flex: 1; }
+.hint__close { flex: none; color: inherit; }
 .privacy-badge {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
   background: var(--ok-bg); color: var(--ok); font-size: var(--text-sm); font-weight: 500;
@@ -571,6 +604,11 @@ a { color: var(--link); }
 .export__actions { display: grid; gap: var(--space-2); }
 .export__skipped { font-size: var(--text-xs); }
 .export--single { border-top: 0; padding-top: 0; }
+/* Compact export under the page list (wide screens, Document Repair). */
+.export--dock { gap: var(--space-2); }
+.export__more summary { font-size: var(--text-xs); color: var(--muted); cursor: pointer; width: fit-content; }
+.export__more summary:hover { color: var(--text); }
+.export__more-body { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
 .export__pdf { display: flex; gap: var(--space-2); align-items: stretch; }
 .export__pdf .btn { flex: 0 0 auto; }
 .export__pdf select {

@@ -27,11 +27,13 @@ interface Props {
   zipFilename?: string;
   /** Pages are still being repaired: hold the export until they are done. */
   locked?: boolean;
+  /** "dock": the compact form under the page list, where height is short. */
+  variant?: "panel" | "dock";
 }
 
 /** Combine every repaired page into one PDF, or every image into one ZIP, in page order. */
 export function ExportBar({
-  pages, total, doneWord = "repaired", filename = "repaired-document.pdf", zipFilename = "repaired-images.zip", locked = false,
+  pages, total, doneWord = "repaired", filename = "repaired-document.pdf", zipFilename = "repaired-images.zip", locked = false, variant = "panel",
 }: Props) {
   const [paper, setPaper] = useState<PaperSize>("fit");
   const [making, setMaking] = useState<"pdf" | "zip" | null>(null);
@@ -105,6 +107,38 @@ export function ExportBar({
       {error}
     </p>
   );
+
+  // Under the page list: the PDF is the one thing in sight; paper size and the ZIP fold away, so the
+  // dock stays short and the page list keeps its room.
+  if (variant === "dock") {
+    return (
+      <section className="export export--dock" aria-label="Export">
+        <button type="button" className="btn btn--block" onClick={() => void exportPdf()} disabled={busy || locked}>
+          {making === "pdf" ? "Creating PDF…" : total <= 1 ? "Download PDF" : `Download PDF (${count(pages.length, "page")})`}
+        </button>
+        <details className="export__more">
+          <summary>{total <= 1 ? "Paper size" : "Paper size and ZIP"}</summary>
+          <div className="export__more-body">
+            <label className="export__field">
+              PDF paper size
+              {paperSelect()}
+            </label>
+            {total > 1 && (
+              <button type="button" className="btn btn--block" onClick={() => void exportZip()} disabled={busy || locked}>
+                {making === "zip" ? "Creating ZIP…" : `Download ZIP (${count(pages.length, "image")})`}
+              </button>
+            )}
+          </div>
+        </details>
+        {!locked && skipped > 0 && (
+          <p className="muted export__skipped">
+            {skipped} {skipped === 1 ? "photo" : "photos"} not {doneWord} yet {skipped === 1 ? "is" : "are"} left out.
+          </p>
+        )}
+        {errorNotice}
+      </section>
+    );
+  }
 
   // One photo: "Download image" above already covers the image, so only the PDF is offered, with
   // its paper size beside it. The ZIP, the counts and the order note matter only for several.
