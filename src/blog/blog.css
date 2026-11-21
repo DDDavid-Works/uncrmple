@@ -1,0 +1,24 @@
+/* Blog index, posts and the call to action under each post; laid out like the legal pages (legal.css). */
+.blog-intro { color: var(--muted); font-size: var(--text-md); }
+.breadcrumb { margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--muted); }
+.post-meta { color: var(--muted); font-size: var(--text-sm); }
+.legal .post-list { margin-top: var(--space-6); padding: 0; list-style: none; }
+.legal .post-list li + li { margin-top: 0; }
+.post-list li { padding: var(--space-6) 0; border-top: var(--line); }
+.legal .post-list h2, .legal .post-list h3 { margin: 0; font-size: var(--text-lg); line-height: 1.3; }
+.post-list h2 a, .post-list h3 a { text-decoration: none; }
+.post-list h2 a:hover, .post-list h3 a:hover { text-decoration: underline; }
+.legal .post-list .post-meta { margin-top: var(--space-1); }
+.legal .post-list article > p:last-child { margin-top: var(--space-2); }
+.post-body { margin-top: var(--space-6); }
+.legal .post-body h3 { font-size: var(--text-md); margin-top: var(--space-6); }
+.legal .post-body ol { margin: var(--space-3) 0 0; padding-left: var(--space-6); }
+.post-body img { max-width: 100%; height: auto; border-radius: var(--radius); }
+.post-body blockquote { margin: var(--space-3) 0 0; padding-left: var(--space-4); border-left: 3px solid var(--border); color: var(--muted); }
+.post-body code { font-size: 0.9em; padding: 1px 5px; border-radius: 4px; background: var(--sage); }
+.post-cta { margin-top: calc(var(--space-6) * 2); padding: var(--space-6); border-radius: var(--radius-lg); background: var(--sage); }
+.legal .post-cta h2 { margin-top: 0; }
+.legal .post-cta p { margin-bottom: var(--space-4); color: var(--muted); }
+.post-cta .btn { text-decoration: none; display: inline-flex; }
+.more-posts { margin-top: calc(var(--space-6) * 2); }
+.legal .more-posts .post-list { margin-top: var(--space-2); }

@@ -9,7 +9,7 @@ import {
 } from "../../waitlist/src/config";
 import { PRIVACY_UPDATED, TERMS_UPDATED } from "../config";
 import { PRIVACY_URL, TERMS_URL } from "../links";
-import { pages } from "./entry-server";
+import { pages } from "../entry-server";
 
 const page = (file: string) => pages.find((p) => p.file === file)!;
 const privacy = page("privacy/index.html");

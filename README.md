@@ -110,11 +110,11 @@ npm install
 npm run dev
 ```
 
-Copy `waitlist/.env.example` to `waitlist/.env.local` and set `VITE_WEB3FORMS_ACCESS_KEY` to enable signups. Without it the form says signups are not open yet. The waitlist site also hosts the privacy policy (`/privacy/`) and terms of use (`/terms/`) that the app links to.
+Copy `waitlist/.env.example` to `waitlist/.env.local` and set `VITE_WEB3FORMS_ACCESS_KEY` to enable signups. Without it the form says signups are not open yet. Since launch, uncrmple.app serves the app, which has its own privacy policy, terms and blog; the waitlist site keeps its copies until it is retired.
 
 ### Blog
 
-The blog lives at `/blog/` on the waitlist site, and the app's footer links to it. Each post is a Markdown file in `waitlist/content/blog/`. The file name becomes its address (`fix-a-photo.md` → `/blog/fix-a-photo/`):
+The blog lives at `/blog/` in the app build, and the app's footer links to it. Each post is a Markdown file in `content/blog/`. The file name becomes its address (`fix-a-photo.md` → `/blog/fix-a-photo/`):
 
 ```md
 ---
@@ -128,16 +128,16 @@ draft: true           # optional, leaves the post out of the build
 Start sections at `##`; the title is the page heading.
 ```
 
-The build checks every post and fails, naming the file, if the title is over 60 characters, the description is outside 70–160, a date is invalid or the body has a `#` heading. Each post page is plain HTML with no script, and gets its own title, description, canonical link, Open Graph article tags, `BlogPosting` and breadcrumb structured data, an entry in the sitemap with its last-modified date, and an item in the RSS feed (`/blog/feed.xml`). `npm run dev` shows posts as you write them; the SEO tags are only added by `npm run build`. Posts are written by us and committed, so their HTML is not sanitised.
+The build checks every post and fails, naming the file, if the title is over 60 characters, the description is outside 70–160, a date is invalid or the body has a `#` heading. Each post page is pre-rendered HTML that needs no script to be read, and gets its own title, description, canonical link, Open Graph article tags, `BlogPosting` and breadcrumb structured data, an entry in the sitemap with its last-modified date, and an item in the RSS feed (`/blog/feed.xml`). `npm run dev` shows posts as you write them; the SEO tags are only added by `npm run build`. Posts are written by us and committed, so their HTML is not sanitised.
 
-The posts sit inside `waitlist/` because Railway builds that folder on its own. At launch, when the app takes over uncrmple.app, the blog has to move into the app build with the privacy policy and terms, keeping the same addresses.
+The pages are pre-rendered by `scripts/prerender.mjs` from `src/entry-server.tsx`, in the app's own look, and each post ends with a link to the app. The build also writes `/sitemap.xml` (the app, the legal pages, the blog and every post), which `public/robots.txt` points to. `waitlist/content/blog/` is an older copy the waitlist site still builds; new posts go in `content/blog/` only.
 
 ## Privacy and security
 
 - Client-side processing only; no analytics on document content.
 - Anonymous usage counts (`src/lib/analytics/`): a fixed list of events such as "a PDF of 2–5 pages was exported" or "corners were set by hand", with every property a fixed word or a range. No file names, image data, sizes or text. The page posts them to `/e` on this site, which Caddy forwards to Umami Cloud without cookies; no third-party script is loaded. Adding an event means adding it to `events.ts` and to the privacy policy.
 - A Content-Security-Policy, sent as a header because a meta tag does not reach the worker, lets the page connect only to local `blob:` URLs and to this site (for `/e`). The image-processing worker gets a stricter policy with `blob:` only, so the code that holds the pixels cannot reach any server. OpenCV.js needs `'unsafe-eval'`; inline and third-party scripts stay blocked.
-- The app serves its own privacy policy at `/privacy/` and terms of use at `/terms/` (`src/legal/`), pre-rendered to static HTML at build time by `scripts/prerender.mjs`, so both stay online when the app takes over uncrmple.app from the waitlist. The waitlist site keeps its own copies until then; `src/legal/legal.test.tsx` fails if the texts or dates differ.
+- The app serves its own privacy policy at `/privacy/` and terms of use at `/terms/` (`src/legal/`), pre-rendered to static HTML at build time by `scripts/prerender.mjs` with the blog, so both stay online when the app takes over uncrmple.app from the waitlist. The waitlist site keeps its own copies until then; `src/legal/legal.test.tsx` fails if the texts or dates differ.
 - File types are checked from file contents, not just extensions.
 - `test-photos/` is git-ignored. Do not commit private documents or personal information.
 

@@ -2,3 +2,4 @@
 # X-Robots-Tag: noindex header (Caddyfile.template), which crawlers only see if they may fetch the page.
 User-agent: *
 Allow: /
+Sitemap: https://uncrmple.app/sitemap.xml

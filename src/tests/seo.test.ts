@@ -25,6 +25,10 @@ describe("search engine settings", () => {
     expect(robotsTxt).not.toMatch(/Disallow/);
   });
 
+  it("points crawlers at the sitemap the build writes (scripts/prerender.mjs)", () => {
+    expect(robotsTxt).toMatch(new RegExp(`^Sitemap: ${DEFAULT_SITE_URL.replace(/\./g, "\\.")}/sitemap\\.xml\\r?$`, "m"));
+  });
+
   it("returns 404 for unknown paths instead of the app page", () => {
     expect(staticfile).toMatch(/^index_fallback: false$/m);
   });

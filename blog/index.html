@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <!--head-->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script src="/theme.js"></script>
+  </head>
+  <body>
+    <!-- Shell for /blog/ and every post: scripts/prerender.mjs writes each page into a copy of it. -->
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/blog/blog-entry.ts"></script>
+  </body>
+</html>
