@@ -252,7 +252,7 @@ Do not implement these unless explicitly requested later:
 
 \- Native Android or iOS applications.
 
-\- OCR or searchable PDFs.
+\- OCR or searchable PDFs, except the on-device text reading planned for receipt mode (section 13).
 
 \- AI-generated or reconstructed text.
 
@@ -473,3 +473,19 @@ Decided 2026-11-01 as the planned direction, revised 2026-11-07. Nothing here is
 \- Whether to offer a founding-member lifetime deal.
 \- Lemon Squeezy or Polar.
 \- Prices, after the waitlist answers.
+\- Whether receipt mode (section 13) is a paid feature.
+
+\## 13. Receipt Mode (planned, not built)
+
+Decided 2026-11-21 as the planned direction. Nothing here is implemented.
+
+A third mode for shop receipts: repair the photo with tuning for faded thermal print and tall, narrow pages, then read the printed lines with on-device OCR into a table the user can copy in part or in full, or download as CSV. English receipts first, starting with Philippine receipts.
+
+\- OCR runs in the browser with self-hosted files. No document data is sent anywhere.
+\- OCR only reads the repaired image. It never changes it, and recognised text is never drawn back onto the receipt.
+\- Values are not guessed or corrected. Unsure values are marked, every value can be edited and checked against the image, and a failed read is reported as a failure.
+\- The table arranges the printed lines. It does not label fields such as "total" or "merchant".
+\- Cloud OCR and AI models are on hold. Any off-device processing needs its own privacy proposal under section 8 first.
+\- A feasibility spike measures on-device OCR accuracy on real receipts before any of the mode is built.
+
+See `docs/receipt-mode.md` for scope, rules, phases, risks and the spike's pass bar.
