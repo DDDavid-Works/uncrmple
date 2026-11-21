@@ -9,7 +9,7 @@ import { OPERATOR_NAME, PRODUCT_NAME } from "./config";
 import { LegalPage } from "./legal/LegalPage";
 import { PrivacyPolicy } from "./legal/PrivacyPolicy";
 import { TermsOfUse } from "./legal/TermsOfUse";
-import { PRIVACY_URL, SITE_URL, TERMS_URL } from "./links";
+import { CONTACT_EMAIL, PRIVACY_URL, SITE_URL, TERMS_URL } from "./links";
 
 export interface StaticPage {
   /** Built HTML file under dist/. */
@@ -104,6 +104,21 @@ export const feed = {
   title: BLOG_TITLE,
   xml: rssFeed(posts, abs(BLOG_PATH), abs(FEED_PATH), site, BLOG_TITLE),
 };
+
+/**
+ * RFC 9116 contact for reporting security problems, served at /.well-known/security.txt. The standard
+ * requires an expiry under a year away, so each build sets one a year from the build date.
+ */
+export function securityTxt(builtAt: Date): string {
+  const expires = new Date(builtAt.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  return [
+    `Contact: mailto:${CONTACT_EMAIL}`,
+    `Expires: ${expires}`,
+    "Preferred-Languages: en",
+    `Canonical: ${abs("/.well-known/security.txt")}`,
+    "",
+  ].join("\n");
+}
 
 /** Every indexable address: the app itself and each static page, for dist/sitemap.xml. */
 export function sitemapXml(): string {

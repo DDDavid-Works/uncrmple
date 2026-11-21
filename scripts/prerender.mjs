@@ -1,12 +1,12 @@
 // Build-time pre-render: writes the server-rendered static pages (src/entry-server.tsx) and their SEO tags
-// into the HTML files Vite built, so they read without a script, then the blog feed and the sitemap.
+// into the HTML files Vite built, so they read without a script, then the blog feed, the sitemap and /.well-known/security.txt.
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..");
 const server = path.join(root, "dist-server");
-const { pages, feed, sitemapXml } = await import(pathToFileURL(path.join(server, "entry-server.js")).href);
+const { pages, feed, sitemapXml, securityTxt } = await import(pathToFileURL(path.join(server, "entry-server.js")).href);
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 // JSON-LD is data, not script: the Content-Security-Policy does not run or block it.
@@ -49,5 +49,7 @@ for (const page of pages) {
 }
 await writeFile(path.join(root, "dist", feed.path.slice(1)), feed.xml);
 await writeFile(path.join(root, "dist", "sitemap.xml"), sitemapXml());
+await mkdir(path.join(root, "dist", ".well-known"), { recursive: true });
+await writeFile(path.join(root, "dist", ".well-known", "security.txt"), securityTxt(new Date()));
 await rm(server, { recursive: true, force: true });
-console.log(`Pre-rendered ${pages.length} page${pages.length === 1 ? "" : "s"}, the blog feed and the sitemap`);
+console.log(`Pre-rendered ${pages.length} page${pages.length === 1 ? "" : "s"}, the blog feed, the sitemap and security.txt`);
