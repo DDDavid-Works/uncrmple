@@ -84,7 +84,9 @@ describe("blog pages", () => {
     expect(cta.getByRole("link", { name: "Repair a photo" })).toHaveAttribute("href", "/");
     const crumbs = within(screen.getByRole("navigation", { name: "Breadcrumb" }));
     expect(crumbs.getByRole("link", { name: "Blog" })).toHaveAttribute("href", "/blog/");
-    for (const p of rest) expect(screen.getByRole("link", { name: p.title })).toHaveAttribute("href", `/blog/${p.slug}/`);
+    // Posts may also link each other in their text, so look only in the "More from the blog" list.
+    const more = within(screen.getByRole("region", { name: "More from the blog" }));
+    for (const p of rest) expect(more.getByRole("link", { name: p.title })).toHaveAttribute("href", `/blog/${p.slug}/`);
   });
 
   it("has the app's top bar, linking home, and its footer, linking the blog", () => {
