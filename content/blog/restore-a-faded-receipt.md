@@ -6,7 +6,7 @@ date: 2026-11-21
 
 You need a receipt for an expense claim, a return or your tax records, and when you finally dig it out of your wallet the print has turned pale grey. The total is still there if you squint, but a photo of it looks like a blank strip of paper.
 
-**The short answer:** photograph the receipt in bright daylight without the flash, then straighten the photo, even out the lighting and raise the contrast. That brings back faint print as long as some of it is still on the paper. Print that has faded away completely cannot be restored by any app.
+**The short answer:** to restore a faded receipt, photograph it in bright daylight without the flash, then straighten the photo, even out the lighting and raise the contrast. That brings back faint print as long as some of it is still on the paper. Print that has faded away completely cannot be restored by any app.
 
 A faded receipt is often more readable than it looks. How much you can recover depends on how much print is left, so it helps to know what is happening to the paper.
 
@@ -21,7 +21,7 @@ The dark marks slowly fade back, and some things speed this up:
 - **Friction and folding**, which rub the coating off along creases.
 - **Oils and chemicals** from hands, hand cream, hand sanitiser and some plastic sleeves.
 
-A receipt kept flat in a dark drawer can stay readable for years. One kept crumpled in a wallet can be pale within months.
+A receipt kept flat in a dark drawer can stay readable for years. One kept crumpled in a wallet can be pale within months, which is why a faded thermal receipt is so often the one you need for an expense claim.
 
 ## Can a faded receipt be restored?
 
