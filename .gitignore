@@ -8,3 +8,6 @@ test-photos
 .env.*
 !.env.example
 dist-server
+
+# TypeScript incremental build cache
+*.tsbuildinfo
