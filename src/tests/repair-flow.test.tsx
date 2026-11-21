@@ -773,9 +773,12 @@ describe("export", () => {
   it("downloads the repaired image under a derived name", async () => {
     const user = await uploadOne();
     await user.click(screen.getByRole("button", { name: "Repair" }));
-    const link = await screen.findByRole("link", { name: "Download image" });
-    expect(link).toHaveAttribute("download", "page-repaired.png");
-    expect(link).toHaveAttribute("href", "blob:t/2");
+    // Beside the photo's name and in the panel under it: the same file either way.
+    const links = await screen.findAllByRole("link", { name: "Download image" });
+    for (const link of links) {
+      expect(link).toHaveAttribute("download", "page-repaired.png");
+      expect(link).toHaveAttribute("href", "blob:t/2");
+    }
   });
 
   it("offers the image and a PDF for a single photo, without a ZIP", async () => {
@@ -799,7 +802,7 @@ describe("export", () => {
       new File([jpegHeader(400, 300)], "other.jpg", { type: "image/jpeg" }),
     ]);
     await user.click(await screen.findByRole("button", { name: "Repair" }));
-    const repaired = (await screen.findByRole("link", { name: "Download image" })).getAttribute("href");
+    const repaired = (await screen.findAllByRole("link", { name: "Download image" }))[0]!.getAttribute("href");
     expect(screen.getByText("1 of 2 repaired")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Download ZIP (1 image)" }));
     await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1));
@@ -846,6 +849,40 @@ describe("export", () => {
     // With the panel open, the panel's download is the only one.
     await user.click(screen.getByRole("button", { name: "Show details" }));
     expect(within(viewer).queryByRole("link", { name: "Download image" })).toBeNull();
+    expect(screen.getAllByRole("link", { name: "Download image" })).toHaveLength(1);
+  });
+});
+
+describe("download in reach on narrower screens", () => {
+  const layout = (phone: boolean) =>
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: phone && q === "(max-width: 759px)", media: q, addEventListener: () => {}, removeEventListener: () => {},
+    }));
+  afterEach(() => vi.unstubAllGlobals());
+  const viewerDownload = () =>
+    within(screen.getByRole("region", { name: "Photo preview" }).querySelector(".viewer") as HTMLElement).queryByRole("link", { name: "Download image" });
+
+  async function repaired() {
+    vi.mocked(processor.detectDocument).mockResolvedValue({
+      ok: true,
+      value: { corners: [{ x: 40, y: 30 }, { x: 360, y: 30 }, { x: 360, y: 270 }, { x: 40, y: 270 }], areaFraction: 0.7, edgeSupport: 0.9, method: "edges" },
+    });
+    vi.mocked(processor.correctPerspective).mockResolvedValue({ ok: true, value: solid(320, 240, 255) });
+    const user = await uploadOne();
+    await user.click(screen.getByRole("button", { name: "Repair" }));
+    await screen.findByAltText("Repaired document: page.jpg");
+  }
+
+  it("shows Download image beside the photo's name on tablets and small laptops, where the panel is below", async () => {
+    layout(false);
+    await repaired();
+    expect(viewerDownload()).toHaveAttribute("download", "page-repaired.png");
+  });
+
+  it("leaves it to the pinned buttons on phones", async () => {
+    layout(true);
+    await repaired();
+    expect(viewerDownload()).toBeNull();
     expect(screen.getAllByRole("link", { name: "Download image" })).toHaveLength(1);
   });
 });

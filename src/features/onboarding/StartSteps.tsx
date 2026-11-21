@@ -11,7 +11,7 @@ interface Props {
 }
 
 const STEPS: Record<ProcessingMode, string[]> = {
-  document: ["Add a photo of a page", "Repair straightens and cleans it", "Download an image or PDF"],
+  document: ["Add a photo of a page", "Repair it to straighten and clean up", "Download an image or PDF"],
   card: ["Add a photo of a card", "Check the crop", "Download an image or PDF"],
 };
 

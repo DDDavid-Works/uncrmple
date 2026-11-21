@@ -40,8 +40,12 @@ interface Props {
   exportAll?: ReactNode;
   /** Previous/next page arrows; null with a single page. */
   nav: PageNav | null;
-  /** Wide screens, where the right-hand panel sits beside the photo and can be hidden. */
-  panelHideable: boolean;
+  /**
+   * Show this page's Download image beside its name, because the panel's own is out of sight: on
+   * wide screens while the panel is hidden, and on tablets and small laptops, where the panel sits
+   * under the photo. Phones pin the panel's buttons to the screen instead.
+   */
+  downloadBesideName: boolean;
   /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
   panelOpen: boolean;
   onTogglePanel: () => void;
@@ -56,7 +60,7 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, panelHideable, panelOpen, onTogglePanel }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, downloadBesideName, panelOpen, onTogglePanel }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // First repair ever on this device: point out how to see what changed.
@@ -106,8 +110,8 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
           <div className="viewer__where">
             {nav && <span className="viewer__position">Photo {nav.index + 1} of {nav.total}</span>}
             <h2 className="viewer__name">{doc.name}</h2>
-            {/* With the panel hidden, this page's download stays in reach beside its name. */}
-            {panelHideable && !panelOpen && repair.status === "done" && (
+            {/* Where the panel's download is out of sight, this page's download stays in reach beside its name. */}
+            {downloadBesideName && repair.status === "done" && (
               <a className="btn btn--primary btn--small viewer__download" href={repair.result.url} download={downloadName} onClick={trackDownload}>
                 Download image
               </a>

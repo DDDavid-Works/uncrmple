@@ -70,7 +70,7 @@ describe("first visit", () => {
   it("shows the three steps and a sample photo on the empty screen", () => {
     render(<App />);
     const steps = screen.getByRole("list", { name: "How it works" });
-    expect(steps).toHaveTextContent(/Add a photo of a page.*Repair straightens and cleans it.*Download an image or PDF/);
+    expect(steps).toHaveTextContent(/Add a photo of a page.*Repair it to straighten and clean up.*Download an image or PDF/);
     expect(screen.getByRole("button", { name: "Try a sample photo" })).toBeInTheDocument();
   });
 

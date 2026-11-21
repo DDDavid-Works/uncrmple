@@ -327,7 +327,7 @@ export function App() {
                   onRemove={() => remove(selected.id)}
                   exportAll={exportInSidebar ? undefined : exportAll}
                   nav={nav}
-                  panelHideable={wide}
+                  downloadBesideName={wide ? !panelOpen : !phone}
                   panelOpen={panelOpen}
                   onTogglePanel={() => setPanelOpen((o) => !o)}
                 />
