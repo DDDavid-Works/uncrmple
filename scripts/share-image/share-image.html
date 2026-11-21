@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Source of public/og-image.png, the 1200×630 picture shown when a link to uncrmple.app is shared.
+  Rebuild it after editing this file (run from the repository root, Chrome installed):
+    "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless --hide-scrollbars --force-device-scale-factor=1 \
+      --window-size=1200,630 --screenshot=public/og-image.png scripts/share-image/share-image.html
+  Text, colours and logo follow src/config.ts, src/styles.css and src/components/Logo.tsx; keep them in step by hand.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face {
+        font-family: "Rubik";
+        font-weight: 300 900;
+        src: url("../../node_modules/@fontsource-variable/rubik/files/rubik-latin-wght-normal.woff2") format("woff2");
+      }
+      * { box-sizing: border-box; margin: 0; }
+      html, body { width: 1200px; height: 630px; overflow: hidden; }
+      body {
+        font-family: "Rubik", sans-serif;
+        background: #f8f7f3;
+        color: #252c28;
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        align-items: center;
+        gap: 24px;
+        padding: 0 72px;
+      }
+      .brand { display: flex; align-items: center; gap: 18px; font-size: 40px; font-weight: 600; letter-spacing: -0.01em; }
+      .brand svg { width: 72px; height: 72px; }
+      h1 { margin-top: 44px; font-size: 64px; line-height: 1.04; font-weight: 700; letter-spacing: -0.025em; }
+      h1 span { color: #c44624; }
+      p { margin-top: 28px; font-size: 27px; line-height: 1.4; color: #5f665f; max-width: 560px; }
+      .art { position: relative; height: 430px; }
+      .page {
+        position: absolute; width: 215px; height: 285px; border-radius: 6px; padding: 34px 28px;
+        display: flex; flex-direction: column; gap: 17px;
+      }
+      .page i { display: block; height: 9px; border-radius: 5px; background: #17324d; }
+      .before {
+        left: 0; top: 70px; transform: rotate(-11deg) skewX(-4deg);
+        background: linear-gradient(135deg, #e9ecef 0%, #c9ced1 55%, #9fa6aa 100%);
+        box-shadow: 0 16px 40px rgba(23, 50, 77, 0.18);
+      }
+      .before i { opacity: 0.35; }
+      .after {
+        right: 0; top: 50px; background: #ffffff;
+        box-shadow: 0 24px 60px rgba(23, 50, 77, 0.22);
+      }
+      .after i { opacity: 0.85; }
+      .after::after {
+        content: ""; position: absolute; top: 0; right: 0; width: 40px; height: 40px;
+        background: linear-gradient(225deg, #f8f7f3 50%, #d4ecee 50%);
+      }
+      .arrow {
+        position: absolute; left: 182px; top: 180px; width: 64px; height: 64px; border-radius: 50%;
+        background: #c44624; display: grid; place-items: center; z-index: 2;
+        box-shadow: 0 8px 20px rgba(196, 70, 36, 0.35);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#17324d" />
+          <path d="M33 10L24 12L15 9L17 21L12 30L17 39L13 50L22 55L33 54Z" fill="#ffffff" />
+          <path d="M24 12L15 9L22 20Z" fill="#c9d9e5" />
+          <path d="M15 9L17 21L22 20Z" fill="#e3edf3" />
+          <path d="M22 20L17 21L12 30L21 33Z" fill="#f4f8fb" />
+          <path d="M22 20L21 33L28 27Z" fill="#d5e3ec" />
+          <path d="M28 27L21 33L28 41L32 35Z" fill="#e6eef4" />
+          <path d="M12 30L17 39L21 33Z" fill="#cbdbe6" />
+          <path d="M21 33L17 39L22 46L28 41Z" fill="#f2f6f9" />
+          <path d="M17 39L13 50L22 46Z" fill="#d6e4ed" />
+          <path d="M13 50L22 55L22 46Z" fill="#eaf1f6" />
+          <path d="M28 41L32 35L32 47Z" fill="#f6f9fb" />
+          <path d="M32 10H43L50 17V54H32Z" fill="#ffffff" />
+          <path d="M43 10L50 17H43Z" fill="#d4ecee" />
+          <g fill="none" stroke="#17324d" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M17 26L22 28.5L28 26.5L30.6 26.8M16 33L21 34.5L27 32L30.6 32.8M17 40L22 38.5L28 41L30.6 39.2" stroke-opacity="0.5" stroke-width="1.6" />
+            <path d="M32 27H44M32 33H45M32 39H42" stroke-opacity="0.85" stroke-width="1.8" />
+          </g>
+        </svg>
+        uncrmple.
+      </div>
+      <h1>Fix the photo.<br /><span>Keep the document.</span></h1>
+      <p>Straighten pages, remove shadows and export a PDF. Right in your browser.</p>
+    </main>
+    <div class="art" aria-hidden="true">
+      <div class="page before"><i style="width: 80%"></i><i></i><i style="width: 90%"></i><i style="width: 70%"></i><i></i><i style="width: 55%"></i></div>
+      <div class="arrow">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+      </div>
+      <div class="page after"><i style="width: 80%"></i><i></i><i style="width: 90%"></i><i style="width: 70%"></i><i></i><i style="width: 55%"></i></div>
+    </div>
+  </body>
+</html>

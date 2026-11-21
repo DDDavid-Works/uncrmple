@@ -120,6 +120,17 @@ export const pages: StaticPage[] = [
   ),
 ];
 
+/**
+ * The picture shown when any page is shared (public/og-image.png, 1200×630). Its source is
+ * scripts/share-image/share-image.html; re-render the PNG after changing the tagline or colours.
+ */
+export const shareImage = {
+  url: abs("/og-image.png"),
+  width: 1200,
+  height: 630,
+  alt: `${PRODUCT_NAME}: ${TAGLINE} A slanted, shadowed photo of a page turned into a flat, clean page.`,
+};
+
 /** The blog's RSS feed, written to dist/blog/feed.xml and linked from every page's head. */
 export const feed = {
   path: FEED_PATH,

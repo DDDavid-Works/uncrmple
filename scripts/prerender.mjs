@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..");
 const server = path.join(root, "dist-server");
-const { pages, feed, sitemapXml, securityTxt } = await import(pathToFileURL(path.join(server, "entry-server.js")).href);
+const { pages, feed, sitemapXml, securityTxt, shareImage } = await import(pathToFileURL(path.join(server, "entry-server.js")).href);
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 // JSON-LD is data, not script: the Content-Security-Policy does not run or block it.
@@ -29,6 +29,11 @@ for (const page of pages) {
     `<meta property="og:title" content="${esc(page.title)}" />`,
     `<meta property="og:description" content="${esc(page.description)}" />`,
     `<meta property="og:url" content="${esc(page.canonical)}" />`,
+    `<meta property="og:image" content="${esc(shareImage.url)}" />`,
+    `<meta property="og:image:width" content="${shareImage.width}" />`,
+    `<meta property="og:image:height" content="${shareImage.height}" />`,
+    `<meta property="og:image:alt" content="${esc(shareImage.alt)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
     article && page.published && `<meta property="article:published_time" content="${page.published}" />`,
     article && page.modified && `<meta property="article:modified_time" content="${page.modified}" />`,
     `<link rel="alternate" type="application/rss+xml" title="${esc(feed.title)}" href="${feed.path}" />`,

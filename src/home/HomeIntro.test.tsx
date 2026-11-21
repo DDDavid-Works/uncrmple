@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import indexHtml from "../../index.html?raw";
+import ogImage from "../../public/og-image.png?inline";
 import { DESCRIPTION, PRODUCT_NAME, TAGLINE } from "../config";
-import { pages, sitemapXml } from "../entry-server";
+import { pages, shareImage, sitemapXml } from "../entry-server";
 import { MODES } from "../features/mode/ModeSelector";
 import { BLOG_URL, SITE_URL } from "../links";
 import { HomeIntro } from "./HomeIntro";
@@ -25,5 +26,16 @@ describe("home page intro", () => {
     // Listed once, first.
     expect(sitemapXml().match(new RegExp(`<loc>${SITE_URL}/</loc>`, "g"))).toHaveLength(1);
     expect(sitemapXml().indexOf(`<loc>${SITE_URL}/</loc>`)).toBeLessThan(sitemapXml().indexOf("/privacy/"));
+  });
+});
+
+describe("share image", () => {
+  it("is a 1200×630 PNG on the site, described for screen readers", () => {
+    const bytes = atob(ogImage.slice(ogImage.indexOf(",") + 1));
+    const u32 = (at: number) => [0, 1, 2, 3].reduce((n, i) => n * 256 + bytes.charCodeAt(at + i), 0);
+    expect(bytes.slice(1, 4)).toBe("PNG");
+    expect([u32(16), u32(20)]).toEqual([shareImage.width, shareImage.height]);
+    expect(shareImage.url).toBe(`${SITE_URL}/og-image.png`);
+    expect(shareImage.alt.length).toBeGreaterThan(20);
   });
 });
