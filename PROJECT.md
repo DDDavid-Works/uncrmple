@@ -485,6 +485,7 @@ A third mode for shop receipts: repair the photo with tuning for faded thermal p
 \- OCR only reads the repaired image. It never changes it, and recognised text is never drawn back onto the receipt.
 \- Values are not guessed or corrected. Unsure values are marked, every value can be edited and checked against the image, and a failed read is reported as a failure.
 \- The table arranges the printed lines. It does not label fields such as "total" or "merchant".
+\- Handwritten receipts (pre-printed booklet forms filled in by hand) are out of scope for now: they are repaired like any receipt, but their handwritten values are not read.
 \- Cloud OCR and AI models are on hold. Any off-device processing needs its own privacy proposal under section 8 first.
 \- A feasibility spike measures on-device OCR accuracy on real receipts before any of the mode is built.
 

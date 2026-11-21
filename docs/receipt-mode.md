@@ -40,6 +40,13 @@ differ, not just a preset:
 - Cloud OCR or any AI/LLM service. See "AI options" below.
 - Stitching several photos of one long receipt.
 - Languages other than English; handwriting.
+- Handwritten booklet receipts (pre-printed forms filled in by hand). Decided 2026-11-21: skipped
+  for now. Receipt mode still repairs them like any receipt, but reading their handwritten
+  values is not pursued. Options considered and set aside: a fill-in table with zoomed cell
+  crops; a small on-device handwritten-digit reader for the form's Amount cells (research
+  spike); an opt-in cloud read (on hold with the other AI options). Revisit only if real users
+  show they need it, for example from the share of booklet receipts in the spike set or a
+  waitlist question.
 - Expense categories, accounting-software integrations, receipt storage or history.
 
 ## Rules
@@ -237,6 +244,16 @@ Known limitations:
    discounts on their own line). The plain-text view is always available as a fallback.
 4. **Long receipts** may need more resolution than the current output sizing gives; check in
    Phase 1 by comparing results on full-size and downscaled images.
+5. **Handwritten booklet receipts.** Many Philippine receipts are pre-printed booklet forms
+   (delivery, charge or cash receipts) filled in by hand. First real photo (2026-11-21, a pink
+   carbon-copy delivery receipt with blue pen): raw photo, almost nothing read; after repair (any
+   style) the printed form text was read almost word for word, including the printed receipt
+   number, but none of the handwritten date, name, item or amount. Tesseract does not read
+   handwriting, so for these receipts the values that matter would not reach the table. Receipt
+   mode helped the repair: the form is straight and clean, though blue pen on pink comes out
+   light gray in grayscale (colour keeps it more visible), and the dye along the carbon copy's
+   edges leaves speckle. The print was already dark, so the receipt curve matched the document
+   curve, as designed. Handwritten receipts are out of scope for now (see Scope).
 
 ## AI options (on hold)
 
