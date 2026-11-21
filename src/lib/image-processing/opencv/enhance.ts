@@ -1,4 +1,4 @@
-import type { EnhanceOptions, RasterImage, Result } from "../../../types/repair";
+import type { EnhanceOptions, PaperProfile, RasterImage, Result } from "../../../types/repair";
 import { validateEnhanceOptions } from "../options";
 import { processingFailed } from "./detect";
 import type { OpenCv } from "./loader";
@@ -25,6 +25,21 @@ const MIN_LEVEL_RANGE = 64;
 /** Black point is this percentile of luminance, so a few dark pixels do not set the scale. */
 const BLACK_PERCENTILE = 0.005;
 const MAX_BLACK_POINT = 90;
+/**
+ * Receipts: faded thermal print can be light gray throughout, so the document curve (black point
+ * capped at 90) leaves it gray. The receipt curve takes the black point from the ink itself (this
+ * percentile of luminance, i.e. the darkest print) with no fixed cap, limited only by a minimum
+ * range so the stretch never exceeds 255 / range (about 3.5×). Paper stays white because the white
+ * point is unchanged; faint creases darken by the same factor as the print, which is the cost.
+ */
+const RECEIPT_INK_PERCENTILE = 0.01;
+const RECEIPT_MIN_LEVEL_RANGE = 72;
+/**
+ * Receipt levels are measured inside this share of each side: a crop of a narrow receipt often
+ * keeps slivers of the table along its edges, and those dark pixels would otherwise be taken for
+ * the ink and stop the faded print from darkening.
+ */
+const RECEIPT_LEVELS_INSET = 0.04;
 
 interface Disposable { delete(): void }
 
@@ -65,7 +80,8 @@ export function enhance(cv: OpenCv, image: RasterImage, options: EnhanceOptions)
     } else {
       const gray = own(new cv.Mat());
       cv.cvtColor(flat, gray, cv.COLOR_RGB2GRAY);
-      const lut = levelsLut(cv, gray.data, own);
+      const profile = options.profile ?? "document";
+      const lut = levelsLut(cv, profile === "receipt" ? insetData(gray) : gray.data, own, profile);
       if (options.style === "grayscale") {
         cv.LUT(gray, lut, gray);
         result = gray;
@@ -129,11 +145,40 @@ function flattenLighting(
   release(bgFull);
 }
 
-/** Linear stretch: black point at a low luminance percentile, white point relative to the paper level. */
-function levelsLut(cv: OpenCv, grayData: Uint8Array, own: <T extends Disposable>(x: T) => T) {
-  const black = Math.min(MAX_BLACK_POINT, percentile(grayData, BLACK_PERCENTILE));
+/** Black and white points of the linear stretch, from the luminance of the lighting-corrected page. */
+export function levels(grayData: Uint8Array, profile: PaperProfile): { black: number; white: number } {
   const paper = percentile(grayData, PAPER_PERCENTILE);
-  const white = Math.max(black + MIN_LEVEL_RANGE, Math.min(MAX_WHITE_POINT, Math.round(paper * WHITE_POINT_FRACTION)));
+  const paperWhite = Math.min(MAX_WHITE_POINT, Math.round(paper * WHITE_POINT_FRACTION));
+  if (profile === "receipt") {
+    const white = Math.max(RECEIPT_MIN_LEVEL_RANGE, paperWhite);
+    // Never brighter than the document curve would make the print.
+    const documentBlack = Math.min(MAX_BLACK_POINT, percentile(grayData, BLACK_PERCENTILE));
+    const ink = percentile(grayData, RECEIPT_INK_PERCENTILE);
+    return { black: Math.max(documentBlack, Math.min(ink, white - RECEIPT_MIN_LEVEL_RANGE)), white };
+  }
+  const black = Math.min(MAX_BLACK_POINT, percentile(grayData, BLACK_PERCENTILE));
+  return { black, white: Math.max(black + MIN_LEVEL_RANGE, paperWhite) };
+}
+
+/**
+ * Pixels of a continuous one-channel Mat inside the RECEIPT_LEVELS_INSET border (all of them when
+ * the image is tiny). Copied row by row: an OpenCV.js region of interest, even cloned, can keep
+ * the parent's row stride, so its `data` would still include the border.
+ */
+function insetData(gray: InstanceType<OpenCv["Mat"]>): Uint8Array {
+  const { cols, rows } = gray;
+  const mx = Math.round(cols * RECEIPT_LEVELS_INSET);
+  const my = Math.round(rows * RECEIPT_LEVELS_INSET);
+  if (mx < 1 || my < 1 || cols - 2 * mx < 8 || rows - 2 * my < 8) return gray.data;
+  const width = cols - 2 * mx;
+  const out = new Uint8Array(width * (rows - 2 * my));
+  for (let y = my; y < rows - my; y++) out.set(gray.data.subarray(y * cols + mx, y * cols + mx + width), (y - my) * width);
+  return out;
+}
+
+/** Linear stretch between the black and white points. */
+function levelsLut(cv: OpenCv, grayData: Uint8Array, own: <T extends Disposable>(x: T) => T, profile: PaperProfile) {
+  const { black, white } = levels(grayData, profile);
   const range = white - black;
   const table = new Uint8Array(256);
   for (let v = 0; v < 256; v++) table[v] = Math.max(0, Math.min(255, Math.round(((v - black) * 255) / range)));

@@ -1,7 +1,8 @@
-export type ProcessingMode = "document" | "card";
+export type ProcessingMode = "document" | "receipt" | "card";
 
 export const MODES: { value: ProcessingMode; label: string; hint: string }[] = [
   { value: "document", label: "Document Repair", hint: "Paper pages: straighten, even out lighting, clean up." },
+  { value: "receipt", label: "Receipt", hint: "Shop receipts: straighten, even out lighting, darken faded print." },
   { value: "card", label: "ID & Card Crop", hint: "ID, membership or access cards: cut out and straighten the card." },
 ];
 
@@ -12,7 +13,7 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Global switch between the two workflows. Photos stay loaded when it changes. */
+/** Global switch between the workflows. Photos stay loaded when it changes. */
 export function ModeSelector({ mode, onChange, disabled = false }: Props) {
   const active = MODES.find((m) => m.value === mode)!;
   return (

@@ -45,11 +45,20 @@ export function App() {
     clear();
     setCleared(true);
   };
-  const { stateOf, styleOf, run, setStyle, rotate, applyCorners, repairAll, stopAll, batch } = useRepair(documents);
-  const cards = useCardCrop(documents);
   const [mode, setMode] = useState<ProcessingMode>("document");
-  // Page assessment is for the document workflow only; skip the work in card mode.
-  const assessmentOf = useAssessment(mode === "document" ? documents : NO_DOCUMENTS);
+  // Documents and receipts share the page workflow but keep separate results, since each is cleaned
+  // up for its own kind of paper.
+  const documentRepair = useRepair(documents);
+  const receiptRepair = useRepair(documents, "receipt");
+  const { stateOf, styleOf, run, setStyle, rotate, applyCorners, repairAll, stopAll, batch } =
+    mode === "receipt" ? receiptRepair : documentRepair;
+  const cards = useCardCrop(documents);
+  /** Document Repair and Receipt: the page workflow, as opposed to ID & Card Crop. */
+  const paged = mode !== "card";
+  // Page assessment is for the page workflow only; skip the work in card mode.
+  const assessmentOf = useAssessment(paged ? documents : NO_DOCUMENTS);
+  /** Ending of a finished page's file name. */
+  const pageSuffix = mode === "receipt" ? "receipt" : "repaired";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Phones show the page list and the selected page one at a time; wider screens show both.
   const [view, setView] = useState<"pages" | "page">("page");
@@ -154,13 +163,15 @@ export function App() {
       return state.status === "done" ? [{ id: d.id, url: state.view.url, filename: `${baseName(d.name)}-card.png` }] : [];
     }
     const state = stateOf(d.id);
-    return state.status === "done" ? [{ id: d.id, url: state.result.url, filename: `${baseName(d.name)}-repaired.png` }] : [];
+    return state.status === "done" ? [{ id: d.id, url: state.result.url, filename: `${baseName(d.name)}-${pageSuffix}.png` }] : [];
   });
   const statusOf = (id: string) => (mode === "card" ? cardStatus(cards.stateOf(id)) : repairStatus(stateOf(id)));
   const unrepaired = documents.filter((d) => stateOf(d.id).status === "idle").length;
   // While "Repair all" runs, the pages, mode and export are held so nothing changes under it.
   const locked = batch.status === "running";
   const doneWord = mode === "card" ? "cropped" : "repaired";
+  const pdfName = { document: "repaired-document.pdf", receipt: "receipts.pdf", card: "cards.pdf" }[mode];
+  const zipName = { document: "repaired-images.zip", receipt: "receipts.zip", card: "cards.zip" }[mode];
 
   // Export of every finished page; the selected page's own download sits above it in the panel
   // (or, on wide screens in Document Repair, under the page list; see `exportInSidebar`).
@@ -170,12 +181,12 @@ export function App() {
         pages={exportPages}
         total={documents.length}
         doneWord={doneWord}
-        filename={mode === "card" ? "cards.pdf" : "repaired-document.pdf"}
-        zipFilename={mode === "card" ? "cards.zip" : "repaired-images.zip"}
+        filename={pdfName}
+        zipFilename={zipName}
         locked={locked}
       />
     ) : null;
-  const exportInSidebar = wide && mode === "document";
+  const exportInSidebar = wide && paged;
 
   // Adding photos and the files that could not be added.
   const addArea = (
@@ -284,11 +295,11 @@ export function App() {
             </div>
           )}
 
-          {mode === "document" && documents.length > 0 && (
+          {paged && documents.length > 0 && (
             <div className="sidebar__dock">
               <RepairAllBar batch={batch} pending={unrepaired} total={documents.length} onStart={() => void repairAll(documents)} onStop={stopAll} />
               {exportInSidebar && exportPages.length > 0 && (
-                <ExportBar pages={exportPages} total={documents.length} filename="repaired-document.pdf" zipFilename="repaired-images.zip" locked={locked} variant="dock" />
+                <ExportBar pages={exportPages} total={documents.length} filename={pdfName} zipFilename={zipName} locked={locked} variant="dock" />
               )}
             </div>
           )}
@@ -332,9 +343,9 @@ export function App() {
                   nav={nav}
                 />
               )}
-              {selected && mode === "document" && (
+              {selected && paged && (
                 <PreviewPanel
-                  key={selected.id}
+                  key={`${mode}-${selected.id}`}
                   doc={selected}
                   repair={stateOf(selected.id)}
                   assessment={assessmentOf(selected.id)}
@@ -349,6 +360,7 @@ export function App() {
                   downloadBesideName={wide ? !panelOpen : !phone}
                   panelOpen={panelOpen}
                   onTogglePanel={() => setPanelOpen((o) => !o)}
+                  downloadSuffix={pageSuffix}
                 />
               )}
             </div>

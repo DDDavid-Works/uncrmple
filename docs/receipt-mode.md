@@ -4,8 +4,9 @@ Third workflow alongside Document Repair and ID & Card Crop: repair a photo of a
 read its printed lines into a table the user can copy in part or in full. Everything runs in the
 browser; nothing is uploaded, stored or logged.
 
-Status: design only (Phase 0, 2026-11-21). No code exists yet. Nothing below may be presented to
-users as working until the phase that builds it is done and tested.
+Status (2026-11-21): Phase 2 built (Receipt mode with repair only, see below). Reading text (OCR)
+is not built; the spike harness exists but has not run on real receipts. Nothing below may be
+presented to users as working until the phase that builds it is done and tested.
 
 ## Why a separate mode
 
@@ -154,13 +155,47 @@ zoomed in, never from an OCR result.
 The harness reports every mistake in a file at once (unknown kind, an amount that is not a number,
 two totals and so on), so a typo shows up the first time the file is loaded.
 
-### Phase 2: receipt mode, repair only
+### Phase 2: receipt mode, repair only (built 2026-11-21, before the spike ran)
 
-- Third option in `ModeSelector` ("Receipt").
+- Third option in `ModeSelector` ("Receipt"), between Document Repair and ID & Card Crop.
 - Receipt repair pipeline assembled from existing steps: detection tuned for tall, narrow pages,
   a thermal-fade contrast lift, the same corner editor, existing image and PDF export.
 - Tests: options, geometry on very tall pages, switching modes keeps photos loaded.
 - Useful on its own, before OCR ships.
+
+What was built:
+
+| Part | Code | Notes |
+| --- | --- | --- |
+| Paper profile | `PaperProfile` in `types/repair.ts`, `options.ts` | `EnhanceOptions.profile`: `"document"` (default) or `"receipt"`; validated. Receipts start in grayscale. |
+| Faded-print lift | `levels()` in `opencv/enhance.ts` | Same lighting correction as documents. The contrast stretch then takes its black point from the darkest 1 percent of the print instead of capping it at 90, limited to at most about 3.5×; paper stays white. Dark print is treated as before. Measured inside a 4 percent inset so slivers of table left at the edges are not taken for ink. |
+| Workflow | `App.tsx`, `useRepair(documents, "receipt")` | The Document Repair workflow (repair, corners, styles, rotate, Repair all, assessment, export) with its own results: a photo repaired in one mode is not shown as repaired in the other. Downloads are named `*-receipt.png`, `receipts.pdf`, `receipts.zip`. No sample photo. |
+| Detection, geometry, PDF | unchanged | Detection already accepts long receipts; a synthetic 240 × 900 receipt on a table is found and keeps its proportions. A4 and Letter fit a tall receipt by its height (narrow on the page); "Fit to image" keeps its size. |
+
+Checks: unit tests for the profile, the levels and the PDF layout; OpenCV tests on a synthetic faded
+receipt (print 172 on paper 232: grayscale print about 70 with the receipt curve against about 168
+with the document curve; paper above 240; a crease stays much lighter than the print; dark print
+unchanged; a dark border does not stop the lift); UI tests for the mode, the receipt options sent
+to the engine, file names and separate results. In the browser, a drawn faded receipt on a dark
+table: darkest 0.5 percent of the print went from 194 (document curve) to 103 (receipt curve).
+
+Known limitations:
+
+1. **Tuned on synthetic images only.** No real receipt photo has been through it. The 1 percent ink
+   percentile, the 3.5× limit and the 4 percent inset need checking on the spike's photos.
+2. **Creases and texture darken with the print.** The stretch is linear: a crease 20 levels below
+   the paper becomes about 3.5 times as visible. It stays far lighter than the print in tests, but
+   heavily crumpled receipts may look busier than in Document Repair.
+3. **Thin print stays partly gray.** Antialiased 1-2 px strokes do not reach black; the lift cannot
+   add ink that the photo does not show.
+4. **Black & white** still thresholds the lighting-corrected page with Otsu, unchanged from
+   Document Repair.
+5. **Long receipts on A4 or Letter** print narrow, about 4 cm wide for a 600 × 4000 px receipt.
+   Splitting a long receipt across pages is not offered.
+6. **Usage counts** do not tell receipt downloads from document downloads (`image_download` is
+   counted as a page).
+7. **Free or paid** is not decided; the mode is open to everyone like the rest of the app.
+8. The mode selector was checked at 375 px wide (no overflow), not at 320 px.
 
 ### Phase 3: OCR text
 

@@ -170,8 +170,16 @@ export interface RepairResult {
 /** Output look. Lighting correction is applied for every style. */
 export type OutputStyle = "color" | "grayscale" | "blackwhite";
 
+/**
+ * What kind of paper is being cleaned up. "receipt" lets the contrast stretch go further, so
+ * faded thermal print darkens; ordinary pages keep the gentler document curve.
+ */
+export type PaperProfile = "document" | "receipt";
+
 export interface EnhanceOptions {
   style: OutputStyle;
+  /** Defaults to "document". */
+  profile?: PaperProfile;
 }
 
 /** Why a card detection deserves a second look. Turned into plain-language messages by the UI. */

@@ -49,6 +49,8 @@ interface Props {
   /** Whether the right-hand panel is shown (wide screens; see PanelToggle). */
   panelOpen: boolean;
   onTogglePanel: () => void;
+  /** Ending of the downloaded file's name: "photo-repaired.png", "photo-receipt.png". */
+  downloadSuffix?: string;
 }
 
 /** How a turned page reads in the status line. */
@@ -60,7 +62,7 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, downloadBesideName, panelOpen, onTogglePanel }: Props) {
+export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, onRepair, onRotate, onApplyCorners, onRemove, exportAll, nav, downloadBesideName, panelOpen, onTogglePanel, downloadSuffix = "repaired" }: Props) {
   const [view, setView] = useState<"original" | "repaired" | "cleanup" | "both">("original");
   const [editing, setEditing] = useState(false);
   // First repair ever on this device: point out how to see what changed.
@@ -80,7 +82,7 @@ export function PreviewPanel({ doc, repair, assessment, style, onStyleChange, on
   const showRepaired = view === "repaired" && done;
   const running = repair.status === "running";
   const cleanWholeImage = () => onApplyCorners(fullFrameQuad(doc.width, doc.height));
-  const downloadName = `${baseName(doc.name)}-repaired.png`;
+  const downloadName = `${baseName(doc.name)}-${downloadSuffix}.png`;
   const trackDownload = () => track({ name: "image_download", data: { mode: "page" } });
   const adjustCorners = () => setEditing(true);
 

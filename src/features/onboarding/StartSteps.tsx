@@ -2,7 +2,7 @@ import type { ProcessingMode } from "../mode/ModeSelector";
 
 interface Props {
   mode: ProcessingMode;
-  /** Adds the sample photo; omitted where there is no sample (ID & Card Crop). */
+  /** Adds the sample photo; omitted where there is no sample (Receipt, ID & Card Crop). */
   onSample?: () => void;
   /** The sample is being drawn. */
   sampleBusy?: boolean;
@@ -12,6 +12,7 @@ interface Props {
 
 export const STEPS: Record<ProcessingMode, string[]> = {
   document: ["Add a photo of a page", "Repair it to straighten and clean up", "Download an image or PDF"],
+  receipt: ["Add a photo of a receipt", "Repair it to straighten and darken faded print", "Download an image or PDF"],
   card: ["Add a photo of a card", "Check the crop", "Download an image or PDF"],
 };
 

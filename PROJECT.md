@@ -475,9 +475,9 @@ Decided 2026-11-01 as the planned direction, revised 2026-11-07. Nothing here is
 \- Prices, after the waitlist answers.
 \- Whether receipt mode (section 13) is a paid feature.
 
-\## 13. Receipt Mode (planned, not built)
+\## 13. Receipt Mode (repair built, OCR planned)
 
-Decided 2026-11-21 as the planned direction. Nothing here is implemented.
+Decided 2026-11-21 as the planned direction. Built so far: the Receipt mode itself, which repairs receipt photos with a curve that darkens faded print. Reading the text (OCR) and the table are not built.
 
 A third mode for shop receipts: repair the photo with tuning for faded thermal print and tall, narrow pages, then read the printed lines with on-device OCR into a table the user can copy in part or in full, or download as CSV. English receipts first, starting with Philippine receipts.
 

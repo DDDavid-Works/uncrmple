@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RepairSource, RepairTrigger } from "../../lib/analytics/events";
 import { track } from "../../lib/analytics/track";
 import { getEngine } from "../../lib/engine/client";
-import { DEFAULT_ENHANCE_OPTIONS } from "../../lib/image-processing/options";
+import { defaultStyleFor } from "../../lib/image-processing/options";
 import type { SourceDocument } from "../../types/document";
 import { addQuarterTurn } from "../../lib/image-processing/rotate";
-import type { OutputStyle, Quad, QuarterTurn, RepairResult } from "../../types/repair";
+import type { OutputStyle, PaperProfile, Quad, QuarterTurn, RepairResult } from "../../types/repair";
 
 export interface RepairedView {
   url: string;
@@ -76,10 +76,12 @@ export interface RepairApi {
 /**
  * Runs the repair pipeline per document and owns the object URLs of repaired images.
  * Results for removed documents are discarded, including jobs still in flight, and only the
- * latest job per document may publish a result.
+ * latest job per document may publish a result. Each profile (documents, receipts) keeps its own
+ * results, so switching mode never shows a page cleaned up for the other kind of paper.
  */
-export function useRepair(documents: SourceDocument[]): RepairApi {
+export function useRepair(documents: SourceDocument[], profile: PaperProfile = "document"): RepairApi {
   const engine = useMemo(() => getEngine(), []);
+  const defaultStyle = defaultStyleFor(profile);
   const [states, setStates] = useState<Record<string, RepairState>>({});
   const [styles, setStyles] = useState<Record<string, OutputStyle>>({});
   // Kept in a ref only: the rotation shows through the result it produces.
@@ -159,6 +161,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         file: doc.file,
         corners: manual ?? reuse?.corners,
         style,
+        ...(profile === "document" ? {} : { profile }),
         rotate: rotation,
         straightened: !reuseStraightened,
       });
@@ -200,17 +203,17 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       track({ name: "repair_done", data: { trigger, source: sourceKind(view.source), style } });
 
       // The style or turn changed while the repair was running: apply it with these corners.
-      const wanted = stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style;
+      const wanted = stylesRef.current[doc.id] ?? defaultStyle;
       if (wanted !== style) void execute(doc, wanted, "style", view);
       else if ((rotations.current[doc.id] ?? 0) !== rotation) void execute(doc, wanted, "rotate", view);
       return "done";
     },
-    [engine],
+    [engine, profile, defaultStyle],
   );
 
   const styleOf = useCallback(
-    (id: string) => styles[id] ?? DEFAULT_ENHANCE_OPTIONS.style,
-    [styles],
+    (id: string) => styles[id] ?? defaultStyle,
+    [styles, defaultStyle],
   );
 
   const run = useCallback(
@@ -218,7 +221,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       // "Repair again" starts from the current repaired state, so adjusted corners are kept.
       const state = statesRef.current[doc.id];
       const current = state?.status === "done" ? state.result : state?.status === "running" ? state.previous : undefined;
-      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "repair", current);
+      await execute(doc, stylesRef.current[doc.id] ?? defaultStyle, "repair", current);
     },
     [execute],
   );
@@ -242,14 +245,14 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
       if (!shown) return; // nothing repaired yet to turn
       rotations.current = { ...rotations.current, [doc.id]: addQuarterTurn(rotations.current[doc.id] ?? 0, by) };
       // A job in flight picks up the new turn when it finishes.
-      if (state?.status === "done") void execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "rotate", shown);
+      if (state?.status === "done") void execute(doc, stylesRef.current[doc.id] ?? defaultStyle, "rotate", shown);
     },
     [execute],
   );
 
   const applyCorners = useCallback(
     async (doc: SourceDocument, corners: Quad) => {
-      await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "corners", undefined, corners);
+      await execute(doc, stylesRef.current[doc.id] ?? defaultStyle, "corners", undefined, corners);
     },
     [execute],
   );
@@ -271,7 +274,7 @@ export function useRepair(documents: SourceDocument[]): RepairApi {
         // Removed, or repaired by hand, since the batch started.
         const skip = !alive.current.has(doc.id) || (statesRef.current[doc.id] ?? IDLE).status !== "idle";
         if (!skip) {
-          const outcome = await execute(doc, stylesRef.current[doc.id] ?? DEFAULT_ENHANCE_OPTIONS.style, "repair");
+          const outcome = await execute(doc, stylesRef.current[doc.id] ?? defaultStyle, "repair");
           if (outcome === "done") repaired++;
           else if (outcome === "error") failed++;
         }

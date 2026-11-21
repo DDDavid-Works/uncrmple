@@ -64,6 +64,14 @@ describe("layoutPage", () => {
     expect(l.x).toBeCloseTo(l.pageWidth - l.width - l.x);
   });
 
+  it("fits a long, narrow receipt on A4 by its height, without distortion", () => {
+    const l = layoutPage({ width: 600, height: 4000 }, "a4");
+    expect(l.pageHeight).toBeCloseTo(841.89); // portrait
+    expect(l.height).toBeCloseTo(841.89 - 2 * 18);
+    expect(l.width / l.height).toBeCloseTo(600 / 4000);
+    expect(l.x).toBeCloseTo(l.pageWidth - l.width - l.x);
+  });
+
   it("turns the paper to landscape for a wide image", () => {
     const l = layoutPage({ width: 2000, height: 1000 }, "letter");
     expect(l.pageWidth).toBe(792);

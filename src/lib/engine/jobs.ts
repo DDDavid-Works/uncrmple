@@ -2,7 +2,7 @@ import type { Assessment } from "../../types/assessment";
 import {
   CARD_MARGINS,
   type CardDetection, type CardEnhanceOptions, type CardImageProcessor, type CardMargin, type CardQualityIssue,
-  type OutputStyle, type Quad, type QuarterTurn, type RasterImage, type RepairResult, type Result,
+  type OutputStyle, type PaperProfile, type Quad, type QuarterTurn, type RasterImage, type RepairResult, type Result,
 } from "../../types/repair";
 import { fileToRaster, rasterToPng } from "../browser/raster";
 import { assessPhoto } from "../image-processing/assessment/assess";
@@ -18,6 +18,8 @@ export interface RepairJob {
   /** Use these corners instead of detecting the page. */
   corners?: Quad;
   style: OutputStyle;
+  /** Defaults to "document". */
+  profile?: PaperProfile;
   rotate: QuarterTurn;
   /** Also encode the straightened page (skipped when the caller already has it). */
   straightened: boolean;
@@ -55,10 +57,10 @@ export interface Engine {
 
 export function localEngine(processor: CardImageProcessor = createOpenCvProcessor()): Engine {
   return {
-    async repair({ file, corners, style, rotate, straightened }) {
+    async repair({ file, corners, style, profile, rotate, straightened }) {
       const raster = await fileToRaster(file);
       if (!raster.ok) return raster;
-      const repaired = await repair(processor, raster.value, { corners, enhance: { style }, rotate });
+      const repaired = await repair(processor, raster.value, { corners, enhance: { style, ...(profile ? { profile } : {}) }, rotate });
       if (!repaired.ok) return repaired;
       const { image, straightened: flat, ...details } = repaired.value;
       const png = await rasterToPng(image);
