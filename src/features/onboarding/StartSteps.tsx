@@ -10,7 +10,7 @@ interface Props {
   sampleError?: string | null;
 }
 
-const STEPS: Record<ProcessingMode, string[]> = {
+export const STEPS: Record<ProcessingMode, string[]> = {
   document: ["Add a photo of a page", "Repair it to straighten and clean up", "Download an image or PDF"],
   card: ["Add a photo of a card", "Check the crop", "Download an image or PDF"],
 };

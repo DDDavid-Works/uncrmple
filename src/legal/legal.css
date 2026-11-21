@@ -7,10 +7,11 @@
 }
 .legal h1 { font-size: var(--text-xl); line-height: 1.15; }
 .legal h2 { font-size: var(--text-lg); line-height: 1.25; margin-top: calc(var(--space-6) * 1.5); }
-.legal p, .legal ul { margin: var(--space-3) 0 0; }
-.legal ul { padding-left: var(--space-6); }
+.legal p, .legal ul, .legal ol { margin: var(--space-3) 0 0; }
+.legal ul, .legal ol { padding-left: var(--space-6); }
 .legal li + li { margin-top: var(--space-2); }
 .legal a { overflow-wrap: anywhere; }
+.home-intro__loading { color: var(--muted); }
 .legal-updated { color: var(--muted); font-size: var(--text-sm); }
 @media (min-width: 640px) {
   .legal { padding-left: var(--space-6); padding-right: var(--space-6); }

@@ -38,6 +38,9 @@ for (const page of pages) {
     .join("\n    ");
   const html = templates
     .get(page.template ?? page.file)
+    // The app's index.html carries a title and description of its own for the dev server; these replace them.
+    .replace(/<title>[^<]*<\/title>\s*/, "")
+    .replace(/<meta name="description"[^>]*>\s*/, "")
     .replace("<!--head-->", () => head)
     .replace("<!--app-html-->", () => page.render());
   if (html.includes("<!--head-->") || html.includes("<!--app-html-->")) {

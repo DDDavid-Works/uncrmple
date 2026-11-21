@@ -1,11 +1,12 @@
-// Server-side render of the site's static pages (legal pages and blog), built with `vite build --ssr` and
+// Server-side render of the site's static pages (the home page's intro, legal pages and blog), built with `vite build --ssr` and
 // written into dist/ by scripts/prerender.mjs. The pages need no script to be read.
 import { StrictMode, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { BLOG_PATH, BlogIndexPage, BlogPostPage, postPath } from "./blog/BlogPages";
 import { posts } from "./blog/content";
 import { postJsonLd, rssFeed } from "./blog/seo";
-import { OPERATOR_NAME, PRODUCT_NAME } from "./config";
+import { DESCRIPTION, OPERATOR_NAME, PRODUCT_NAME, TAGLINE } from "./config";
+import { HomeIntro } from "./home/HomeIntro";
 import { LegalPage } from "./legal/LegalPage";
 import { PrivacyPolicy } from "./legal/PrivacyPolicy";
 import { TermsOfUse } from "./legal/TermsOfUse";
@@ -34,6 +35,27 @@ const BLOG_TITLE = `Blog | ${PRODUCT_NAME}`;
 const FEED_PATH = `${BLOG_PATH}feed.xml`;
 
 export const pages: StaticPage[] = [
+  {
+    // The app's own page: the intro is what readers without scripts see; the app replaces it on start.
+    file: "index.html",
+    title: `${PRODUCT_NAME}: ${TAGLINE}`,
+    description: DESCRIPTION,
+    canonical: abs("/"),
+    jsonLd: [
+      { "@context": "https://schema.org", "@type": "WebSite", name: PRODUCT_NAME, url: abs("/"), description: DESCRIPTION },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: PRODUCT_NAME,
+        url: abs("/"),
+        description: DESCRIPTION,
+        applicationCategory: "MultimediaApplication",
+        operatingSystem: "Any",
+        browserRequirements: "Requires JavaScript and a modern web browser.",
+      },
+    ],
+    render: () => render(<HomeIntro />),
+  },
   {
     file: "privacy/index.html",
     title: `Privacy policy | ${PRODUCT_NAME}`,
@@ -120,10 +142,10 @@ export function securityTxt(builtAt: Date): string {
   ].join("\n");
 }
 
-/** Every indexable address: the app itself and each static page, for dist/sitemap.xml. */
+/** Every indexable address (each static page, the app's home page first), for dist/sitemap.xml. */
 export function sitemapXml(): string {
-  const urls = [{ loc: abs("/"), modified: undefined as string | undefined }]
-    .concat(pages.map((p) => ({ loc: p.canonical, modified: p.modified })))
+  const urls = pages
+    .map((p) => ({ loc: p.canonical, modified: p.modified }))
     .map(({ loc, modified }) => `<url><loc>${loc}</loc>${modified ? `<lastmod>${modified}</lastmod>` : ""}</url>`)
     .join("");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>\n`;

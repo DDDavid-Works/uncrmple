@@ -1,6 +1,6 @@
 export type ProcessingMode = "document" | "card";
 
-const MODES: { value: ProcessingMode; label: string; hint: string }[] = [
+export const MODES: { value: ProcessingMode; label: string; hint: string }[] = [
   { value: "document", label: "Document Repair", hint: "Paper pages: straighten, even out lighting, clean up." },
   { value: "card", label: "ID & Card Crop", hint: "ID, membership or access cards: cut out and straighten the card." },
 ];
