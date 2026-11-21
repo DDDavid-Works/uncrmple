@@ -44,6 +44,16 @@
 		rewrite * /api/send
 		reverse_proxy https://cloud.umami.is {
 			header_up Host cloud.umami.is
+			# uncrmple.app is behind Cloudflare, and so is Umami Cloud, which refuses a request that already
+			# carries CF-Connecting-IP (Cloudflare error 1000). Drop Cloudflare's headers and pass the
+			# visitor's address in Umami Cloud's own header, which it reads first. Empty when not behind Cloudflare.
+			header_up X-Umami-Client-IP {http.request.header.CF-Connecting-IP}
+			header_up -CF-Connecting-IP
+			header_up -CF-IPCountry
+			header_up -CF-Ray
+			header_up -CF-Visitor
+			header_up -CF-Worker
+			header_up -CDN-Loop
 		}
 	}
 

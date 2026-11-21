@@ -54,4 +54,11 @@ describe("security headers", () => {
     expect(caddyfile).toContain("request_header -Cookie");
     expect(caddyfile).toContain("reverse_proxy https://cloud.umami.is");
   });
+
+  // Live failure on 2026-11-21: Umami Cloud's Cloudflare answered 403 (error 1000) to every hit from
+  // uncrmple.app, because the forwarded request still carried our Cloudflare's CF-Connecting-IP.
+  it("drop Cloudflare's headers before forwarding, passing the visitor's address in Umami's header", () => {
+    expect(caddyfile).toContain("header_up -CF-Connecting-IP");
+    expect(caddyfile).toContain("header_up X-Umami-Client-IP {http.request.header.CF-Connecting-IP}");
+  });
 });
