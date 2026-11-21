@@ -59,7 +59,7 @@ export const pages: StaticPage[] = [
   {
     file: "privacy/index.html",
     title: `Privacy policy | ${PRODUCT_NAME}`,
-    description: `How ${PRODUCT_NAME} keeps your document photos on your device, and how it handles your email address.`,
+    description: `How ${PRODUCT_NAME} keeps your document photos on your device, which anonymous usage counts the app sends, and how waitlist emails are handled.`,
     canonical: PRIVACY_URL,
     render: () =>
       render(
