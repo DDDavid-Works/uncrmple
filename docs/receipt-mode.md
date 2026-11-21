@@ -64,9 +64,9 @@ cost. The dependency checks in `CLAUDE.md` must be completed before it is added 
 
 | Check | Status |
 | --- | --- |
-| License | Apache-2.0 (to confirm for the exact version installed) |
-| Maintenance | To confirm at install: recent releases, open issues |
-| Size | WASM core plus English language data, several MB in total (fast data is smaller than best). Measure the real transfer size in the spike. |
+| Versions | `tesseract.js` 7.0.0 and `tesseract.js-core` 6.1.2 (Apache-2.0, both published 2025-12-15); `@tesseract.js-data/eng` 1.0.0 (MIT, 2023). Installed as dev dependencies for the spike only (2026-11-21). |
+| Maintenance | Last release about 11 months ago. Check for newer releases and open security issues before Phase 3 moves them to runtime dependencies. |
+| Size | Worker script 0.1 MB; LSTM engine (`*.wasm.js`, WASM embedded) 3.9 MB, about 1.5 MB gzipped; English data `best_int` 3.0 MB or full 10.9 MB, both already gzipped. First use with `best_int`: about 4.6 MB over the network if the server compresses the engine. |
 | Browser support | WASM in a Web Worker. Confirm on Safari iOS and a mid-range Android phone. |
 | Network | Its defaults fetch the core and language data from a CDN. They must be overridden to self-hosted paths, or it breaks the privacy model and the CSP (`connect-src` allows only our origin). |
 | CSP | `wasm-unsafe-eval` is already allowed for OpenCV. Check whether its worker needs a `blob:` worker source; if so, load the worker from a file instead of widening `worker-src`. |
@@ -93,8 +93,26 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   next to the photos (also not committed).
   The format is defined and checked in `src/dev/receipt-eval/truth.ts`; see "Writing ground
   truth" below.
-- **Harness:** `receipt-eval.html`, dev server only, like `card-eval.html`. It runs OCR on (a) the
-  raw photo and (b) the photo after the current Document Repair, and scores both.
+- **Harness:** `receipt-eval.html` (`src/dev/receipt-eval.ts`), dev server only, like
+  `card-eval.html`. Start the dev server and open `/receipt-eval.html`, pick the settings, press
+  Run. It runs OCR on the raw photo and on the Document Repair output (grayscale, black & white or
+  colour, as ticked), and scores each against the truth file (`src/dev/receipt-eval/score.ts`).
+  - Settings: English data `best_int` or full; Tesseract page layout 4 (single column), 3
+    (automatic) or 6 (single block).
+  - Engine, worker and language data are served from `node_modules` on the dev server; the IndexedDB
+    cache is off. No other host is contacted.
+  - Per receipt: the photo, each input's OCR text (lines under 60 confidence in red), its scores,
+    and a list of missing lines and wrong amounts. A summary table pools all receipts per input.
+    Results are also on `window.__receiptEval`.
+  - A photo without a truth file is read but not scored; a truth file with mistakes is listed with
+    its errors and not scored.
+  - Scoring: a truth line is found when an OCR line contains its words with at most 20 percent
+    character errors (spaces, punctuation and amounts ignored). An amount is in row when the
+    matched OCR line, or an unmatched line right under it (a wrapped name, a `2 x 18.50` line),
+    holds it digit for digit; "anywhere" counts it on any line.
+  - Checked on one synthetic receipt rendered from the template (not a photo): every line and
+    amount found on raw, grayscale and colour input; black & white misread two amounts. This only
+    shows the harness works, not how OCR does on real receipts.
 - **Metrics:**
   1. Line recall: share of printed lines found.
   2. Amount accuracy: share of amounts exactly right (every digit) and in the right row.
