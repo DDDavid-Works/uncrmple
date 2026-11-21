@@ -2,9 +2,8 @@ import { CONTACT_EMAIL } from "../links";
 import { OPERATOR_COUNTRY, OPERATOR_NAME, PRIVACY_UPDATED, PRODUCT_NAME } from "../config";
 
 // The privacy policy, served by the app at /privacy/ (scripts/prerender.mjs writes it as static HTML).
-// Until the waitlist site is retired it also keeps its own copy (waitlist/src/PrivacyPage.tsx), which
-// Railway builds on its own; src/legal/legal.test.tsx fails if the two texts differ. Bump
-// PRIVACY_UPDATED in src/config.ts on any change.
+// Since launch (21 November 2026) this is the only live copy; the retired waitlist site's copy
+// (waitlist/src/PrivacyPage.tsx) is no longer kept in step. Bump PRIVACY_UPDATED in src/config.ts on any change.
 
 function Mail() {
   return <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
@@ -24,7 +23,10 @@ export function PrivacyPolicy() {
       <h1>Privacy policy</h1>
       <p className="legal-updated">Last updated {PRIVACY_UPDATED}</p>
 
-      <p>This policy covers the {PRODUCT_NAME} website, its waitlist and the {PRODUCT_NAME} repair app.</p>
+      <p>
+        This policy covers the {PRODUCT_NAME} website, the {PRODUCT_NAME} repair app and the email addresses collected
+        by our waitlist before launch.
+      </p>
 
       <h2>Who we are</h2>
       <p>
@@ -48,17 +50,17 @@ export function PrivacyPolicy() {
       <h2>What we collect</h2>
       <ul>
         <li>
-          <strong>Your email address</strong>, if you join the waitlist. We don't ask for anything else.
+          <strong>Your email address</strong>, if you joined the waitlist before launch. We didn't ask for anything
+          else, and the waitlist is now closed.
         </li>
         <li>
-          <strong>Technical data</strong>, such as your IP address, browser type and the time of your visit. Our
-          hosting provider and our form provider may record this when your browser loads the site or the app, or sends
-          the form.
+          <strong>Technical data</strong>, such as your IP address, browser type and the time of your visit.
+          Cloudflare and our hosting provider may record this when your browser loads the site or the app.
         </li>
       </ul>
       <p>
         The site and the app set no cookies and use no advertising or tracking tools. Their fonts, images and
-        image-processing code are served from our own servers.
+        image-processing code are served by this site, not loaded from other services.
       </p>
 
       <h2>Anonymous usage counts in the app</h2>
@@ -78,12 +80,12 @@ export function PrivacyPolicy() {
       <h2>Why we use it</h2>
       <ul>
         <li>
-          We use your email only to tell you about the {PRODUCT_NAME} launch and early access. We rely on your
-          consent, which you give by joining the waitlist and can withdraw at any time.
+          We use waitlist email addresses only to tell you about the {PRODUCT_NAME} launch and early access. We rely
+          on the consent you gave by joining the waitlist, which you can withdraw at any time.
         </li>
         <li>
-          Technical data is used to deliver the site and the form and to keep them secure, for example against
-          spam. This is in our legitimate interest in running the service.
+          Technical data is used to deliver the site and the app and to keep them secure, for example against
+          attacks and abuse. This is in our legitimate interest in running the service.
         </li>
         <li>
           Anonymous usage counts tell us which parts of the app are used and where repairs fail, so we can improve
@@ -95,14 +97,22 @@ export function PrivacyPolicy() {
       <h2>Who handles it for us</h2>
       <ul>
         <li>
-          <External href="https://web3forms.com/privacy">Web3Forms</External> receives the waitlist form and
-          forwards your email address to our inbox.
+          <External href="https://www.cloudflare.com/privacypolicy/">Cloudflare</External> carries all traffic to
+          this website and the app, protecting them and caching their files. It sees technical data such as your IP
+          address but never receives your document photos.
+        </li>
+        <li>
+          <External href="https://web3forms.com/privacy">Web3Forms</External> received the waitlist form and
+          forwarded your email address to our inbox. Now that the waitlist is closed, it receives nothing new.
         </li>
         <li>
           <External href="https://railway.com/legal/privacy">Railway</External> hosts this website and the app. It
           serves their files but never receives your document photos.
         </li>
-        <li>Our email provider stores the inbox where signups arrive and sends our launch emails.</li>
+        <li>
+          <External href="https://policies.google.com/privacy">Gmail</External>, Google's email service, stores the
+          inbox where signups arrived and sends our launch emails.
+        </li>
         <li>
           <External href="https://umami.is/privacy">Umami</External> receives the app's anonymous usage counts and
           shows us totals. It never receives your document photos.
@@ -115,8 +125,8 @@ export function PrivacyPolicy() {
 
       <h2>How long we keep it</h2>
       <p>
-        We keep your email address until 12 months after {PRODUCT_NAME} launches and then delete it. We delete it
-        sooner if you unsubscribe or ask us to. Our providers' own logs are kept under their policies, linked above.
+        We keep waitlist email addresses until 21 November 2027, 12 months after {PRODUCT_NAME} launched, and then
+        delete them. We delete yours sooner if you unsubscribe or ask us to. Our providers' own logs are kept under their policies, linked above.
       </p>
 
       <h2>Your rights</h2>
@@ -138,20 +148,21 @@ export function PrivacyPolicy() {
 
       <h2>Children</h2>
       <p>
-        The waitlist is not meant for anyone under 16, and we don't knowingly collect their information. If you think
-        a child has signed up, email us and we will delete it.
+        The waitlist was not meant for anyone under 16, and we don't knowingly collect their information. If you think
+        a child signed up, email us and we will delete it.
       </p>
 
       <h2>Security</h2>
       <p>
-        The site and the form use encrypted connections (HTTPS). Only {OPERATOR_NAME} can see the waitlist. If a
+        The site and the app use encrypted connections (HTTPS). Only {OPERATOR_NAME} can see the waitlist email
+        addresses. If a
         breach ever affects your information, we will tell you and the authorities as the law requires.
       </p>
 
       <h2>Changes</h2>
       <p>
         If we change this policy, we will update the date at the top. If a change affects how we use your email, we
-        will tell waitlist members by email before it takes effect.
+        will tell the people on the waitlist by email before it takes effect.
       </p>
     </main>
   );

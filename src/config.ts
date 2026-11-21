@@ -11,6 +11,6 @@ export const DESCRIPTION =
 export const OPERATOR_NAME = "Darrel David";
 export const OPERATOR_COUNTRY = "the Philippines";
 /** Bump whenever the privacy policy text changes (src/legal/PrivacyPolicy.tsx). */
-export const PRIVACY_UPDATED = "15 November 2026";
+export const PRIVACY_UPDATED = "21 November 2026";
 /** Bump whenever the terms of use text changes (src/legal/TermsOfUse.tsx). */
 export const TERMS_UPDATED = "30 October 2026";

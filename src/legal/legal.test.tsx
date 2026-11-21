@@ -1,12 +1,8 @@
 import { render } from "@testing-library/react";
 import privacyShell from "../../privacy/index.html?raw";
 import termsShell from "../../terms/index.html?raw";
-import { PrivacyPage as WaitlistPrivacyPage } from "../../waitlist/src/PrivacyPage";
 import { TermsPage as WaitlistTermsPage } from "../../waitlist/src/TermsPage";
-import {
-  PRIVACY_UPDATED as WAITLIST_PRIVACY_UPDATED,
-  TERMS_UPDATED as WAITLIST_TERMS_UPDATED,
-} from "../../waitlist/src/config";
+import { TERMS_UPDATED as WAITLIST_TERMS_UPDATED } from "../../waitlist/src/config";
 import { PRIVACY_UPDATED, TERMS_UPDATED } from "../config";
 import { PRIVACY_URL, TERMS_URL } from "../links";
 import { pages } from "../entry-server";
@@ -51,13 +47,18 @@ describe("static legal pages", () => {
     }
   });
 
-  // The waitlist site keeps its own copies until it is retired, since Railway builds it on its own.
-  it("say exactly what the waitlist site's copies say, with the same dates", () => {
-    const waitlistPrivacy = render(<WaitlistPrivacyPage />).container.innerHTML;
+  // The waitlist site keeps its own copy of the terms, since Railway builds it on its own. Its privacy
+  // policy is no longer kept in step: since launch the app's copy is the only live one.
+  it("say in the terms exactly what the waitlist site's copy says, with the same date", () => {
     const waitlistTerms = render(<WaitlistTermsPage />).container.innerHTML;
-    expect(mainText(privacy.render())).toBe(mainText(waitlistPrivacy));
     expect(mainText(terms.render())).toBe(mainText(waitlistTerms));
-    expect(PRIVACY_UPDATED).toBe(WAITLIST_PRIVACY_UPDATED);
     expect(TERMS_UPDATED).toBe(WAITLIST_TERMS_UPDATED);
+  });
+
+  it("describe the waitlist as closed and name every provider that carries traffic", () => {
+    const text = mainText(privacy.render());
+    expect(text).toContain("the waitlist is now closed");
+    expect(text).not.toMatch(/if you join the waitlist|signups arrive/);
+    for (const provider of ["Cloudflare", "Railway", "Umami", "Web3Forms", "Gmail"]) expect(text).toContain(provider);
   });
 });
