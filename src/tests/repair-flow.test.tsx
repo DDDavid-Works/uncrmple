@@ -1194,3 +1194,42 @@ describe("repair all", () => {
     expect(within(chip("three.jpg")).getByText("Repaired")).toBeInTheDocument();
   });
 });
+
+describe("remove all", () => {
+  async function upload(names: string[], extra: File[] = []) {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText("Choose document photos"), [
+      ...names.map((n) => new File([jpegHeader(400, 300)], n, { type: "image/jpeg" })),
+      ...extra,
+    ]);
+    await screen.findByRole("heading", { name: names[0] });
+    await vi.waitFor(() => expect(screen.getAllByText(/^\d\. /)).toHaveLength(names.length));
+    return user;
+  }
+
+  it("is not offered for a single photo, which has its own Remove", async () => {
+    await upload(["page.jpg"]);
+    expect(screen.queryByRole("button", { name: "Remove all" })).toBeNull();
+  });
+
+  it("asks first, then removes every photo and message and returns to the upload screen", async () => {
+    const user = await upload(["one.jpg", "two.jpg"], [new File(["not an image"], "notes.jpg", { type: "image/jpeg" })]);
+    expect(await screen.findByRole("list", { name: "Files that could not be added" })).toBeInTheDocument();
+
+    // Keep leaves everything as it was.
+    await user.click(screen.getByRole("button", { name: "Remove all" }));
+    const confirm = screen.getByRole("group", { name: "Confirm removing all photos" });
+    expect(confirm).toHaveTextContent("Remove all 2 photos?");
+    expect(within(confirm).getByRole("button", { name: "Keep" })).toHaveFocus();
+    await user.click(within(confirm).getByRole("button", { name: "Keep" }));
+    expect(screen.getAllByText(/^\d\. /)).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Remove all" }));
+    await user.click(within(screen.getByRole("group", { name: "Confirm removing all photos" })).getByRole("button", { name: "Remove all" }));
+    expect(screen.queryByRole("list", { name: "Uploaded photos" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Files that could not be added" })).toBeNull();
+    expect(screen.getByText("Your photos will appear here.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose photos" })).toHaveFocus();
+  });
+});

@@ -9,6 +9,8 @@ interface Props {
   onFiles: (files: File[]) => void;
   /** Shown under the main button on the full-size zone, e.g. the first-visit steps. */
   children?: ReactNode;
+  /** Focus the choose button when shown, e.g. after every photo was removed. */
+  focusOnMount?: boolean;
 }
 
 function PrivacyBadge() {
@@ -41,8 +43,12 @@ function isTextEntry(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 }
 
-export function UploadZone({ compact, busy, onFiles, children }: Props) {
+export function UploadZone({ compact, busy, onFiles, children, focusOnMount = false }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  const choose = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (focusOnMount) choose.current?.focus();
+  }, []); // On mount only.
   const [dragging, setDragging] = useState(false);
   // On phones the picker also offers the camera; say so without forcing capture.
   const [touch] = useState(isCoarsePointer);
@@ -103,7 +109,7 @@ export function UploadZone({ compact, busy, onFiles, children }: Props) {
         </>
       )}
       {(compact || !busy) && (
-        <button type="button" className={compact ? "btn btn--block" : "btn btn--primary"} onClick={() => input.current?.click()}>
+        <button ref={choose} type="button" className={compact ? "btn btn--block" : "btn btn--primary"} onClick={() => input.current?.click()}>
           {compact ? "Add photos" : touch ? "Choose or take photo" : "Choose photos"}
         </button>
       )}

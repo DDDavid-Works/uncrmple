@@ -5,10 +5,15 @@ interface Props {
   onRemove: () => void;
   /** A small ✕ that asks "Remove?" in place, for tight spots such as the page list. */
   compact?: boolean;
+  /** Button text in the full form, on the button and its confirmation; defaults to "Remove". */
+  label?: string;
+  /** The confirmation question in the full form; defaults to "Remove <name>?". */
+  question?: string;
+  disabled?: boolean;
 }
 
 /** Remove with an inline confirmation; the default focus lands on "Keep". */
-export function RemoveButton({ name, onRemove, compact = false }: Props) {
+export function RemoveButton({ name, onRemove, compact = false, label = "Remove", question, disabled = false }: Props) {
   const [confirming, setConfirming] = useState(false);
   const keepRef = useRef<HTMLButtonElement>(null);
   const removeRef = useRef<HTMLButtonElement>(null);
@@ -36,8 +41,8 @@ export function RemoveButton({ name, onRemove, compact = false }: Props) {
         <span aria-hidden="true">✕</span>
       </button>
     ) : (
-      <button ref={removeRef} type="button" className="btn btn--small btn--danger-quiet" onClick={() => setConfirming(true)}>
-        Remove
+      <button ref={removeRef} type="button" className="btn btn--small btn--danger-quiet" onClick={() => setConfirming(true)} disabled={disabled}>
+        {label}
       </button>
     );
   }
@@ -50,7 +55,7 @@ export function RemoveButton({ name, onRemove, compact = false }: Props) {
         if (e.key === "Escape") setConfirming(false);
       }}
     >
-      <span className="confirm__text">{compact ? "Remove this photo?" : `Remove ${name}?`}</span>
+      <span className="confirm__text">{compact ? "Remove this photo?" : (question ?? `Remove ${name}?`)}</span>
       {/* In the compact form the answers are icons, with their words as labels and tooltips. */}
       <button
         type="button"
@@ -59,7 +64,7 @@ export function RemoveButton({ name, onRemove, compact = false }: Props) {
         aria-label={compact ? "Remove" : undefined}
         title={compact ? "Remove" : undefined}
       >
-        {compact ? <TrashIcon /> : "Remove"}
+        {compact ? <TrashIcon /> : label}
       </button>
       <button
         ref={keepRef}

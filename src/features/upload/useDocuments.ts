@@ -16,6 +16,8 @@ export interface DocumentsApi {
   pending: number;
   addFiles: (files: File[]) => Promise<void>;
   remove: (id: string) => void;
+  /** Remove every photo and every message about files that could not be added. */
+  clear: () => void;
   move: (id: string, to: number) => void;
   dismissRejected: (id: string) => void;
 }
@@ -117,6 +119,12 @@ export function useDocuments(): DocumentsApi {
     setDocuments((d) => d.filter((x) => x.id !== id));
   }, []);
 
+  const clear = useCallback(() => {
+    for (const d of live.current) URL.revokeObjectURL(d.originalUrl);
+    setDocuments([]);
+    setRejected([]);
+  }, []);
+
   /** Move a page to position `to` (0-based), shifting the pages between; the PDF follows this order. */
   const move = useCallback((id: string, to: number) => {
     setDocuments((docs) => {
@@ -134,5 +142,5 @@ export function useDocuments(): DocumentsApi {
     [],
   );
 
-  return { documents, rejected, pending, addFiles, remove, move, dismissRejected };
+  return { documents, rejected, pending, addFiles, remove, clear, move, dismissRejected };
 }

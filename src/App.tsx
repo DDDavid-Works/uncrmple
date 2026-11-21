@@ -3,6 +3,7 @@ import type { SourceDocument } from "./types/document";
 import { PRODUCT_NAME, WORDMARK } from "./config";
 import { AppFooter } from "./components/AppFooter";
 import { Logo } from "./components/Logo";
+import { RemoveButton } from "./components/RemoveButton";
 import { ThemeSwitch } from "./components/ThemeSwitch";
 import { CardPanel } from "./features/card/CardPanel";
 import { defaultCardCorners, useCardCrop } from "./features/card/useCardCrop";
@@ -37,7 +38,13 @@ function ShieldIcon() {
 }
 
 export function App() {
-  const { documents, rejected, pending, addFiles, remove, move, dismissRejected } = useDocuments();
+  const { documents, rejected, pending, addFiles, remove, clear, move, dismissRejected } = useDocuments();
+  // Set by "Remove all" so focus lands on the upload button that replaces the photo list.
+  const [cleared, setCleared] = useState(false);
+  const removeAll = () => {
+    clear();
+    setCleared(true);
+  };
   const { stateOf, styleOf, run, setStyle, rotate, applyCorners, repairAll, stopAll, batch } = useRepair(documents);
   const cards = useCardCrop(documents);
   const [mode, setMode] = useState<ProcessingMode>("document");
@@ -246,6 +253,18 @@ export function App() {
             <span className="count" aria-label={`${documents.length} ${documents.length === 1 ? "photo" : "photos"}`}>
               {documents.length}
             </span>
+            {/* One photo has its own Remove; held while photos load or "Repair all" runs. */}
+            {documents.length > 1 && (
+              <span className="sidebar__clear">
+                <RemoveButton
+                  name="all photos"
+                  label="Remove all"
+                  question={`Remove all ${documents.length} photos?`}
+                  onRemove={removeAll}
+                  disabled={locked || pending > 0}
+                />
+              </span>
+            )}
           </div>
 
           {!phone && addArea}
@@ -278,7 +297,7 @@ export function App() {
         {documents.length === 0 ? (
           <div className={mode === "card" ? "stage stage--with-panel" : "stage"}>
             <div className="stage__main">
-              <UploadZone compact={false} busy={pending > 0} onFiles={(f) => void addPhotos(f)}>
+              <UploadZone compact={false} busy={pending > 0} onFiles={(f) => void addPhotos(f)} focusOnMount={cleared}>
                 <StartSteps
                   mode={mode}
                   onSample={mode === "document" ? () => void trySample() : undefined}

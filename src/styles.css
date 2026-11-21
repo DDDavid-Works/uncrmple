@@ -159,7 +159,14 @@ a { color: var(--link); }
   display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4);
   background: var(--surface); border-right: var(--line); min-width: 0;
 }
-.sidebar__head { display: flex; align-items: center; justify-content: space-between; }
+.sidebar__head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+/* "Remove all" at the far end; its confirmation takes a row of its own. */
+.sidebar__clear { margin-left: auto; }
+/* Rare and confirmed in place, so it stays quiet beside Add photos and the red ✕ on each photo:
+   grey text, turning red only on hover or focus. The confirmation keeps the full red. */
+.sidebar__clear > .btn { padding-inline: var(--space-2); white-space: nowrap; background: none; border-color: transparent; color: var(--muted); }
+.sidebar__clear > .btn:hover:not(:disabled), .sidebar__clear > .btn:focus-visible { background: var(--danger-bg); border-color: transparent; color: var(--danger); }
+.sidebar__clear:has(.confirm) { flex-basis: 100%; }
 .sidebar__title { font-size: var(--text-md); }
 .count {
   min-width: 26px; padding: 2px 8px; border-radius: var(--radius-sm); background: var(--surface-sunk);
@@ -654,7 +661,9 @@ a { color: var(--link); }
     background: var(--surface); border-bottom: var(--line);
   }
   .workbench[data-view="pages"] .workspace-frame, .workbench[data-view="page"] .sidebar { display: none; }
-  .workbench[data-view] .sidebar__head { display: none; }
+  /* The view switch already names and counts the photos; only "Remove all" stays from this row. */
+  .workbench[data-view] .sidebar__head:not(:has(.sidebar__clear)),
+  .workbench[data-view] .sidebar__head > :not(.sidebar__clear) { display: none; }
   .workbench__add { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4) 0; }
   .stage__main, .viewer { padding: var(--space-3); }
   .upload { padding: 32px var(--space-4); }
