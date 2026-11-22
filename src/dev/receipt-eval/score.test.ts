@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import template from "./truth-template.json";
-import { amountsIn, normalizeText, scoreReceipt, similarity, substringDistance, summarize, type OcrLine } from "./score";
+import { amountsIn, bestStretch, normalizeText, scoreReceipt, similarity, substringDistance, summarize, type OcrLine } from "./score";
 import { parseTruth, type ReceiptTruth } from "./truth";
 
 function truthFromTemplate(): ReceiptTruth {
@@ -131,6 +131,23 @@ describe("scoreReceipt", () => {
 
     const once = scoreReceipt(truth, ocr("PANDESAL 25.00"));
     expect(once.foundLines).toBe(1);
+  });
+
+  it("matches two blocks printed side by side on one row to different parts of the line", () => {
+    const truth: ReceiptTruth = {
+      ...truthFromTemplate(),
+      lines: [
+        { kind: "text", text: "Received the above merchandise" },
+        { kind: "total", text: "Grand Total", amount: "241.00" },
+      ],
+    };
+    const score = scoreReceipt(truth, ocr("Received the above merchandise Grand Total 241.00"));
+    expect(score.lines.map((l) => l.ocrLine)).toEqual([0, 0]);
+    expect(score.total).toBe("correct");
+  });
+
+  it("locates the best match inside a longer line", () => {
+    expect(bestStretch("TOTAL", "XXTOTALXX")).toEqual({ distance: 0, start: 2, end: 7 });
   });
 
   it("finds nothing in an empty reading", () => {

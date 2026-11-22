@@ -107,7 +107,9 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   as the app starts it) and on the Document Repair output (grayscale, black & white or colour), as
   ticked, and scores each against the truth file (`src/dev/receipt-eval/score.ts`).
   - Settings: English data `best_int` or full; Tesseract page layout 4 (single column), 3
-    (automatic) or 6 (single block).
+    (automatic) or 6 (single block); scale before OCR 1×, 1.5× or 2× (enlarges small print).
+    With the LSTM engine the full data gave exactly the same result as `best_int` (its LSTM model
+    is the same), so `best_int` is the one to use.
   - Engine, worker and language data are served from `node_modules` on the dev server; the IndexedDB
     cache is off. No other host is contacted.
   - Per receipt: the photo, each input's OCR text (lines under 60 confidence in red), its scores,
@@ -167,6 +169,76 @@ zoomed in, never from an OCR result.
 
 The harness reports every mistake in a file at once (unknown kind, an amount that is not a number,
 two totals and so on), so a typo shows up the first time the file is loaded.
+
+### First real printed receipt (2026-11-21)
+
+One photo is not a result, but it is the first contact with a real printed receipt. Photo: a
+dot-matrix sales invoice on continuous paper, crumpled, photographed at an angle on a table,
+1536 × 2048 px (a downsized messaging-app copy, not a camera original), so the repaired invoice
+is only about 1300 px wide and the print about 12 px tall. Truth typed from the photo by Claude,
+amounts checked by the receipt's own arithmetic; customer and cashier lines hidden.
+
+| Input | Scale | Lines found | Amounts in row | Amounts anywhere | Total |
+| --- | --- | --- | --- | --- | --- |
+| Raw photo | 1× or 2× | 3 / 35 | 0 / 18 | 0 | not found |
+| Receipt mode | 1× | 16 / 35 | 8 / 18 | 12 | misread |
+| Receipt mode | 2× | 19 / 35 | 8 / 18 | 14 | correct |
+| Document Repair, grayscale | 1× | 19 / 35 | 5 / 18 | 10 | misread |
+| Document Repair, grayscale | 2× | 18 / 35 | 5 / 18 | 15 | misread |
+
+(Layout 4; layout 3 at 2× was about the same. About 1.6 s per read at 1×, 2.8 s at 2× on a
+desktop.)
+
+What it shows:
+
+- Far below the pass bar (90 percent of amounts in row): 8 of 18 at best.
+- Repair is essential (the raw photo gave nothing usable); Receipt mode did as well as or better
+  than Document Repair on every count.
+- Enlarging 2× helped a little (the total became correct) but not enough.
+- Two kinds of failure, about equally often:
+  1. **Rows broken apart.** On wavy, crumpled paper Tesseract's line finding merges or splits
+     rows: a table header joined to the first item, a whole item line lost, a totals row joined
+     to the item above. The words are often read but end up with the wrong numbers.
+  2. **Digits and separators misread:** `1,422.08` for 1,488.08, `1.328.65` for 1,328.65,
+     `159,43` for 159.43. These must not be "corrected" by guessing (rule 2); they would be
+     flagged as low confidence.
+- Next: real camera originals at full resolution, flat and crumpled, before drawing any
+  conclusion. If rows still break apart on full-resolution photos, finding the rows ourselves
+  (from the repaired page's text lines, which the dewarp code already traces) and reading each
+  row separately is the first thing to try, before considering another OCR engine.
+
+#### Row by row (tried 2026-11-22, same invoice)
+
+The rows are found with the page tracer the repair already uses (`traceLines`), joined across
+columns into whole rows, cut out as strips that follow each row's own curve, and stacked level
+with white gaps into one image that Tesseract reads in one pass as a single block
+(`src/dev/receipt-eval/rows.ts`, "Reading: Row by row" on the evaluation page). Reading each strip
+separately worked as well but took about 45 s per receipt; the stacked image takes 3-5 s.
+
+Scoring was also changed so that two blocks printed side by side on one row ("Received the above
+merchandise…" and "Grand Total 1,488.08") can match different parts of the same OCR line; the
+numbers below are all scored that way.
+
+| Reading | Scale | Input | Lines found | Amounts in row | Amounts anywhere | Total | Time |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Whole page | 1× | Receipt mode | 16 / 35 | 8 / 18 | 12 | misread | 1.7 s |
+| Whole page | 2× | Receipt mode | 19 / 35 | 8 / 18 | 14 | correct | 3.2 s |
+| Row by row | 1× | Receipt mode | 24 / 35 | 8 / 18 | 11 | misread | 3.4 s |
+| Row by row | 2× | Receipt mode | **25 / 35** | **11 / 18** | **16** | **correct** | 4.6 s |
+| Row by row | 2× | Document Repair, grayscale | 22 / 35 | 11 / 18 | 16 | correct | 5.0 s |
+
+What it shows:
+
+- Row by row fixes most of the broken rows: item lines now come back whole, with their code,
+  description, quantity, price, discount and amount on one line.
+- Best result so far: 11 of 18 amounts in row (61 percent), 16 of 18 read somewhere, total correct.
+  Still well short of the 90 percent bar.
+- What is left is mostly small print misread at this resolution: `£36.00` for 630.00, `1,423.08`
+  for 1,488.08, decimal points lost. Enlarging helps only so much; the information is not in a
+  1300 px wide invoice photo. The right-hand totals block (VATable Sales, VAT Amount) was not
+  traced as rows, so those lines were missed.
+- Same caution as above: one downsized photo. Full-resolution photos are needed before tuning
+  anything further.
 
 ### Phase 2: receipt mode, repair only (built 2026-11-21, before the spike ran)
 

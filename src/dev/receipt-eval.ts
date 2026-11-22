@@ -14,6 +14,9 @@ import { fileToRaster } from "../lib/browser/raster";
 import { repair } from "../lib/image-processing/pipeline";
 import { createOpenCvProcessor } from "../lib/image-processing/opencv/processor";
 import type { EnhanceOptions, OutputStyle, RasterImage } from "../types/repair";
+import { toGray, type Gray } from "../lib/image-processing/assessment/pixels";
+import { traceLines } from "../lib/image-processing/dewarp/trace";
+import { groupRows, stackRows, stripHeight } from "./receipt-eval/rows";
 import { scoreReceipt, summarize, type OcrLine, type ReceiptScore } from "./receipt-eval/score";
 import { parseTruth, type ReceiptTruth } from "./receipt-eval/truth";
 
@@ -46,9 +49,31 @@ const PSMS = [
   { value: PSM.SINGLE_BLOCK, label: "6: single block" },
 ];
 
+/**
+ * Enlarge the image before OCR. Tesseract reads best with letters about 20-30 px tall; small print
+ * in a downsized photo can be well below that.
+ */
+const SCALES = [
+  { value: "1", label: "1× (as is)" },
+  { value: "1.5", label: "1.5×" },
+  { value: "2", label: "2×" },
+];
+
+/**
+ * "page": Tesseract finds the lines itself (with the page layout above). "rows": the rows are
+ * found first with the page tracer and each is read as one line (src/dev/receipt-eval/rows.ts).
+ */
+type Reading = "page" | "rows";
+const READINGS = [
+  { value: "page", label: "Whole page" },
+  { value: "rows", label: "Row by row" },
+];
+
 interface Settings {
   langData: string;
   psm: PSM;
+  scale: number;
+  reading: Reading;
   inputs: Input[];
 }
 
@@ -105,6 +130,18 @@ function toCanvas(raster: RasterImage): HTMLCanvasElement {
   return c;
 }
 
+/** A smoothly enlarged copy for OCR; the canvas itself when the scale is 1. */
+function enlarge(canvas: HTMLCanvasElement, scale: number): HTMLCanvasElement {
+  if (scale === 1) return canvas;
+  const big = el("canvas");
+  big.width = Math.round(canvas.width * scale);
+  big.height = Math.round(canvas.height * scale);
+  const ctx = big.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, 0, 0, big.width, big.height);
+  return big;
+}
+
 function thumb(canvas: HTMLCanvasElement, caption: string): HTMLElement {
   const fig = el("figure", undefined, "margin:0");
   const img = el("img", undefined, "width:100%;max-height:480px;object-fit:contain;background:#222");
@@ -123,6 +160,8 @@ root.append(el("h1", "Receipt OCR evaluation (local, dev only)", "font-size:18px
 const controls = el("div", undefined, "display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:8px");
 const lang = select("Language data", LANG_DATA);
 const psm = select("Page layout", PSMS);
+const scale = select("Scale before OCR", SCALES);
+const reading = select("Reading", READINGS);
 const inputBoxes = INPUTS.map((i) => {
   const label = el("label");
   const box = el("input");
@@ -133,7 +172,7 @@ const inputBoxes = INPUTS.map((i) => {
   return { label, box };
 });
 const runButton = el("button", "Run");
-controls.append(lang.wrap, psm.wrap, ...inputBoxes.map((b) => b.label), runButton);
+controls.append(lang.wrap, reading.wrap, psm.wrap, scale.wrap,...inputBoxes.map((b) => b.label), runButton);
 
 const status = el("p");
 const summaryBox = el("div");
@@ -163,6 +202,45 @@ async function ocr(worker: Worker, canvas: HTMLCanvasElement): Promise<{ lines: 
     .map((l) => ({ text: l.text.trim(), confidence: l.confidence }))
     .filter((l) => l.text.length > 0);
   return { lines, meanConfidence: data.confidence };
+}
+
+/** White space added above and below each row strip; Tesseract misreads text touching the edge. */
+const STRIP_PAD_PX = 8;
+
+function grayToCanvas(gray: Gray, pad: number): HTMLCanvasElement {
+  const c = el("canvas");
+  c.width = gray.width;
+  c.height = gray.height + 2 * pad;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  const rgba = new ImageData(gray.width, gray.height);
+  for (let i = 0; i < gray.data.length; i++) {
+    const v = gray.data[i]!;
+    rgba.data[i * 4] = rgba.data[i * 4 + 1] = rgba.data[i * 4 + 2] = v;
+    rgba.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(rgba, 0, pad);
+  return c;
+}
+
+/**
+ * Find the rows with the page tracer, straighten each, stack them with white gaps, and read the
+ * stack in one pass as a single block (each row then comes back as one line). A page where no rows
+ * can be traced throws (reported as a failed read), rather than falling back to the whole page.
+ */
+async function ocrRows(worker: Worker, image: RasterImage, scale: number, pagePsm: PSM): Promise<{ lines: OcrLine[]; meanConfidence: number; stacked: HTMLCanvasElement }> {
+  const gray = toGray(image);
+  const trace = traceLines(gray);
+  const rows = groupRows(trace);
+  if (rows.length === 0 || trace.rowPitch === null) throw new Error("no text rows could be traced");
+  const stacked = grayToCanvas(stackRows(gray, rows, stripHeight(trace.rowPitch)), STRIP_PAD_PX);
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
+  try {
+    return { ...(await ocr(worker, enlarge(stacked, scale))), stacked };
+  } finally {
+    await worker.setParameters({ tessedit_pageseg_mode: pagePsm });
+  }
 }
 
 function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
@@ -232,7 +310,7 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
   }
   const psmLabel = PSMS.find((p) => p.value === settings.psm)?.label ?? settings.psm;
   summaryBox.append(
-    el("div", `Language data ${settings.langData} · layout ${psmLabel} · engine load ${engineLoadMs} ms`),
+    el("div", `Language data ${settings.langData} · ${settings.reading === "rows" ? "row by row" : `whole page, layout ${psmLabel}`} · scale ${settings.scale}× · engine load ${engineLoadMs} ms`),
     table,
     el("div", "Amounts count only when every digit matches. Pass bar: 90% of amounts in row after repair.", "font-size:12px"),
   );
@@ -242,6 +320,8 @@ async function run() {
   const settings: Settings = {
     langData: lang.input.value,
     psm: psm.input.value as PSM,
+    scale: Number(scale.input.value),
+    reading: reading.input.value as Reading,
     inputs: inputBoxes.filter((b) => b.box.checked).map((b) => b.box.value as Input),
   };
   window.__receiptEvalDone = false;
@@ -319,13 +399,19 @@ async function run() {
         const canvas = toCanvas(image);
         const t = performance.now();
         try {
-          const { lines, meanConfidence } = await ocr(worker, canvas);
+          const read: { lines: OcrLine[]; meanConfidence: number; stacked?: HTMLCanvasElement } =
+            settings.reading === "rows"
+              ? await ocrRows(worker, image, settings.scale, settings.psm)
+              : await ocr(worker, enlarge(canvas, settings.scale));
+          const { lines, meanConfidence } = read;
           const r: Run = {
-            photo: name, input, ok: true, ms: Math.round(performance.now() - t), width: image.width, height: image.height,
+            photo: name, input, ok: true, ms: Math.round(performance.now() - t),
+            width: Math.round(image.width * settings.scale), height: Math.round(image.height * settings.scale),
             meanConfidence, lines, ...(truth ? { score: scoreReceipt(truth, lines) } : {}),
           };
           runs.push(r);
           const cell = renderRun(r, truth);
+          if (read.stacked) cell.prepend(thumb(read.stacked, `${input}: rows as read`));
           if (input !== "raw") cell.prepend(thumb(canvas, `${input} repair`));
           row.append(cell);
         } catch (error) {

@@ -3,7 +3,8 @@
  * docs/receipt-mode.md). Pure functions: no OCR or browser APIs, so they can be unit-tested.
  *
  * - A truth line is "found" when some OCR line contains its words closely enough (spaces and
- *   punctuation ignored, amounts removed). Each OCR line can be used once.
+ *   punctuation ignored, amounts removed). Each stretch of an OCR line can be used once; two truth
+ *   lines printed side by side may match different parts of the same OCR line.
  * - An amount is "in row" when that matched OCR line, or the unmatched line right under it, holds
  *   the exact printed amount, digit for digit, and "anywhere" when any OCR line holds it. The gap
  *   between the two shows row assignment errors.
@@ -79,18 +80,40 @@ function wordsOf(text: string): string {
  * in the haystack), so a truth line is found inside a longer OCR line.
  */
 export function substringDistance(needle: string, haystack: string): number {
-  if (needle.length === 0) return 0;
+  return bestStretch(needle, haystack).distance;
+}
+
+/** Where in `haystack` the best match for `needle` lies: [start, end) and its edit distance. */
+export function bestStretch(needle: string, haystack: string): { distance: number; start: number; end: number } {
+  if (needle.length === 0) return { distance: 0, start: 0, end: 0 };
   let prev = new Array<number>(haystack.length + 1).fill(0);
+  // Where the alignment ending at each cell began in the haystack.
+  let prevStart = Array.from({ length: haystack.length + 1 }, (_, j) => j);
   for (let i = 1; i <= needle.length; i++) {
     const cur = new Array<number>(haystack.length + 1);
+    const curStart = new Array<number>(haystack.length + 1);
     cur[0] = i;
+    curStart[0] = 0;
     for (let j = 1; j <= haystack.length; j++) {
       const cost = needle[i - 1] === haystack[j - 1] ? 0 : 1;
-      cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + cost);
+      const diag = prev[j - 1]! + cost, up = prev[j]! + 1, left = cur[j - 1]! + 1;
+      if (diag <= up && diag <= left) {
+        cur[j] = diag;
+        curStart[j] = prevStart[j - 1]!;
+      } else if (up <= left) {
+        cur[j] = up;
+        curStart[j] = prevStart[j]!;
+      } else {
+        cur[j] = left;
+        curStart[j] = curStart[j - 1]!;
+      }
     }
     prev = cur;
+    prevStart = curStart;
   }
-  return Math.min(...prev);
+  let end = 0;
+  for (let j = 1; j <= haystack.length; j++) if (prev[j]! < prev[end]!) end = j;
+  return { distance: prev[end]!, start: prevStart[end]!, end };
 }
 
 export function similarity(truthText: string, ocrText: string): number {
@@ -99,12 +122,25 @@ export function similarity(truthText: string, ocrText: string): number {
   return Math.max(0, 1 - substringDistance(needle, wordsOf(ocrText)) / needle.length);
 }
 
+/** Similarity and where it matched, in the OCR line's words (see wordsOf). */
+function locate(truthText: string, ocrText: string): { sim: number; start: number; end: number } {
+  const needle = normalizeText(truthText);
+  if (needle.length === 0) return { sim: 0, start: 0, end: 0 };
+  const m = bestStretch(needle, wordsOf(ocrText));
+  return { sim: Math.max(0, 1 - m.distance / needle.length), start: m.start, end: m.end };
+}
+
 /**
  * Matches truth lines to OCR lines. Each truth line takes the unused OCR line it resembles most;
  * ties go to the first line at or after the previous match, so repeated items keep their order.
  */
 export function scoreReceipt(truth: ReceiptTruth, ocr: readonly OcrLine[]): ReceiptScore {
-  const used = new Set<number>();
+  // Parts of each OCR line already matched, [start, end) in its words: a row can hold two printed
+  // blocks side by side ("Received the above…" and "Grand Total"), but one stretch of text counts once.
+  const taken = new Map<number, [number, number][]>();
+  const used = { has: (j: number) => taken.has(j) };
+  const overlaps = (j: number, start: number, end: number) =>
+    (taken.get(j) ?? []).some(([a, b]) => start < b && end > a);
   const allAmounts = new Set(ocr.flatMap((l) => amountsIn(l.text)));
   const lines: LineScore[] = [];
   let cursor = 0;
@@ -113,17 +149,19 @@ export function scoreReceipt(truth: ReceiptTruth, ocr: readonly OcrLine[]): Rece
     if (line.ignore) return;
     let best = -1;
     let bestSim = 0;
+    let bestSpan: [number, number] = [0, 0];
     for (let j = 0; j < ocr.length; j++) {
-      if (used.has(j)) continue;
-      const sim = similarity(line.text, ocr[j]!.text);
+      const { sim, start, end } = locate(line.text, ocr[j]!.text);
+      if (overlaps(j, start, end)) continue;
       if (sim > bestSim || (sim === bestSim && best >= 0 && best < cursor && j >= cursor)) {
         best = j;
         bestSim = sim;
+        bestSpan = [start, end];
       }
     }
     const ocrLine = best >= 0 && bestSim >= MATCH_THRESHOLD ? best : null;
     if (ocrLine !== null) {
-      used.add(ocrLine);
+      taken.set(ocrLine, [...(taken.get(ocrLine) ?? []), bestSpan]);
       cursor = ocrLine + 1;
     }
     lines.push({ index, line, ocrLine, similarity: bestSim });
