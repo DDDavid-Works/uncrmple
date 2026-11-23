@@ -136,8 +136,15 @@ Each phase leaves the app runnable and ends with tests, a type check and a short
   4. Time per receipt after the engine has loaded, on desktop and on a mid-range phone.
   5. One-time download size of engine plus language data.
 - **Compare:** fast and best English language data; raw versus repaired input.
-- **Pass bar (proposed):** at least 90 percent of amounts exact after repair, and under 8 seconds
-  per receipt on a mid-range phone.
+- **Pass bar (adopted 2026-11-23):** after repair, **at most 2 percent of the amounts shown are
+  silently wrong** (wrong and shown without a warning; see "Catching misreads with the receipt's
+  own arithmetic"), with the share of amounts that carry a warning reported alongside; and under
+  8 seconds per receipt on a mid-range phone. It applies to chat-app copies as well as camera
+  photos, since forwarded copies are what users will often have.
+  - Replaces the first proposal, at least 90 percent of amounts exact: on chat-app copies about a
+    third of the amounts are misread whatever the settings, so exact reading cannot be the bar.
+    What must not happen is a wrong amount that looks right (rule 2).
+  - Exact reading is still reported: it decides how many warnings a user has to clear.
 - **Output:** a results section in this file with the numbers and a decision: go, go with limits,
   or stop. If it stops, decide together; cloud OCR is not the automatic fallback.
 
@@ -365,6 +372,61 @@ On the receipts:
   seeing it; flag it like any amount that does not add up.
 - Not caused by this change, seen along the way: on the 11-item receipt photographed on wood, one
   corner of the found outline sits on the photo's top edge, so a strip of wood is included.
+
+#### Catching misreads with the receipt's own arithmetic (2026-11-23)
+
+Most test receipts come from friends through chat apps, so camera originals are hard to get, and
+users will often have the same: a forwarded copy. On those, reading every digit right is out of
+reach. What matters is that a wrong amount is never shown as if it were right (rule 2). So the
+spike now also measures **silently wrong** amounts: wrong, and shown without a warning.
+
+`src/dev/receipt-eval/checks.ts` gives every amount read a status, without correcting anything:
+
+- **confirmed** when a sum printed on the receipt proves it: quantity × unit price on the line,
+  items adding up to the total, VAT parts adding up, total + change = cash, or another line
+  printing the same value (subtotal = total, cash = total). Zero proves nothing.
+- **flagged** when a check fails or the reading is doubtful. A malformed number (`1.328.65`,
+  `159,43`) or a failed quantity × price is never cleared. Brackets (a negative amount, or a pen
+  circle), low OCR confidence (under 60) and items that do not add up to the total are cleared when
+  another sum proves the amount.
+- **unchecked** otherwise.
+
+A space read inside an amount (`199. 00`) is joined first. Words such as TOTAL are used only to
+find where to check, never shown as labels. The audit takes, for every priced row the scorer
+found, the amount the app would show there (chosen without looking at the truth) and compares it
+with the truth.
+
+Whole page, layout 6, 1×, eight receipts, 64 amounts shown:
+
+| Input | Wrong | Caught | Silently wrong if only flagged amounts are warned about | Silently wrong if every unconfirmed amount is | Warnings (flag only / unless confirmed) |
+| --- | --- | --- | --- | --- | --- |
+| Receipt mode | 23 (36%) | 21 | **2 (3%)** | **0** | 48% / 75% |
+| Document Repair, grayscale | 20 (31%) | 16 | 4 (6%) | 1 (2%) | 41% / 66% |
+
+What it shows:
+
+- **The checks catch almost every misread:** 21 of 23 on Receipt mode. No wrong amount was ever
+  confirmed by a sum in Receipt mode; every confirmed amount was right. The one wrong "confirmed"
+  amount under grayscale is a scoring artefact: on the unfound faded receipt the scorer matched
+  the truth line "VAT Sales" to the OCR line "NONVAT Sales 114.00" (the words contain each other),
+  and 114.00 is right for the line it is printed on.
+- **The two that slip through** with flag-only warnings are both unchecked, not confirmed:
+  `21.37` for 21.32 (VAT that no longer adds up with VATable sales) and `1,580.00` for cash
+  1,590.00 (cash − total = change fails, but the change is 0.00, which proves nothing). Warning
+  about every unconfirmed amount catches both.
+- **The cost is warnings.** About half of all amounts are flagged, three quarters if every
+  unconfirmed amount is warned about. On these chat-app copies that is honest, since a third of
+  the amounts are wrong, but it shapes the table design (Phase 4): warnings have to be quick to
+  clear, such as tapping the amount to see the photo of that row.
+- **Receipt mode beats plain grayscale here** once warnings count: more of its misreads are caught
+  (21 of 23 against 16 of 20) and fewer slip through.
+- A first refinement already cut false alarms: when items fall short of the total (often because
+  an item row was not read at all), amounts proven by quantity × price or by the VAT and cash sums
+  stay confirmed instead of all being flagged (warnings 56 to 48 percent, catches unchanged).
+- Pass bar adopted from here on (see Phase 1): at most 2 percent silently wrong, with the share of
+  warnings reported alongside. On today's eight receipts Receipt mode meets it only when every
+  unconfirmed amount is warned about (0 of 64), at the cost of a warning on 75 percent of amounts.
+  Phone timing is still unmeasured.
 
 ### Phase 2: receipt mode, repair only (built 2026-11-21, before the spike ran)
 

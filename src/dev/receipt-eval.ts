@@ -19,6 +19,7 @@ import { toGray, type Gray } from "../lib/image-processing/assessment/pixels";
 import { traceLines } from "../lib/image-processing/dewarp/trace";
 import { groupRows, stackRows, stripHeight } from "./receipt-eval/rows";
 import { scoreReceipt, summarize, type OcrLine, type ReceiptScore } from "./receipt-eval/score";
+import { addAudits, auditAmounts, checkAmounts, emptyAudit, type Audit, type CheckedAmount } from "./receipt-eval/checks";
 import { parseTruth, type ReceiptTruth } from "./receipt-eval/truth";
 
 const photos = import.meta.glob("/test-photos/receipts/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}", {
@@ -91,6 +92,9 @@ interface Run {
   page?: string;
   lines?: OcrLine[];
   score?: ReceiptScore;
+  /** Arithmetic checks on the amounts read (see receipt-eval/checks.ts). */
+  checked?: CheckedAmount[];
+  audit?: Audit;
 }
 
 declare global {
@@ -263,13 +267,22 @@ function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
   );
 
   const text = el("pre", undefined, "white-space:pre-wrap;font-size:12px;background:#f4f4f4;padding:6px;margin:0;max-height:420px;overflow:auto");
-  for (const line of run.lines ?? []) {
+  const checks = new Map((run.checked ?? []).map((c) => [c.line, c]));
+  (run.lines ?? []).forEach((line, i) => {
     const row = el("div", line.text, line.confidence < 60 ? "color:#c00" : "");
     row.title = `confidence ${line.confidence.toFixed(0)}`;
+    const c = checks.get(i);
+    if (c) {
+      const mark = el("span", c.status === "confirmed" ? "  ✓" : c.status === "flagged" ? "  ⚑ check" : "  ·",
+        c.status === "confirmed" ? "color:#080" : c.status === "flagged" ? "color:#c60;font-weight:bold" : "color:#888");
+      mark.title = c.reasons.join("; ") || "nothing confirms or contradicts this amount";
+      row.append(mark);
+    }
     text.append(row);
-  }
+  });
   box.append(text);
 
+  if (run.audit) box.append(el("div", auditLine(run.audit), "font-size:12px"));
   if (s && truth) {
     const problems = el("ul", undefined, "margin:0;padding-left:18px;font-size:12px");
     for (const l of s.lines) {
@@ -282,6 +295,13 @@ function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
     if (problems.childElementCount > 0) box.append(problems);
   }
   return box;
+}
+
+/** One line on what the checks would do for the amounts shown. */
+function auditLine(a: Audit): string {
+  const c = a.counts;
+  const wrong = c["wrong-confirmed"] + c["wrong-unchecked"] + c["wrong-flagged"];
+  return `amounts shown ${a.shown} (${c.missing} rows without one) · wrong ${wrong}: caught ${c["wrong-flagged"]}, unchecked ${c["wrong-unchecked"]}, confirmed ${c["wrong-confirmed"]} · correct but flagged ${c["correct-flagged"]} · confirmed correct ${c["correct-confirmed"]}`;
 }
 
 function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
@@ -312,11 +332,32 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
     }
     table.append(tr);
   }
+  // What the arithmetic checks would do for the amounts the app would show, pooled per input.
+  const audits = el("table", undefined, "border-collapse:collapse;margin:8px 0");
+  const auditHeader = el("tr");
+  for (const h of ["Input", "Amounts shown", "Wrong", "Caught (flagged)", "Silently wrong: flag only", "Silently wrong: warn unless confirmed", "Warnings: flag only", "Warnings: unless confirmed"]) {
+    auditHeader.append(el("th", h, "text-align:left;padding:2px 10px;border-bottom:1px solid #888"));
+  }
+  audits.append(auditHeader);
+  for (const input of settings.inputs) {
+    const a = runs.filter((r) => r.input === input && r.audit).reduce((sum, r) => addAudits(sum, r.audit!), emptyAudit());
+    const c = a.counts;
+    const wrong = c["wrong-confirmed"] + c["wrong-unchecked"] + c["wrong-flagged"];
+    const of = (n: number) => `${n} (${pct(a.shown === 0 ? null : n / a.shown)})`;
+    const tr = el("tr");
+    for (const v of [input, String(a.shown), of(wrong), String(c["wrong-flagged"]), of(a.silentLenient), of(a.silentStrict), of(a.warnedLenient), of(a.warnedStrict)]) {
+      tr.append(el("td", v, "padding:2px 10px"));
+    }
+    audits.append(tr);
+  }
+
   const psmLabel = PSMS.find((p) => p.value === settings.psm)?.label ?? settings.psm;
   summaryBox.append(
     el("div", `Language data ${settings.langData} · ${settings.reading === "rows" ? "row by row" : `whole page, layout ${psmLabel}`} · scale ${settings.scale}× · engine load ${engineLoadMs} ms`),
     table,
-    el("div", "Amounts count only when every digit matches. Pass bar: 90% of amounts in row after repair.", "font-size:12px"),
+    el("div", "Amounts count only when every digit matches. Pass bar: at most 2% of amounts shown silently wrong after repair (table below), and under 8 s on a mid-range phone.", "font-size:12px"),
+    audits,
+    el("div", "Amounts shown: what the app would put in each found row. Silently wrong: shown with no warning. ✓ confirmed by a sum, ⚑ flagged, · unchecked (hover for the reason).", "font-size:12px"),
   );
 }
 
@@ -418,6 +459,8 @@ async function run() {
             width: Math.round(image.width * settings.scale), height: Math.round(image.height * settings.scale),
             meanConfidence, lines, ...(page ? { page } : {}), ...(truth ? { score: scoreReceipt(truth, lines) } : {}),
           };
+          r.checked = checkAmounts(lines);
+          if (r.score) r.audit = auditAmounts(r.score.lines, r.checked);
           runs.push(r);
           const cell = renderRun(r, truth);
           if (read.stacked) cell.prepend(thumb(read.stacked, `${input}: rows as read`));
