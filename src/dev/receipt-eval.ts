@@ -12,6 +12,7 @@
 import { createWorker, OEM, PSM, type Worker } from "tesseract.js";
 import { fileToRaster } from "../lib/browser/raster";
 import { repair } from "../lib/image-processing/pipeline";
+import { rotateQuarter } from "../lib/image-processing/rotate";
 import { createOpenCvProcessor } from "../lib/image-processing/opencv/processor";
 import type { EnhanceOptions, OutputStyle, RasterImage } from "../types/repair";
 import { toGray, type Gray } from "../lib/image-processing/assessment/pixels";
@@ -86,6 +87,8 @@ interface Run {
   width?: number;
   height?: number;
   meanConfidence?: number;
+  /** How the repair found the page: a detection method, or "whole-image" when it fell back to the whole photo. */
+  page?: string;
   lines?: OcrLine[];
   score?: ReceiptScore;
 }
@@ -255,6 +258,7 @@ function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
     : "not scored (no valid truth file)";
   box.append(
     el("strong", `${run.input} · ${run.width}x${run.height} · ${run.ms} ms · confidence ${run.meanConfidence?.toFixed(0)}`),
+    ...(run.page ? [el("div", `page: ${run.page}`, run.page.startsWith("whole") ? "color:#c00" : "")] : []),
     el("div", head),
   );
 
@@ -384,10 +388,13 @@ async function run() {
 
       for (const input of settings.inputs) {
         status.textContent = `Receipt ${i + 1} of ${entries.length}: ${name} · ${input}`;
-        let image = photo;
+        // A sideways photo is turned upright as the user would with Rotate in the app.
+        const turn = truth?.rotate ?? 0;
+        let image = rotateQuarter(photo, turn);
+        let page: string | undefined;
         if (input !== "raw") {
           const enhance: EnhanceOptions = input === "receipt" ? { style: "grayscale", profile: "receipt" } : { style: input };
-          const repaired = await repair(processor, photo, { enhance });
+          const repaired = await repair(processor, photo, { enhance, rotate: turn });
           if (!repaired.ok) {
             const r: Run = { photo: name, input, ok: false, error: `repair failed: ${repaired.error.code}: ${repaired.error.message}` };
             runs.push(r);
@@ -395,6 +402,8 @@ async function run() {
             continue;
           }
           image = repaired.value.image;
+          const { source, detectedOutline } = repaired.value;
+          page = source === "whole-image" ? `whole photo${detectedOutline ? " (weak outline offered)" : ""}` : `found by ${source}`;
         }
         const canvas = toCanvas(image);
         const t = performance.now();
@@ -407,7 +416,7 @@ async function run() {
           const r: Run = {
             photo: name, input, ok: true, ms: Math.round(performance.now() - t),
             width: Math.round(image.width * settings.scale), height: Math.round(image.height * settings.scale),
-            meanConfidence, lines, ...(truth ? { score: scoreReceipt(truth, lines) } : {}),
+            meanConfidence, lines, ...(page ? { page } : {}), ...(truth ? { score: scoreReceipt(truth, lines) } : {}),
           };
           runs.push(r);
           const cell = renderRun(r, truth);

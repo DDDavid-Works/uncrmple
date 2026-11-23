@@ -59,6 +59,18 @@ describe("parseTruth", () => {
     expect(JSON.stringify(raw)).toBe(before);
   });
 
+  it("accepts a quarter turn for a sideways photo and rejects any other angle", () => {
+    const raw = valid();
+    raw.rotate = 90;
+    const result = parseTruth(raw);
+    expect(result.ok && result.truth.rotate).toBe(90);
+    raw.rotate = 45;
+    expect(errorsOf(raw)).toEqual(["rotate: must be 0, 90, 180 or 270"]);
+    raw.rotate = 0;
+    const upright = parseTruth(raw);
+    expect(upright.ok && upright.truth.rotate).toBeUndefined();
+  });
+
   it("rejects a non-object", () => {
     expect(errorsOf([])).toEqual(["file must contain a JSON object"]);
     expect(errorsOf(null)).toEqual(["file must contain a JSON object"]);

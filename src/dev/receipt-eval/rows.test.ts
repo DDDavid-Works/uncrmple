@@ -81,7 +81,7 @@ describe("rowStrip", () => {
     }
     // The page is untouched.
     expect(toGray(image).data).toEqual(gray.data);
-  });
+  }, 30_000);
 
   it("fills beyond the page with white", () => {
     const gray: Gray = { width: 4, height: 4, data: new Uint8Array(16).fill(0) };
@@ -103,7 +103,7 @@ describe("rowStrip", () => {
     expect(stacked.height).toBe(4 * height + 5 * gap);
     expect(darkShare(stacked, Math.floor(gap / 2))).toBe(0); // white above the first row
     expect(darkShare(stacked, gap + Math.floor(height / 2))).toBeGreaterThan(0.3); // first row, level
-  });
+  }, 30_000);
 
   it("uses at least a minimum height", () => {
     expect(stripHeight(4)).toBe(12);

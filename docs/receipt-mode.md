@@ -165,6 +165,8 @@ zoomed in, never from an OCR result.
   - `ignore`: `"unreadable"` if you cannot read the line either; `"private"` for card numbers,
     names, phone numbers or loyalty IDs, with the text typed as `"[hidden]"`. Ignored lines are
     left out of scoring.
+- `rotate` (optional): for a photo taken sideways or upside down, the clockwise turn (90, 180 or
+  270) that stands the text upright, as you would press Rotate in the app.
 - `notes`: anything unusual (two columns, handwriting, a stamp over the text).
 
 The harness reports every mistake in a file at once (unknown kind, an amount that is not a number,
@@ -239,6 +241,130 @@ What it shows:
   traced as rows, so those lines were missed.
 - Same caution as above: one downsized photo. Full-resolution photos are needed before tuning
   anything further.
+
+#### First full-resolution receipt (2026-11-23)
+
+Photo: a thermal fast-food receipt (one meal, card payment), a camera original at 4032 × 3024,
+flat apart from a fold, photographed sideways on a dark desk. The repaired receipt is
+1424 × 3791 px. Truth drafted by Claude from the photo; amounts check out (177.68 + 21.32 =
+199.00); card number and approval code hidden. 43 scored lines, 8 with amounts.
+
+A sideways photo needs turning before it can be read. The app already has Rotate; the evaluation
+page now takes the turn from an optional `rotate` field in the truth file (0, 90, 180 or 270,
+clockwise) and applies it to every input, the way a user would press Rotate. Without it every
+input read 0 or 1 of 43 lines. Read upside down by mistake, it still read 1 line; turned the
+right way, everything below.
+
+| Reading | Scale | Input | Lines found | Amounts in row | Amounts anywhere | Total | Time |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Whole page, layout 4 | 1× | Raw photo (turned) | 16 / 43 | 0 / 8 | 0 | misread | 11.5 s |
+| Row by row | 1× | Receipt mode | 38 / 43 | 5 / 8 | 7 | correct | 2.2 s |
+| Row by row | 2× | Receipt mode | 37 / 43 | 5 / 8 | 7 | correct | 5.0 s |
+| Whole page, layout 4 | 1× | Receipt mode | 41 / 43 | 5 / 8 | 7 | misread | 1.9 s |
+| Whole page, layout 6 | 1× | Receipt mode | **41 / 43** | **6 / 8** | **7** | **correct** | 1.9 s |
+| Whole page, layout 6 | 1× | Document Repair, grayscale | 41 / 43 | 6 / 8 | 7 | correct | 2.7 s |
+
+What it shows:
+
+- At full resolution the repaired receipt reads well: almost every line comes back word for word,
+  including the long accreditation and permit numbers. The repair is what makes it work; the raw
+  photo gave no amounts at all.
+- On this flat receipt, whole-page reading beats row by row. Row by row cuts every row to one
+  strip height, from the typical row spacing, so the large "PHP 199.00" total was cut into two
+  partial rows (TOTAL DUE read twice, the card amount lost), and the VAT Amount row was dropped
+  entirely. Row by row needs strips sized to each row's own print before it can be compared
+  fairly; until then, which reading to use is still open (the crumpled invoice favoured rows).
+- Enlarging 2× does not help a full-resolution photo.
+- The two amounts missed by the best run:
+  1. `199. 00V`: a space read inside the amount. A reader that joins a split amount would catch it.
+  2. `21.37` for 21.32: **a wrong digit read with confidence.** The receipt's own arithmetic
+     exposes it (177.68 + 21.37 is not 199.00). Phase 3 should check printed sums (VATable sales +
+     VAT = total, items = subtotal) and flag the amounts that do not add up for the user to check,
+     never correct them (rule 2).
+- 6 of 8 (75 percent) is still short of the 90 percent bar, but on one receipt with eight amounts,
+  every miss is 12 points. More full-resolution receipts are needed, crumpled and faded ones
+  especially.
+
+#### Eight receipts (2026-11-23)
+
+Six more printed receipts, all chat-app copies (2048 × 1536) photographed sideways, the receipt
+filling about a third of the frame: three from one variety store (one short, one faded, one with
+11 items), a Robinsons Easymart receipt, a faded and creased O!Save receipt, and a 14-item receipt
+with every amount circled in pen. Truth drafted by Claude from the photos; every receipt's amounts
+add up to its printed total. Eight handwritten photos sent in the same batch were moved to
+`test-photos/receipts/handwritten/`, which the evaluation page does not read (out of scope, see
+Risks). A 322 px wide copy of a long duty-free receipt is read but not scored: it is too small to
+type a truth file from without guessing.
+
+Pooled over all eight scored receipts, 1×:
+
+| Reading | Input | Lines found | Amounts in row | Amounts anywhere | Totals correct |
+| --- | --- | --- | --- | --- | --- |
+| Whole page, layout 6 | Receipt mode | 72% | 52% | 76% | 3 / 8 |
+| Whole page, layout 6 | Document Repair, grayscale | 82% | 55% | 76% | 4 / 8 |
+| Row by row | Receipt mode | 48% | 22% | 34% | 1 / 8 |
+| Row by row | Document Repair, grayscale | 64% | 26% | 47% | 2 / 8 |
+
+What it shows:
+
+- **The repair did not find five of the six new receipts.** All five were photographed on a white
+  desk; the outline of a white receipt on white was too weak, so the repair fell back to the
+  whole photo (the app then offers the corners for the user to fix, but the evaluation page does
+  not). OCR was then reading a small receipt in the middle of a large photo of a desk. The two
+  receipts photographed on wood or a dark desk were found. The evaluation page now shows how the
+  page was found for every run, in red when it fell back to the whole photo.
+- Because of that, these numbers measure page finding as much as reading. They are not yet a
+  fair test of the OCR, and Receipt mode's contrast stretch, measured over the whole photo
+  including the desk, likely explains why it did worse than plain grayscale on the faded
+  receipts (4 of 20 lines against 18 of 20 on one of them).
+- Row by row is clearly worse on this batch: it traces rows across the desk and the receipt alike.
+  Whole-page reading stays the default for now.
+- Where the receipt was found (Jollibee, the 11-item variety-store receipt), whole-page reading
+  got 41 of 43 and 21 of 30 lines, and 6 of 8 and 11 of 17 amounts in row.
+- Before judging the OCR further, either the page finding has to cope with a white receipt on a
+  light surface, or the evaluation page has to use the corners a user would set by hand. Page
+  finding was chosen; see below.
+
+#### Page finding on a pale desk (2026-11-23)
+
+Why it failed: on these photos the desk and the receipt are equally bright (about 150 grey levels
+each; the camera exposes for the white paper), and the light falls off across the desk, so no
+brightness step marks the receipt's edge. Every outline the detector proposed was rejected, or a
+large one following the lighting was offered. The edge is still plain in a sensitive edge map, and
+the colours differ slightly: the desk is a little warm (red 5-8 levels above blue), the paper
+neutral.
+
+What changed (`src/lib/image-processing/opencv/detect.ts`, `src/lib/image-processing/tint.ts`):
+a last-resort stage that runs only when the existing stages find no outline or only a weakly
+supported one. It magnifies two colour differences (warm against cool, green against magenta)
+that ignore brightness, counts a straight line as a page side when the tint changes across it,
+also traces regions of one tint, and scores every outline again on the sensitive edges. One is
+used only if at least 60 percent of it lies on those edges and at least half of it separates two
+tints. Print is neutral, so the margin of a text block cannot pass. A neutral desk gives no tint
+step and nothing is found; Adjust corners remains the fallback.
+
+Checks: a synthetic test of a white receipt on a warm pale desk under a lighting gradient (the
+committed detector returns a wrong outline there; the new one finds the receipt within 8 px), and
+a neutral-desk version where no colour outline may be made up. All 18 document photos and the four
+other receipt photos detect exactly as before (compared side by side with the committed detector).
+
+On the receipts:
+
+- Found now: four of the five white-desk receipts (#3, #5, #2, #6). Still missed: the faded
+  receipt #4, whose bottom edge shows almost no change of tint either (manual corners).
+- Whole page, layout 6, 1×, eight receipts pooled: lines found rose from 72 to 77 percent (Receipt
+  mode) and 82 to 84 percent (grayscale); one more total read correctly (4 of 8). Amounts in row
+  fell from 52 to 44 percent; at 2× they are back to 51 percent.
+- The fall is not row assignment: with the receipt cropped, rows now come back whole and in the
+  right place (`Vat Exempt Sales 420 00`). What is left is digits and decimal points misread on
+  receipts only 640-830 px wide once cropped (`106.00` for 100.00, `420 00`, `G.00`). Reading the
+  whole photo had matched a few of those by luck. These chat-app copies are at the limit of what
+  Tesseract can read; camera originals would answer whether the OCR itself is good enough.
+- Pen circles around amounts are read as brackets: `(1,320.00)`, which on a receipt means a
+  negative amount. Phase 3 must not turn a bracketed amount into a discount without the user
+  seeing it; flag it like any amount that does not add up.
+- Not caused by this change, seen along the way: on the 11-item receipt photographed on wood, one
+  corner of the found outline sits on the photo's top edge, so a strip of wood is included.
 
 ### Phase 2: receipt mode, repair only (built 2026-11-21, before the spike ran)
 

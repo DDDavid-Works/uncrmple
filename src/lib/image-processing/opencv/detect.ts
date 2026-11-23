@@ -8,6 +8,7 @@ import { snapFrameSides } from "../frame-sides";
 import type { EdgeLine, Segment } from "../card-lines";
 import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
+import { tintChannels } from "../tint";
 import type { OpenCv } from "./loader";
 
 /** Candidates covering nearly the whole frame are image borders, not a distinguishable page. */
@@ -225,13 +226,45 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
     cv.dilate(soft, nearSoft, nearKernel);
     const rescored = candidates.map((c) => ({ ...c, support: edgeSupport(c.points, nearSoft.data, image.width, image.height) }));
     const softBest = pickPage(rescored, imageArea);
-    if (!softBest) return found ? { ok: true, value: found } : notFound;
-    const retry = finish(softBest, nearSoft.data);
-    if (!found) return { ok: true, value: retry };
-    const softScore = (corners: Quad, support: number) =>
-      support * boundaryContrast(corners, grey) * Math.sqrt(polygonArea(corners) / imageArea);
-    const before = softScore(found.corners, edgeSupport(found.corners, nearSoft.data, image.width, image.height));
-    return { ok: true, value: softScore(retry.corners, retry.edgeSupport) >= before * (1 + MIN_SOFT_GAIN) ? retry : found };
+    let outcome: DetectionResult | null = found;
+    if (softBest) {
+      const retry = finish(softBest, nearSoft.data);
+      const softScore = (corners: Quad, support: number) =>
+        support * boundaryContrast(corners, grey) * Math.sqrt(polygonArea(corners) / imageArea);
+      outcome = !found
+        ? retry
+        : softScore(retry.corners, retry.edgeSupport) >=
+            softScore(found.corners, edgeSupport(found.corners, nearSoft.data, image.width, image.height)) * (1 + MIN_SOFT_GAIN)
+          ? retry
+          : found;
+    }
+    if (outcome && outcome.edgeSupport >= WEAK_SUPPORT) return { ok: true, value: outcome };
+
+    // Last resort, for a white sheet on a pale surface of the same brightness: a page told apart
+    // from its surroundings by colour alone (see faintOutline). It must be strongly supported to be used.
+    const nearSensitive = own(new cv.Mat());
+    cv.dilate(sensitive, nearSensitive, nearKernel);
+    const tints = tintChannels(image);
+    // Regions of one tint, traced like the other cues, join the outlines already found.
+    const traced = candidates.filter((c) => c.method !== "lines").map((c) => c.points);
+    for (const t of tints) {
+      const tint = own(new cv.Mat(t.height, t.width, cv.CV_8UC1));
+      tint.data.set(t.data);
+      const mask = own(new cv.Mat());
+      cv.threshold(tint, mask, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+      cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, own(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9))));
+      cv.morphologyEx(mask, mask, cv.MORPH_OPEN, own(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7))));
+      for (const q of quadsFrom(cv, mask, imageArea, own)) traced.push(q.points);
+    }
+    const faint = faintOutline(straight, traced, tints, nearSensitive.data, image.width, image.height, trace);
+    if (faint) {
+      const corners = orderCorners(faint.points);
+      return {
+        ok: true,
+        value: { corners, areaFraction: faint.area / imageArea, method: "colour", edgeSupport: faint.support },
+      };
+    }
+    return outcome ? { ok: true, value: outcome } : notFound;
   } catch (e) {
     return processingFailed("Document detection failed", e);
   } finally {
@@ -258,6 +291,53 @@ function pickPage(candidates: Candidate[], imageArea: number): Candidate | undef
         score(c) >= MIN_ENCLOSING_SCORE_RATIO * score(ranked) &&
         ranked.points.every((p) => pointInQuad(c.points, p, ENCLOSING_SLACK_PX)))
       .sort((a, b) => b.area - a.area)[0] ?? ranked
+  );
+}
+
+/**
+ * A white receipt photographed on a pale desk can be as bright as the desk: no brightness step
+ * marks its edge, so every cue above misses it, though its outline is plain in the sensitive edges.
+ * Here a straight line counts as a page side when the tint changes across it (paper is neutral,
+ * most surfaces are not quite). Outlines built from such lines, regions of one tint and the outlines
+ * the other cues traced are all scored again, and one is kept only if it lies almost entirely on
+ * sensitive edges and separates two tints along most of its length. Print on the page
+ * is neutral and drops out, so the margin of a text block cannot pass. A truly neutral surface
+ * gives no tint step and nothing is found: manual corners remain the fallback.
+ */
+export const FAINT = { minSupport: 0.6, minContrast: 0.5 } as const;
+
+function faintOutline(
+  lines: readonly EdgeLine[],
+  traced: readonly Point[][],
+  tints: readonly Gray[],
+  nearSensitive: Uint8Array,
+  width: number,
+  height: number,
+  trace?: DetectionTrace,
+): Candidate | null {
+  const tintStep = (l: EdgeLine) => Math.max(...tints.map((t) => lineStep(t, l)));
+  const tinted = lines.filter((l) => tintStep(l) >= BOUNDARY_STEP);
+  const support = (q: readonly Point[]) => edgeSupport(q, nearSensitive, width, height);
+  const quads = quadsFromLines(tinted, {
+    width, height,
+    minAreaFraction: MIN_AREA_FRACTION, maxAreaFraction: MAX_AREA_FRACTION,
+    support, minSupport: FAINT.minSupport,
+    aspectRange: PAGE_ASPECT, maxQuads: LINE_QUADS,
+  });
+  const imageArea = width * height;
+  const scored: Candidate[] = [...quads, ...traced].map((q) => ({
+    points: [...q],
+    area: polygonArea(q),
+    method: "colour",
+    support: support(q),
+    contrast: Math.max(...tints.map((t) => boundaryContrast(q, t))),
+  }));
+  if (trace) trace.candidates.push(...scored);
+  const score = (c: Candidate) => c.support * c.contrast * Math.sqrt(c.area / imageArea);
+  return (
+    scored
+      .filter((c) => c.support >= FAINT.minSupport && c.contrast >= FAINT.minContrast && isPlausiblePage(c.points))
+      .sort((a, b) => score(b) - score(a))[0] ?? null
   );
 }
 

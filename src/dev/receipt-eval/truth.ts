@@ -6,6 +6,8 @@
  * Amounts are typed exactly as printed ("1,234.50", "-20.00", "P 95.00"); they are normalised
  * only when compared.
  */
+import type { QuarterTurn } from "../../types/repair";
+import { isQuarterTurn } from "../../lib/image-processing/rotate";
 
 export const TRUTH_VERSION = 1;
 
@@ -60,6 +62,11 @@ export interface ReceiptTruth {
   shop: string;
   currency: "PHP";
   conditions: Condition[];
+  /**
+   * Clockwise quarter turn that stands the photo's text upright, as a user would press Rotate in the
+   * app (a receipt photographed sideways). Defaults to 0.
+   */
+  rotate?: QuarterTurn;
   lines: TruthLine[];
   notes?: string;
 }
@@ -168,6 +175,7 @@ export function parseTruth(raw: unknown): ParseResult {
     errors.push(`conditions: must be a list using only ${CONDITIONS.join(", ")} (empty if none)`);
   }
   if (raw.notes !== undefined && typeof raw.notes !== "string") errors.push("notes: must be text");
+  if (raw.rotate !== undefined && !isQuarterTurn(raw.rotate)) errors.push("rotate: must be 0, 90, 180 or 270");
 
   const lines: TruthLine[] = [];
   if (!Array.isArray(raw.lines) || raw.lines.length === 0) {
@@ -190,6 +198,7 @@ export function parseTruth(raw: unknown): ParseResult {
       shop: raw.shop as string,
       currency: "PHP",
       conditions: raw.conditions as Condition[],
+      ...(raw.rotate !== undefined && raw.rotate !== 0 ? { rotate: raw.rotate as QuarterTurn } : {}),
       lines,
       ...(raw.notes !== undefined ? { notes: raw.notes as string } : {}),
     },
