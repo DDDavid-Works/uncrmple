@@ -44,7 +44,7 @@ The photo matters more for a faded receipt than for any other document, because 
 
 Once you have the photo, restoring it has three steps:
 
-1. **Straighten it.** Find the edges of the receipt, correct the angle and crop away the background, so the receipt reads like a scan. [How to straighten a photo of a document taken at an angle](/blog/straighten-a-document-photo/) explains how this works.
+1. **Straighten it.** Find the edges of the receipt, correct the angle and crop away the background, so the receipt reads like a scan. [How to straighten a slanted photo of a document](/blog/straighten-a-document-photo/) explains how this works.
 2. **Even out the lighting.** Shadows and uneven light make a pale receipt look patchy. Removing them first means the faint print is treated the same everywhere on the paper. See [how to remove shadows from a photo of a document](/blog/remove-shadows-from-a-document-photo/).
 3. **Increase the contrast.** Darken the faint marks and whiten the paper. A grayscale result usually keeps the most of very faint print. Black and white looks cleaner and prints well, but it turns every pixel either black or white, so the faintest strokes can drop out. Compare the two before you keep one.
 

@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { DESCRIPTION, PRODUCT_NAME, TAGLINE } from "./src/config";
+import { DESCRIPTION, SEARCH_TITLE } from "./src/config";
 import { contentSecurityPolicyFor, SECURITY_HEADERS } from "./src/security-headers";
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -10,12 +10,11 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      // Fill %PRODUCT_NAME% / %TAGLINE% / %DESCRIPTION% in index.html from src/config.ts, so branding lives in one place.
+      // Fill %SEARCH_TITLE% / %DESCRIPTION% in index.html from src/config.ts, so branding lives in one place.
       name: "branding",
       transformIndexHtml: (html) =>
         html
-          .replaceAll("%PRODUCT_NAME%", escapeHtml(PRODUCT_NAME))
-          .replaceAll("%TAGLINE%", escapeHtml(TAGLINE))
+          .replaceAll("%SEARCH_TITLE%", escapeHtml(SEARCH_TITLE))
           .replaceAll("%DESCRIPTION%", escapeHtml(DESCRIPTION)),
     },
     {

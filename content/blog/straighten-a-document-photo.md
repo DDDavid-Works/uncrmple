@@ -1,6 +1,6 @@
 ---
-title: How to straighten a photo of a document taken at an angle
-description: Why document photos come out slanted, how perspective correction turns them back into a flat page, and how to take a photo that needs less fixing.
+title: How to straighten a slanted photo of a document
+description: Why document photos come out slanted, how perspective correction turns them back into a flat page, and how to take a photo of a page that needs less fixing.
 date: 2026-11-04
 ---
 

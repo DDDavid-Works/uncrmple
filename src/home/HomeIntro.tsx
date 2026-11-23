@@ -13,10 +13,10 @@ export function HomeIntro() {
   return (
     <LegalPage>
       <main className="legal home-intro">
-        <h1>
-          {PRODUCT_NAME}: {TAGLINE}
-        </h1>
-        <p>{DESCRIPTION}</p>
+        <h1>{PRODUCT_NAME}: fix photos of paper documents</h1>
+        <p>
+          <strong>{TAGLINE}</strong> {DESCRIPTION}
+        </p>
         <h2>What it fixes</h2>
         <ul>
           {MODES.map((m) => (

@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { BlogIndexPage, BlogPostPage } from "./BlogPages";
+import { BLOG_HEADING, BlogIndexPage, BlogPostPage } from "./BlogPages";
 import { posts } from "./content";
 import { DESCRIPTION_MAX, TITLE_MAX, formatDate, loadPosts, parsePost } from "./posts";
 import { postJsonLd, rssFeed } from "./seo";
@@ -66,7 +66,7 @@ describe("blog pages", () => {
 
   it("lists every post with a link to its page", () => {
     render(<BlogIndexPage posts={posts} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Blog" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: BLOG_HEADING })).toBeInTheDocument();
     for (const p of posts) {
       expect(screen.getByRole("link", { name: p.title })).toHaveAttribute("href", `/blog/${p.slug}/`);
     }

@@ -2,10 +2,10 @@
 // written into dist/ by scripts/prerender.mjs. The pages need no script to be read.
 import { StrictMode, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
-import { BLOG_PATH, BlogIndexPage, BlogPostPage, postPath } from "./blog/BlogPages";
+import { BLOG_HEADING, BLOG_PATH, BlogIndexPage, BlogPostPage, postPath } from "./blog/BlogPages";
 import { posts } from "./blog/content";
 import { postJsonLd, rssFeed } from "./blog/seo";
-import { DESCRIPTION, OPERATOR_NAME, PRODUCT_NAME, TAGLINE } from "./config";
+import { DESCRIPTION, OPERATOR_NAME, PRODUCT_NAME, SEARCH_TITLE, TAGLINE } from "./config";
 import { HomeIntro } from "./home/HomeIntro";
 import { LegalPage } from "./legal/LegalPage";
 import { PrivacyPolicy } from "./legal/PrivacyPolicy";
@@ -31,14 +31,14 @@ export interface StaticPage {
 const render = (page: ReactNode) => renderToString(<StrictMode>{page}</StrictMode>);
 const abs = (path: string) => `${SITE_URL}${path}`;
 const site = { name: PRODUCT_NAME, siteUrl: SITE_URL, author: OPERATOR_NAME };
-const BLOG_TITLE = `Blog | ${PRODUCT_NAME}`;
+const BLOG_TITLE = `${BLOG_HEADING} | ${PRODUCT_NAME}`;
 const FEED_PATH = `${BLOG_PATH}feed.xml`;
 
 export const pages: StaticPage[] = [
   {
     // The app's own page: the intro is what readers without scripts see; the app replaces it on start.
     file: "index.html",
-    title: `${PRODUCT_NAME}: ${TAGLINE}`,
+    title: SEARCH_TITLE,
     description: DESCRIPTION,
     canonical: abs("/"),
     jsonLd: [
@@ -83,7 +83,8 @@ export const pages: StaticPage[] = [
   {
     file: "blog/index.html",
     title: BLOG_TITLE,
-    description: `Guides from ${PRODUCT_NAME} on taking, fixing and sharing photos of paper documents: straightening pages, removing shadows and making PDFs.`,
+    description:
+      "Step-by-step guides to fixing photos of paper documents: straighten slanted pages, remove shadows, restore faded receipts and turn photos into a clean PDF.",
     canonical: abs(BLOG_PATH),
     modified: posts.map((p) => p.updated).sort().at(-1),
     jsonLd: [

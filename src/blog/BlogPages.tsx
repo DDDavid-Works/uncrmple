@@ -3,6 +3,8 @@ import { LegalPage } from "../legal/LegalPage";
 import { formatDate, type Post } from "./posts";
 
 export const BLOG_PATH = "/blog/";
+/** The blog index's heading and search title: what the guides are about, in words people search for. */
+export const BLOG_HEADING = "Guides to fixing photos of paper documents";
 export const postPath = (post: Post) => `${BLOG_PATH}${post.slug}/`;
 
 function PostMeta({ post }: { post: Post }) {
@@ -59,8 +61,12 @@ export function BlogIndexPage({ posts }: { posts: Post[] }) {
   return (
     <LegalPage>
       <main className="legal blog">
-        <h1>Blog</h1>
-        <p className="blog-intro">Guides to taking, fixing and sharing photos of paper documents.</p>
+        <h1>{BLOG_HEADING}</h1>
+        <p className="blog-intro">
+          A phone photo of a form, letter or receipt often comes out slanted, shadowed or faded. These guides explain
+          why that happens, what can and can't be fixed afterwards, and how to take a photo that needs less fixing in
+          the first place.
+        </p>
         {posts.length === 0 ? <p>No posts yet.</p> : <PostList posts={posts} headingLevel={2} />}
       </main>
     </LegalPage>

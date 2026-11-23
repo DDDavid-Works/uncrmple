@@ -3,9 +3,14 @@ export const PRODUCT_NAME = "Uncrmple";
 /** Logotype shown in the header; screen readers get PRODUCT_NAME instead. */
 export const WORDMARK = "uncrmple.";
 export const TAGLINE = "Fix the photo. Keep the document.";
-/** Search and link-preview summary for the app page. */
+/**
+ * The home page's title in search results and browser tabs: the words people search for, then the name.
+ * The tagline is a slogan nobody searches for, so it stays on the page instead. Keep to 60 characters.
+ */
+export const SEARCH_TITLE = `Fix document photos: straighten, remove shadows | ${PRODUCT_NAME}`;
+/** Search and link-preview summary for the app page. Keep to 160 characters. */
 export const DESCRIPTION =
-  "Repair photos of paper documents in your browser: straighten pages, remove shadows and export a PDF. Your photos never leave your device.";
+  "Fix photos of paper documents in your browser: straighten pages, remove shadows and export a clean PDF. Nothing to install, and photos never leave your device.";
 
 /** Person responsible for the personal information described in the privacy policy. */
 export const OPERATOR_NAME = "Darrel David";
