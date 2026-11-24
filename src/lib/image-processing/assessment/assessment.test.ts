@@ -2,7 +2,7 @@ import type { Assessment, Finding } from "../../../types/assessment";
 import type { DetectionResult, ImageProcessor, Quad, RasterImage, Result } from "../../../types/repair";
 import { boxBlur, sameBytes, shade, solid, textSheet } from "../../../tests/synthetic";
 import { assessPhoto } from "./assess";
-import { classifyLikeness, measureContent, withLikeness } from "./likeness";
+import { classifyLikeness, LIKENESS, measureContent, withLikeness } from "./likeness";
 import { measureCompleteness, measureGeometry, measureResolution } from "./geometry-findings";
 import { measureLighting, measureReadability, measureSharpness } from "./photometric";
 import { blockStats, quadMask, toGray } from "./pixels";
@@ -289,6 +289,23 @@ describe("page likeness", () => {
   it("rejects a plain image with no print at all, however paper-like its tone", () => {
     expect(classify({ ...PAPER, edgeDensity: 0 }, null)).toBe("not-document");
     expect(classify({ ...PAPER, edgeDensity: 0.01 })).toBe("not-document");
+  });
+
+  it("only doubts a blurred page whose print is too soft for strong edges at full size", () => {
+    // Measured on a soft-focus receipt forwarded in a chat: edges 0.011 at full size, 0.032 at half.
+    const blurred = { paperShare: 0.875, saturation: 0.06, paperLevel: 132, edgeDensity: 0.011 };
+    expect(classify({ ...blurred, printDensity: 0.032 })).toBe("uncertain");
+    expect(classify({ ...blurred, printDensity: 0.011 })).toBe("not-document");
+  });
+
+  it("finds blurred print at half size, and still none in a plain image", () => {
+    const blurred = boxBlur(textSheet(W, H), 3, 3);
+    const mask = quadMask(W, H, PAGE);
+    const stats = measureContent(blurred, toGray(blurred), mask, 32)!;
+    expect(stats.edgeDensity).toBeLessThan(LIKENESS.minPrintDensity);
+    expect(stats.printDensity).toBeGreaterThanOrEqual(LIKENESS.minPrintDensity);
+    const blank = solid(W, H, 220);
+    expect(measureContent(blank, toGray(blank), mask, 32)!.printDensity).toBe(0);
   });
 
   it("makes no document claim when there are too few pixels to measure", () => {

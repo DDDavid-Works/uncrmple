@@ -67,6 +67,13 @@ export interface ContentStats {
   paperLevel: number;
   /** Share (0..1) of measured pixels on a strong edge. */
   edgeDensity: number;
+  /**
+   * For "is there any print at all": the edge density at full size or at half size, whichever is
+   * higher. Blur (a soft-focus or forwarded photo) can leave print too soft for a strong edge at
+   * full size, but halving the size doubles the gradient across the same blurred stroke, while a
+   * plain image has no edges at any size. Defaults to edgeDensity.
+   */
+  printDensity?: number;
 }
 
 /**
@@ -113,7 +120,27 @@ export function measureContent(image: RasterImage, gray: Gray, mask: Uint8Array,
   }
   if (n < LIKENESS.minPixels) return null;
   papers.sort((a, b) => a - b);
-  return { paperShare: paper / n, saturation: sat / n, paperLevel: papers[papers.length >> 1]!, edgeDensity: measureEdgeDensity(gray, mask) };
+  const edgeDensity = measureEdgeDensity(gray, mask);
+  const half = halve(gray, mask);
+  return {
+    paperShare: paper / n, saturation: sat / n, paperLevel: papers[papers.length >> 1]!, edgeDensity,
+    printDensity: Math.max(edgeDensity, measureEdgeDensity(half.gray, half.mask)),
+  };
+}
+
+/** Half-size copy (2×2 means); a pixel is in the mask only if all four of its sources were. */
+function halve(gray: Gray, mask: Uint8Array): { gray: Gray; mask: Uint8Array } {
+  const w = gray.width >> 1, h = gray.height >> 1;
+  const data = new Uint8Array(w * h);
+  const m = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = 2 * y * gray.width + 2 * x, j = i + gray.width;
+      data[y * w + x] = (gray.data[i]! + gray.data[i + 1]! + gray.data[j]! + gray.data[j + 1]! + 2) >> 2;
+      m[y * w + x] = mask[i] && mask[i + 1] && mask[j] && mask[j + 1] ? 1 : 0;
+    }
+  }
+  return { gray: { width: w, height: h, data }, mask: m };
 }
 
 /** Share of pixels inside the mask on a strong edge (central-difference gradient). */
@@ -159,7 +186,7 @@ export function classifyLikeness({ quad, edgeSupport, width, height, content }: 
   const clearlyNotPaper =
     (content.paperShare < LIKENESS.maxNonPaperShare && content.edgeDensity < LIKENESS.minEdgeDensity) ||
     content.saturation > LIKENESS.vividSaturation ||
-    content.edgeDensity < LIKENESS.minPrintDensity;
+    (content.printDensity ?? content.edgeDensity) < LIKENESS.minPrintDensity;
   if (clearlyNotPaper) return "not-document";
   if (outlineOk && paperLike) return "document";
   return "uncertain";

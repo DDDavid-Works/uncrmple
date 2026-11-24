@@ -84,7 +84,9 @@ interface Run {
   input: Input;
   ok: boolean;
   error?: string;
+  /** OCR read time; the repair before it is repairMs. Engine loading is counted in neither. */
   ms?: number;
+  repairMs?: number;
   width?: number;
   height?: number;
   meanConfidence?: number;
@@ -261,7 +263,7 @@ function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
     ? `lines ${s.foundLines}/${s.scoredLines} · amounts in row ${s.amountsInRow}/${s.pricedLines} · anywhere ${s.amountsAnywhere}/${s.pricedLines} · total ${s.total}`
     : "not scored (no valid truth file)";
   box.append(
-    el("strong", `${run.input} · ${run.width}x${run.height} · ${run.ms} ms · confidence ${run.meanConfidence?.toFixed(0)}`),
+    el("strong", `${run.input} · ${run.width}x${run.height} · ${run.repairMs !== undefined ? `repair ${run.repairMs} ms + ` : ""}read ${run.ms} ms · confidence ${run.meanConfidence?.toFixed(0)}`),
     ...(run.page ? [el("div", `page: ${run.page}`, run.page.startsWith("whole") ? "color:#c00" : "")] : []),
     el("div", head),
   );
@@ -297,6 +299,12 @@ function renderRun(run: Run, truth: ReceiptTruth | null): HTMLElement {
   return box;
 }
 
+/** What the timings were measured on, so a screenshot from a phone records it. */
+function deviceLine(): string {
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  return `Device: ${navigator.userAgent} · ${navigator.hardwareConcurrency ?? "?"} cores${memory ? ` · about ${memory} GB memory` : ""} · screen ${screen.width}×${screen.height}`;
+}
+
 /** One line on what the checks would do for the amounts shown. */
 function auditLine(a: Audit): string {
   const c = a.counts;
@@ -308,7 +316,7 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
   summaryBox.replaceChildren();
   const table = el("table", undefined, "border-collapse:collapse;margin:8px 0");
   const header = el("tr");
-  for (const h of ["Input", "Receipts scored", "Line recall", "Amounts in row", "Amounts anywhere", "Totals correct", "Failed", "Median ms"]) {
+  for (const h of ["Input", "Receipts scored", "Line recall", "Amounts in row", "Amounts anywhere", "Totals correct", "Failed", "Median read ms", "Median repair + read ms", "Slowest repair + read ms"]) {
     header.append(el("th", h, "text-align:left;padding:2px 10px;border-bottom:1px solid #888"));
   }
   table.append(header);
@@ -317,6 +325,9 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
     const scores = mine.flatMap((r) => (r.score ? [r.score] : []));
     const sum = summarize(scores);
     const ms = median(mine.flatMap((r) => (r.ms === undefined ? [] : [r.ms])));
+    // Per receipt, as the pass bar counts it: the repair (none for the raw photo) plus the read.
+    const totals = mine.flatMap((r) => (r.ms === undefined ? [] : [r.ms + (r.repairMs ?? 0)]));
+    const total = median(totals);
     const tr = el("tr");
     for (const v of [
       input,
@@ -327,6 +338,8 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
       `${sum.totalsCorrect}/${sum.totalsPossible}`,
       String(mine.filter((r) => !r.ok).length),
       ms === null ? "–" : String(Math.round(ms)),
+      total === null ? "–" : String(Math.round(total)),
+      totals.length === 0 ? "–" : String(Math.round(Math.max(...totals))),
     ]) {
       tr.append(el("td", v, "padding:2px 10px"));
     }
@@ -354,6 +367,7 @@ function renderSummary(settings: Settings, engineLoadMs: number, runs: Run[]) {
   const psmLabel = PSMS.find((p) => p.value === settings.psm)?.label ?? settings.psm;
   summaryBox.append(
     el("div", `Language data ${settings.langData} · ${settings.reading === "rows" ? "row by row" : `whole page, layout ${psmLabel}`} · scale ${settings.scale}× · engine load ${engineLoadMs} ms`),
+    el("div", deviceLine(), "font-size:12px;color:#555"),
     table,
     el("div", "Amounts count only when every digit matches. Pass bar: at most 2% of amounts shown silently wrong after repair (table below), and under 8 s on a mid-range phone.", "font-size:12px"),
     audits,
@@ -433,9 +447,12 @@ async function run() {
         const turn = truth?.rotate ?? 0;
         let image = rotateQuarter(photo, turn);
         let page: string | undefined;
+        let repairMs: number | undefined;
         if (input !== "raw") {
           const enhance: EnhanceOptions = input === "receipt" ? { style: "grayscale", profile: "receipt" } : { style: input };
+          const tRepair = performance.now();
           const repaired = await repair(processor, photo, { enhance, rotate: turn });
+          repairMs = Math.round(performance.now() - tRepair);
           if (!repaired.ok) {
             const r: Run = { photo: name, input, ok: false, error: `repair failed: ${repaired.error.code}: ${repaired.error.message}` };
             runs.push(r);
@@ -455,7 +472,7 @@ async function run() {
               : await ocr(worker, enlarge(canvas, settings.scale));
           const { lines, meanConfidence } = read;
           const r: Run = {
-            photo: name, input, ok: true, ms: Math.round(performance.now() - t),
+            photo: name, input, ok: true, ms: Math.round(performance.now() - t), ...(repairMs !== undefined ? { repairMs } : {}),
             width: Math.round(image.width * settings.scale), height: Math.round(image.height * settings.scale),
             meanConfidence, lines, ...(page ? { page } : {}), ...(truth ? { score: scoreReceipt(truth, lines) } : {}),
           };

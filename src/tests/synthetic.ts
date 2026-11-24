@@ -264,3 +264,47 @@ export function onBackground(page: RasterImage, width: number, height: number, x
   }
   return img;
 }
+
+/** Where the synthetic hand-held receipt lies: its left and right edges at the top and bottom of the photo. */
+export const HELD_RECEIPT = { width: 600, height: 800, left: [54, 25], right: [436, 474], bow: 8 } as const;
+
+/**
+ * A long receipt held in the hand and shot close up, as a phone photo forwarded in a chat: it runs
+ * off the top and bottom of the frame, a dark surface shows on either side, the right edge bows
+ * slightly, a diagonal shadow falls across the paper and the surface alike, a thumb covers the top
+ * of the left edge, and rows of print fill the paper. `across` swaps the axes (a strip running
+ * from side to side).
+ */
+export function heldReceiptPhoto(across = false): RasterImage {
+  const { width: W, height: H, left, right, bow } = HELD_RECEIPT;
+  const w = across ? H : W, h = across ? W : H;
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const x = across ? py : px, y = across ? px : py;
+      const t = y / H;
+      const lx = left[0] + (left[1] - left[0]) * t;
+      const rx = right[0] + (right[1] - right[0]) * t + bow * Math.sin(Math.PI * t);
+      let rgb: [number, number, number];
+      if (x < lx || x > rx) {
+        rgb = [35, 35, 39];
+      } else {
+        // Words of print with gaps between them, shifted from row to row, as on a real receipt.
+        const word = (x + 13 * Math.floor(y / 18)) % 40 < 26;
+        const print = x > lx + 30 && x < rx - 30 && y % 18 < 5 && word && x % 7 < 4;
+        const v = print ? 70 : 215;
+        rgb = [v, v, v];
+      }
+      // A thumb over the top of the left edge.
+      if (Math.hypot(x - lx, y - 60) < 55) rgb = [190, 140, 120];
+      // A diagonal shadow across the lower right of everything.
+      const shade = x + 0.8 * y < 520 ? 1 : 0.45;
+      const i = (py * w + px) * 4;
+      data[i] = rgb[0] * shade;
+      data[i + 1] = rgb[1] * shade;
+      data[i + 2] = rgb[2] * shade;
+      data[i + 3] = 255;
+    }
+  }
+  return { width: w, height: h, data };
+}

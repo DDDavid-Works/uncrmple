@@ -8,6 +8,7 @@ import { snapFrameSides } from "../frame-sides";
 import type { EdgeLine, Segment } from "../card-lines";
 import { isConvex, isPlausiblePage, orderCorners, pointInQuad, polygonArea } from "../geometry";
 import { trimBackground } from "../refine";
+import { stripOutlines } from "../strip";
 import { tintChannels } from "../tint";
 import type { OpenCv } from "./loader";
 
@@ -139,6 +140,10 @@ export function detectDocument(cv: OpenCv, image: RasterImage, trace?: Detection
     // Cue 3: paper is nearly colourless; coloured backgrounds (cloth, wood, tables) are not.
     const neutral = colourlessMask(cv, rgba, gray, own);
     collect(neutral, "colour");
+
+    // Cue 3b: a long strip of paper running off both ends of the photo (a receipt shot close up),
+    // its sides found row by row as paper-to-surface steps; see stripOutlines.
+    for (const points of stripOutlines({ data: blur.data, width: image.width, height: image.height })) add(points, "brightness");
 
     // Cue 4: straight sides. Text and ruled tables keep the outline of a page from closing into one
     // clean contour, so quads are also built from long straight lines, keeping only lines that

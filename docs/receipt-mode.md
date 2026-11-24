@@ -423,6 +423,74 @@ What it shows:
 - A first refinement already cut false alarms: when items fall short of the total (often because
   an item row was not read at all), amounts proven by quantity × price or by the VAT and cash sums
   stay confirmed instead of all being flagged (warnings 56 to 48 percent, catches unchanged).
+- A ninth receipt, the Maya card-terminal slip for the Jollibee meal (a camera original, HEIC
+  converted to JPEG; crinkled, with a faint watermark behind the text), was found and read well:
+  23 of 24 lines. Its one amount, `₱199.00` in a larger font, came back as `#19900`: the peso sign
+  read as `#` and the decimal point lost. That is not taken for an amount, so the row shows none
+  (not silently wrong), but the English language data does not know `₱` and it is common on
+  Philippine receipts. Meanwhile `16.08` from the time `16:08:54` was taken for an amount on a row
+  that has none. The audit only looks at rows that should have an amount, so amounts made up on
+  text rows are not counted yet; Phase 3 should not show a number on a date or time row.
+- Two more chat-app copies (2026-11-24):
+  - **A coffee-shop receipt** (sideways, crinkled, bright sunlight with a hard shadow across it,
+    and a printer whose decimal point looks like a comma: `180,00`). The receipt was found, but
+    only 10 of 24 lines were read and no amount came out right. The checks flagged all three
+    amounts it showed (two read with commas, `TOTAL 30.00` for 390.00, which does not add up), so
+    none was silently wrong. Cash and change are printed without decimals (`1,000`, `610`), which
+    the checks do not treat as amounts yet.
+  - **An aquarium ticket invoice held in the hand** (a thumb in the frame, the dark desk beside it,
+    a fold, a blurred header). The repair **refused** it: the detector's best outline took in the
+    thumb and part of the desk (79 percent of the photo, weakly supported), and measured inside
+    it the photo has too little paper to pass the "looks like a paper page" check. In the app the
+    user is told so and can mark the corners or clean up the whole image; the evaluation page
+    counts it as failed. This is the existing repair's behaviour, not caused by the pale-desk
+    stage (which answers only with strong evidence and found none here), but hand-held receipt
+    photos with fingers in them will be common.
+  - Pooled over ten scored receipts (Receipt mode, whole page, 1×): 67 amounts shown, 26 wrong,
+    24 caught, 2 silently wrong (3.0 percent) with flag-only warnings and 0 with warnings on every
+    unconfirmed amount (76 percent of amounts warned about).
+
+#### A receipt held in the hand, running off the photo (fixed 2026-11-24)
+
+Why the aquarium invoice was refused, two causes:
+
+1. **No outline fitted the receipt.** It fills the photo from top to bottom, so it has no top or
+   bottom edge to close a shape with; a diagonal shadow splits it for the brightness threshold;
+   and its right edge bows gently, so the line finder gets only short pieces. The best outline
+   left took in the thumb and the dark desk.
+2. **The "looks like a paper page" check saw no print.** The forwarded copy is soft-focus, so at
+   full size almost no print reaches a strong edge (0.011 of pixels, under the 0.015 floor meant
+   for blank or plain images), although the paper measures 88 percent paper-like with no colour.
+
+What changed:
+
+- `src/lib/image-processing/strip.ts`, a new cue in the detector: a strip of paper running off
+  both ends of the photo (either way round). Each side is found row by row as the strongest wide
+  step between paper and a darker surface, ranked by brightness *ratio* so a shadow across the
+  paper (which dims both sides alike) does not win; a straight line is fitted through those steps
+  ignoring rows where something else wins (a thumb); and at the photo's ends the band between the
+  sides must still be paper, so a sheet lying inside the photo is not stretched to the frame. The
+  strip goes through the same scoring as every other outline.
+- `src/lib/image-processing/assessment/likeness.ts`: for the "any print at all" test only, print
+  is also measured at half size, where a blurred stroke is twice as steep; a plain image still has
+  none. Every other measure and threshold is unchanged, so a blurred page is now "uncertain"
+  (repaired, with a note) instead of refused.
+
+Checks: unit tests for the strip (with thumb, shadow, bowed edge, both orientations; nothing for a
+sheet inside the photo, nothing for a plain image) and for blurred print; an end-to-end repair
+test of a synthetic soft-focus hand-held receipt, which the committed code refuses and the new
+code crops to the receipt. All 39 test photos (documents, receipts, handwritten) compared before
+and after: 37 unchanged; the aquarium invoice now repaired; the coffee-shop receipt now cropped
+along its true top edge instead of a wedge of desk. A first version stretched the card-terminal
+slip to the frame; the end check above was added for that, and it is back to its old outline.
+
+Results after the fix (whole page, layout 6, 1×, eleven receipts):
+
+- Aquarium invoice: repaired, 7 of 22 lines (soft focus and the shadow), 8 of 9 amounts read
+  somewhere; one wrong amount unchecked (`331.47` for 337.47 VAT).
+- Coffee-shop receipt: 16 of 24 lines (was 10), total now correct.
+- Pooled: 70 amounts shown, 27 wrong, 24 caught; silently wrong 3 (4.3 percent) with flag-only
+  warnings, 0 with warnings on every unconfirmed amount (76 percent of amounts warned about).
 - Pass bar adopted from here on (see Phase 1): at most 2 percent silently wrong, with the share of
   warnings reported alongside. On today's eight receipts Receipt mode meets it only when every
   unconfirmed amount is warned about (0 of 64), at the cost of a warning on 75 percent of amounts.
