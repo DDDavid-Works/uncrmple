@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { BLOG_HEADING, BlogIndexPage, BlogPostPage } from "./BlogPages";
 import { posts } from "./content";
-import { DESCRIPTION_MAX, TITLE_MAX, formatDate, loadPosts, parsePost } from "./posts";
+import { DESCRIPTION_MAX, SEARCH_TITLE_MAX, TITLE_MAX, formatDate, loadPosts, parsePost } from "./posts";
 import { postJsonLd, rssFeed } from "./seo";
 import { feed, pages, sitemapXml } from "../entry-server";
 import { BLOG_URL, PRIVACY_URL, SITE_URL, TERMS_URL } from "../links";
@@ -58,6 +58,10 @@ describe("published posts", () => {
   it("are all valid and have unique slugs", () => {
     expect(posts.length).toBeGreaterThan(0);
     expect(new Set(posts.map((p) => p.slug)).size).toBe(posts.length);
+  });
+
+  it("every page's full title, site name included, fits in search results", () => {
+    for (const p of pages) expect(p.title.length, p.title).toBeLessThanOrEqual(SEARCH_TITLE_MAX);
   });
 });
 

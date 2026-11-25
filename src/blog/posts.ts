@@ -1,4 +1,5 @@
 import { Marked } from "marked";
+import { PRODUCT_NAME } from "../config";
 
 /** A published blog post, read from content/blog/<slug>.md. */
 export type Post = {
@@ -15,8 +16,10 @@ export type Post = {
 };
 
 // Search engines cut titles at about 60 characters and descriptions at about 160, so longer text
-// would be truncated in results. The site name is added to the title after these limits.
-export const TITLE_MAX = 60;
+// would be truncated in results.
+export const SEARCH_TITLE_MAX = 60;
+/** A post's own title: the page title adds " | <site name>" after it, and the whole must fit in SEARCH_TITLE_MAX. */
+export const TITLE_MAX = SEARCH_TITLE_MAX - ` | ${PRODUCT_NAME}`.length;
 export const DESCRIPTION_MIN = 70;
 export const DESCRIPTION_MAX = 160;
 

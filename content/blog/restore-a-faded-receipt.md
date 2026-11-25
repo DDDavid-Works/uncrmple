@@ -1,5 +1,5 @@
 ---
-title: How to restore a faded receipt and make it readable
+title: Restore a faded receipt and make it readable
 description: Faded thermal receipt? Learn why receipts fade, how to photograph and restore a faded receipt so the total is readable, and how to stop it happening again.
 date: 2026-11-21
 ---

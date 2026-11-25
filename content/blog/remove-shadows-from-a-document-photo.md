@@ -1,6 +1,6 @@
 ---
 title: How to remove shadows from a photo of a document
-description: Shadows from your phone and your hand make document photos hard to read. Here is why they happen, how they are removed, and how to avoid them.
+description: Shadows from your phone and your hand make document photos hard to read. Here is why they happen, how to remove them from a photo, and how to avoid them.
 date: 2026-11-04
 ---
 
