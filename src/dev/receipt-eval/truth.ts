@@ -60,7 +60,8 @@ export interface ReceiptTruth {
   photo: string;
   /** Kind of shop, not its name: supermarket, convenience, restaurant, pharmacy, fuel, other. */
   shop: string;
-  currency: "PHP";
+  /** What the item prices are printed in. Duty-free shops in the Philippines price in US dollars. */
+  currency: Currency;
   conditions: Condition[];
   /**
    * Clockwise quarter turn that stands the photo's text upright, as a user would press Rotate in the
@@ -70,6 +71,9 @@ export interface ReceiptTruth {
   lines: TruthLine[];
   notes?: string;
 }
+
+export type Currency = "PHP" | "USD";
+const CURRENCIES: readonly Currency[] = ["PHP", "USD"];
 
 export type ParseResult = { ok: true; truth: ReceiptTruth } | { ok: false; errors: string[] };
 
@@ -170,7 +174,7 @@ export function parseTruth(raw: unknown): ParseResult {
     errors.push("photo: must be the photo's file name (.jpg, .jpeg, .png or .webp)");
   }
   if (typeof raw.shop !== "string" || raw.shop.trim() === "") errors.push("shop: must be non-empty text");
-  if (raw.currency !== "PHP") errors.push('currency: must be "PHP"');
+  if (!CURRENCIES.includes(raw.currency as Currency)) errors.push(`currency: must be ${CURRENCIES.map((c) => `"${c}"`).join(" or ")}`);
   if (!Array.isArray(raw.conditions) || raw.conditions.some((c) => !CONDITIONS.includes(c as Condition))) {
     errors.push(`conditions: must be a list using only ${CONDITIONS.join(", ")} (empty if none)`);
   }
@@ -196,7 +200,7 @@ export function parseTruth(raw: unknown): ParseResult {
       version: TRUTH_VERSION,
       photo: raw.photo as string,
       shop: raw.shop as string,
-      currency: "PHP",
+      currency: raw.currency as Currency,
       conditions: raw.conditions as Condition[],
       ...(raw.rotate !== undefined && raw.rotate !== 0 ? { rotate: raw.rotate as QuarterTurn } : {}),
       lines,

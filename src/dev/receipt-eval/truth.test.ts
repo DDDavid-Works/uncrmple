@@ -59,6 +59,13 @@ describe("parseTruth", () => {
     expect(JSON.stringify(raw)).toBe(before);
   });
 
+  it("accepts prices in US dollars, as duty-free shops print them", () => {
+    const raw = valid();
+    raw.currency = "USD";
+    const result = parseTruth(raw);
+    expect(result.ok && result.truth.currency).toBe("USD");
+  });
+
   it("accepts a quarter turn for a sideways photo and rejects any other angle", () => {
     const raw = valid();
     raw.rotate = 90;
@@ -79,7 +86,7 @@ describe("parseTruth", () => {
   it("reports every problem at once", () => {
     const raw = valid();
     raw.version = 2;
-    raw.currency = "USD";
+    raw.currency = "EUR";
     line(raw, 4).amount = "twenty";
     const errors = errorsOf(raw);
     expect(errors).toHaveLength(3);

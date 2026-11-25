@@ -491,6 +491,73 @@ Results after the fix (whole page, layout 6, 1×, eleven receipts):
 - Coffee-shop receipt: 16 of 24 lines (was 10), total now correct.
 - Pooled: 70 amounts shown, 27 wrong, 24 caught; silently wrong 3 (4.3 percent) with flag-only
   warnings, 0 with warnings on every unconfirmed amount (76 percent of amounts warned about).
+
+#### Camera originals (2026-11-25)
+
+Five camera originals (iPhone HEIC, converted to JPEG on this computer as iOS does on upload):
+two receipts photographed twice each at different distances, and the full-size photo of the long
+duty-free receipt whose 322 px chat copy could not be scored before. The truth format now accepts
+`"currency": "USD"` for that receipt, which prices in US dollars; its 57 items add up exactly to
+the printed subtotal, and one truth list serves both of its photos.
+
+| Receipt | Photo | Lines found | Amounts in row | Amounts anywhere | Total |
+| --- | --- | --- | --- | --- | --- |
+| Duty-free, 57 items | camera original | **64 / 94** | 28 / 63 | **58 / 63** | correct |
+| Duty-free, 57 items | 322 px chat copy | 3 / 94 | 0 / 63 | 4 / 63 | not found |
+| Hardware shop invoice | close | 10 / 31 | 1 / 9 | 2 / 9 | misread |
+| Hardware shop invoice | farther | 9 / 31 | 0 / 9 | 0 / 9 | misread |
+| Supermarket receipt | farther | 8 / 30 | 2 / 9 | 6 / 9 | correct |
+| Supermarket receipt | close | 11 / 30 | 2 / 9 | 4 / 9 | misread |
+
+What it shows:
+
+- **Resolution matters as expected:** the same duty-free receipt goes from unreadable (3 lines) to
+  64 lines and 58 of 63 amounts read somewhere. The checks flagged every one of its 12 wrong
+  amounts; none was silently wrong.
+- **Two camera originals read badly for another reason: the repaired page is tilted.** On the
+  supermarket receipt the top corners are cut off at an angle, the outline's corners do not sit on
+  paper corners, and the corrected page comes out a few degrees off level with a wedge of table in
+  one corner; the slanted rows run into each other in the OCR (`terninal No: 0001 fe LIne: 13:
+  11:46`). The crinkled hardware invoice reads as badly. This is a repair problem (corner finding
+  and levelling), not an OCR one, and it affects Document Repair too. Not yet investigated.
+- Closer is not reliably better here: the tilt dominates.
+- Pooled over all 17 photos (Receipt mode, whole page, 1×): 121 amounts shown, 47 wrong, 40
+  caught; silently wrong 7 (5.8 percent) with flag-only warnings, **0** with warnings on every
+  unconfirmed amount (82 percent of amounts warned about). Desktop time per receipt (repair +
+  read): median 3.3 s, slowest 6.4 s; phone timing still not measured.
+
+#### Tilted pages from receipts with clipped corners (fixed 2026-11-25)
+
+Why the supermarket receipt came out tilted: the detector chose the right outline, but a later
+step (`pivotSides`, which turns a side of a traced outline onto a faint page edge when the outline
+has run on over another sheet the page lies on) moved its top corner out into the table. The
+receipt's top corners are cut off at an angle, so the traced top side joins the bottoms of the two
+cuts and lies on the paper with no edge under it, which makes it a candidate to turn; and on a
+wooden table almost any line shows the small steps the pivot looks for. The turned top side
+sloped about 9 degrees, the perspective correction sheared the page, and the levelling step then
+saw the print lean differently in different bands and left it alone.
+
+Fix (`src/lib/image-processing/pivot.ts`): pivoting may only take area off the outline, never add
+it; a turn that would put a corner outside the traced outline is not made. That is what pivoting
+was for in the first place (an outline that ran on over another sheet is too big). Tested with a
+scene where the only edge a turn can find lies beyond the outline: the committed code turns onto
+it, the new code leaves the outline alone. All 44 photos compared before and after: only the two
+photos of this receipt changed, both to the right outline; the levelling step now measures a
+consistent 2 to 2.5 degree lean and corrects it.
+
+| Photo | Lines found | Amounts in row | Amounts anywhere | Total |
+| --- | --- | --- | --- | --- |
+| Supermarket receipt, farther | 8 → **21 / 30** | 2 → 6 / 9 | 6 → **9 / 9** | correct |
+| Supermarket receipt, close | 11 → **21 / 30** | 2 → 6 / 9 | 4 → **8 / 9** | misread → correct |
+
+Pooled over all 17 photos: 126 amounts shown, 44 wrong, 39 caught; silently wrong 5 (4.0
+percent) with flag-only warnings, 0 with warnings on every unconfirmed amount (80 percent warned
+about).
+
+Still open: the crinkled hardware invoice. Its outline is right, but the paper bends (the header
+rows climb, the rows below are level) and the faint dot-matrix print covers too little of the page
+(about 20 percent) for the flattening step to act on, so it declines ("too little evidence").
+That is a limit of flattening, not of the outline.
 - Pass bar adopted from here on (see Phase 1): at most 2 percent silently wrong, with the share of
   warnings reported alongside. On today's eight receipts Receipt mode meets it only when every
   unconfirmed amount is warned about (0 of 64), at the cost of a warning on 75 percent of amounts.

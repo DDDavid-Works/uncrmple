@@ -1,5 +1,5 @@
 import type { Gray } from "./boundary";
-import { isPlausiblePage } from "./geometry";
+import { isPlausiblePage, pointInQuad } from "./geometry";
 import type { Point, Quad } from "../../types/repair";
 
 /** Brightness difference (grey levels) across a line that counts as a faint edge at one sample. */
@@ -20,6 +20,8 @@ const MIN_SHARE = 0.5;
 const MIN_GAIN = 0.2;
 /** No corner may move further than this fraction of the outline's longer side. */
 const MAX_CORNER_MOVE = 0.35;
+/** Pivoting only shrinks the outline: a new corner may lie at most this far (px) outside the old one. */
+const INWARD_SLACK_PX = 2;
 
 interface Line {
   p: Point;
@@ -107,5 +109,10 @@ export function pivotSides(quad: Quad, g: Gray): Quad {
   const inside = (p: Point) => p.x >= 0 && p.y >= 0 && p.x <= g.width - 1 && p.y <= g.height - 1;
   if (!isPlausiblePage(out) || !out.every(inside)) return quad;
   if (out.some((p, i) => Math.hypot(p.x - quad[i]!.x, p.y - quad[i]!.y) > MAX_CORNER_MOVE * longest)) return quad;
+  // Pivoting only takes off what the traced region ran on over. A corner pushed outside the
+  // outline has followed something else: on a textured surface (wood grain) almost any line shows
+  // the small steps counted above, and a receipt with clipped corners leaves its traced top side on
+  // the paper, with no step under it to keep it in place.
+  if (out.some((p) => !pointInQuad(quad, p, INWARD_SLACK_PX))) return quad;
   return out;
 }
